@@ -1,0 +1,1153 @@
+/* ==========================================================================
+   Settings — #/settings
+
+   Two-column layout: compact section navigation beside one content panel.
+   Every new class carries the `st-` prefix so the markup ↔ stylesheet gate
+   (npm run check:settings) can tell this page's rules from the shared
+   claims/dashboard/chat classes it deliberately reuses.
+
+   Contrast notes (scripts/settings-contrast-check.mjs gates each pair):
+   * Active nav item   #0C6E70 on rgba(21,154,156,.08) over white ≈ 5.5:1
+   * Switch on         #0F7F81 track vs white 4.80:1; off #64748B border 4.76:1
+   * Chips / badges    #2A5F94 on rgba(53,120,184,.08) over white ≈ 5.8:1
+   * Amber flag        #8A5A00 on rgba(201,130,0,.10) over white ≈ 5.3:1
+   * Navy brand panel  #FFFFFF 13.6:1, #C7D8E6 ≈ 9.3:1
+   ========================================================================== */
+
+.settings-page {
+  min-width: 0;
+}
+
+.st-layout {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+/* --------------------------------------------------------------------------
+   Section navigation (desktop)
+   -------------------------------------------------------------------------- */
+
+.st-nav {
+  position: sticky;
+  top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 8px;
+}
+
+.st-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.st-nav__item {
+  margin: 0;
+}
+
+.st-nav__btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-base) var(--ease), color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease);
+}
+
+.st-nav__btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.st-nav__btn:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 1px;
+}
+
+/* Active state reads three ways: tinted row + bolder text + aria-current. */
+.st-nav__btn--active {
+  background: rgba(21, 154, 156, 0.08);
+  border-color: rgba(21, 154, 156, 0.45);
+  color: var(--teal-700);
+  font-weight: 600;
+}
+
+.st-nav__icon {
+  display: flex;
+  flex: none;
+  color: currentColor;
+}
+
+/* --------------------------------------------------------------------------
+   Section navigation (small screens) — a labelled dropdown instead
+   -------------------------------------------------------------------------- */
+
+.st-mobile {
+  display: none;
+  margin-bottom: 16px;
+}
+
+.st-mobile__label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.st-mobile .claims-select {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* --------------------------------------------------------------------------
+   Content panel
+   -------------------------------------------------------------------------- */
+
+.st-panel {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 28px 32px;
+}
+
+/* Receives programmatic focus when the section changes, so keyboard users
+   land on the new content with the next Tab. */
+.st-panel:focus {
+  outline: none;
+}
+
+.st-panel:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 4px;
+}
+
+.st-head {
+  margin-bottom: 8px;
+}
+
+.st-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+.st-desc {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Groups — dividers between groups, not a card per control
+   -------------------------------------------------------------------------- */
+
+.st-group {
+  margin-top: 24px;
+}
+
+.st-group + .st-group {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 24px;
+}
+
+.st-group__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.st-group__title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.st-group__action {
+  margin-left: auto;
+}
+
+.st-group__hint {
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.st-group__rows {
+  display: grid;
+  gap: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   Rows — label + helper left, control right; thin dividers between rows
+   -------------------------------------------------------------------------- */
+
+.st-group__rows > * + * {
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.st-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 24px;
+  align-items: center;
+}
+
+.st-row__text {
+  min-width: 0;
+}
+
+.st-row__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.st-row__hint {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.st-row__control {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.st-row__control .claims-select {
+  min-width: 200px;
+}
+
+/* --------------------------------------------------------------------------
+   Toggles — role="switch"; state is position + weight + aria-checked,
+   never colour alone. Track/border clear 3:1 either way (contrast gate).
+   -------------------------------------------------------------------------- */
+
+.st-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  align-items: center;
+}
+
+.st-toggle__text {
+  min-width: 0;
+}
+
+.st-toggle__label {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.st-toggle__hint {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.st-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  flex: none;
+  border: 1.5px solid #64748b;
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  cursor: pointer;
+  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
+}
+
+.st-switch:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+}
+
+.st-switch__knob {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(18, 48, 74, 0.24);
+  transform: translateY(-50%);
+  transition: left var(--t-base) var(--ease);
+}
+
+.st-switch--on {
+  background: var(--teal-600);
+  border-color: var(--teal-600);
+}
+
+.st-switch--on .st-switch__knob {
+  left: calc(100% - 19px);
+}
+
+/* --------------------------------------------------------------------------
+   Radio pills — native inputs underneath (arrow keys come free)
+   -------------------------------------------------------------------------- */
+
+.st-pills {
+  margin: 0;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.st-pills__legend {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.st-pills__set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.st-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 13.5px;
+  color: var(--text-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease), color var(--t-base) var(--ease);
+}
+
+.st-pill:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.st-pill:has(input:focus-visible) {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+}
+
+.st-pill--on {
+  border-color: var(--teal-600);
+  background: rgba(21, 154, 156, 0.08);
+  color: var(--teal-700);
+  font-weight: 600;
+}
+
+.st-pill__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  margin: 0;
+}
+
+.st-pills__hint {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* Segmented variant: connected track, selected segment lifted as a chip.
+   Selection reads as chip + weight + the native radio state. */
+.st-pills__set--seg {
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.st-pills__set--seg .st-pill {
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+}
+
+.st-pills__set--seg .st-pill:hover {
+  background: var(--surface);
+}
+
+.st-pills__set--seg .st-pill--on {
+  background: var(--surface);
+  border-color: rgba(21, 154, 156, 0.45);
+  box-shadow: var(--shadow-xs);
+}
+
+/* --------------------------------------------------------------------------
+   Radio cards — label, description, visible native radio
+   -------------------------------------------------------------------------- */
+
+.st-cards {
+  margin: 0;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.st-legend {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.st-cards__set {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.st-card {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color var(--t-base) var(--ease),
+    border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+
+.st-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.st-card:has(input:focus-visible) {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+}
+
+.st-card--on {
+  border-color: var(--teal-600);
+  background: rgba(21, 154, 156, 0.06);
+  box-shadow: inset 0 0 0 1px var(--teal-600);
+}
+
+.st-card__input {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--teal-600);
+  cursor: pointer;
+}
+
+.st-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  padding-right: 26px;
+}
+
+.st-card__desc {
+  font-size: 13px;
+  line-height: 1.45;
+  /* selected cards sit on the 6% teal tint — secondary-dark clears AA on
+     both that tint and white (text-secondary lands at 4.45:1 on the tint) */
+  color: #475467;
+}
+
+.st-cards__hint {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Definition lists — read-only information
+   -------------------------------------------------------------------------- */
+
+.st-defs {
+  margin: 0;
+}
+
+.st-defs > * + * {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.st-def {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 4px 24px;
+  align-items: baseline;
+}
+
+.st-def__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.st-def__value {
+  margin: 0;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.st-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.st-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--teal-600);
+  text-decoration: none;
+}
+
+.st-link:hover {
+  color: var(--teal-700);
+  text-decoration: underline;
+}
+
+.st-link:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.st-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  padding: 2px 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Chips and badges
+   -------------------------------------------------------------------------- */
+
+.st-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #475467;
+  white-space: nowrap;
+}
+
+.st-chip--info {
+  background: rgba(53, 120, 184, 0.08);
+  border-color: rgba(53, 120, 184, 0.28);
+  color: #2a5f94;
+}
+
+.st-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.st-badge--info {
+  background: rgba(53, 120, 184, 0.08);
+  border-color: rgba(53, 120, 184, 0.28);
+  color: #2a5f94;
+}
+
+/* --------------------------------------------------------------------------
+   Profile summary
+   -------------------------------------------------------------------------- */
+
+.st-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 16px 20px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+
+.st-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.st-avatar--sm {
+  width: 32px;
+  height: 32px;
+  font-size: 12.5px;
+}
+
+.st-profile__id {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.st-profile__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.st-profile__email {
+  margin-top: 2px;
+  font-size: 13.5px;
+  /* sits on the sunken summary card — secondary-dark holds 7.0:1 there
+     where text-secondary only reaches 4.35:1 (contrast gate) */
+  color: #475467;
+  overflow-wrap: anywhere;
+}
+
+.st-profile__aka {
+  margin-top: 2px;
+  font-size: 13px;
+  color: #475467;
+}
+
+.st-profile__chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.st-profile__action {
+  margin-left: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Forms, hints, danger row
+   -------------------------------------------------------------------------- */
+
+.st-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.st-hint {
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.st-danger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding: 14px 16px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.st-danger__text {
+  min-width: 0;
+}
+
+.st-danger__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.st-danger__hint {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Notes, placeholders
+   -------------------------------------------------------------------------- */
+
+.st-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 14px;
+  background: rgba(53, 120, 184, 0.07);
+  border: 1px solid rgba(53, 120, 184, 0.28);
+  border-radius: var(--r-md);
+}
+
+.st-note__icon {
+  flex: none;
+  margin-top: 2px;
+  color: #3578b8;
+}
+
+.st-note__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #2a5f94;
+}
+
+.st-note__body {
+  margin-top: 2px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #475467;
+}
+
+.st-note__title + .st-note__body {
+  margin-top: 4px;
+}
+
+.st-placeholder {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-md);
+  font-size: 14px;
+  line-height: 1.55;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   AI presentation preview
+   -------------------------------------------------------------------------- */
+
+.st-preview {
+  margin-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.st-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.st-preview__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475467;
+}
+
+.st-preview__body {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+
+.st-preview__h {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475467;
+}
+
+.st-preview__p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+
+.st-preview__list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.st-preview__src {
+  font-size: 12.5px;
+  color: #475467;
+}
+
+.st-preview__src--block {
+  display: block;
+}
+
+.st-preview__flag {
+  margin: 0;
+  padding: 8px 10px;
+  background: rgba(53, 120, 184, 0.07);
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #2a5f94;
+}
+
+.st-flag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  height: 26px;
+  padding: 0 10px;
+  background: rgba(201, 130, 0, 0.1);
+  border: 1px solid rgba(201, 130, 0, 0.35);
+  border-radius: var(--r-pill);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8a5a00;
+}
+
+.st-preview__note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Workspace members, About brand panel
+   -------------------------------------------------------------------------- */
+
+.st-members {
+  display: grid;
+  gap: 12px;
+}
+
+.st-member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.st-member__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.st-member__role {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.st-about {
+  margin-top: 20px;
+  padding: 20px 24px;
+  background: var(--navy);
+  border: 1px solid var(--navy-line);
+  border-radius: var(--r-lg);
+}
+
+.st-about__name {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+.st-about__desc {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--text-on-navy-muted);
+}
+
+.st-about__principle {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--navy-line);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   Save bar
+   -------------------------------------------------------------------------- */
+
+.st-save {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.st-save__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.st-save__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c98200;
+}
+
+.st-save__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Page-level principle line */
+.st-principle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #475467;
+}
+
+.st-principle__icon {
+  display: flex;
+  flex: none;
+  color: var(--teal-700);
+}
+
+/* Keep keyboard focus visible across every settings control. */
+.st-panel a:focus-visible,
+.st-panel button:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Table density — the one preference with an effect outside Settings
+   -------------------------------------------------------------------------- */
+
+html[data-density='compact'] .claims-td {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+html[data-density='compact'] .claims-th {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+html[data-density='compact'] .claims-th__btn {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1120px) {
+  .st-layout {
+    grid-template-columns: 216px minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .st-panel {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 900px) {
+  .st-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .st-def {
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 4px 16px;
+  }
+
+  .st-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .st-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .st-nav {
+    display: none;
+  }
+
+  .st-mobile {
+    display: block;
+  }
+
+  .st-panel {
+    padding: 20px 18px;
+  }
+
+  .st-profile__action {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .st-panel {
+    padding: 18px 16px;
+  }
+
+  .st-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .st-row__control {
+    justify-content: flex-start;
+  }
+
+  .st-row__control .claims-select {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .st-toggle {
+    gap: 8px 16px;
+  }
+
+  .st-def {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .st-profile {
+    padding: 14px 16px;
+  }
+
+  .st-profile__chips {
+    order: 3;
+  }
+
+  .st-save {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .st-save__actions {
+    width: 100%;
+  }
+
+  .st-save__actions .claims-btn {
+    flex: 1;
+  }
+
+  .st-danger {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .st-about {
+    padding: 18px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-nav__btn,
+  .st-switch,
+  .st-switch__knob,
+  .st-pill,
+  .st-card {
+    transition: none;
+  }
+}

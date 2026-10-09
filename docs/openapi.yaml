@@ -1,0 +1,750 @@
+openapi: 3.1.0
+info:
+  title: InsuraLens API
+  version: 0.1.0
+  description: |
+    Backend contract for the InsuraLens claims-review frontend.
+
+    The frontend calls every operation through `src/api/*.js`; in the prototype
+    those functions resolve mock data from `src/mocks/`. Implement the endpoints
+    below and swap the mock bodies for real requests (each carries a
+    `TODO(backend):` comment naming its operation).
+
+    Conventions:
+    - Base URL comes from `VITE_API_BASE_URL` (origin only; paths below are appended as-is).
+    - All errors use the `Error` envelope; all failures map to `ApiError { status, code, message }` client-side.
+    - `status`, `priority`, and `incident` values are tokens (`human_review`, `high`, `rear_end_collision`), never display text — see `docs/API_CONTRACT.md` for the vocabulary tables.
+    - Auth: bearer token (see Open questions in the contract for the session model).
+
+servers:
+  - url: "{baseUrl}"
+    description: Set by VITE_API_BASE_URL (empty in the prototype = mock mode)
+    variables:
+      baseUrl:
+        default: ""
+
+tags:
+  - name: auth
+    description: Sign-in and session
+  - name: claims
+    description: Work queue, claim detail, creation, evidence upload
+  - name: dashboard
+    description: Dashboard summary
+  - name: analytics
+    description: Filtered analytics selection
+  - name: chat
+    description: Agent Chat conversations and replies
+  - name: notifications
+    description: Future inbox behind the TopHeader bell
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Exchange credentials for a session
+      description: |
+        Prototype behavior to preserve: any well-formed email with the demo
+        password succeeds; any other password returns 401 `invalid_credentials`
+        with the message "Incorrect email or password".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: alex.morgan@insuralens.demo
+                password:
+                  type: string
+                  format: password
+                  example: demo123
+      responses:
+        "200":
+          description: Session established
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401":
+          description: Wrong credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error:
+                  code: invalid_credentials
+                  message: Incorrect email or password
+                  details: null
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      operationId: getCurrentUser
+      summary: The current session's user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Missing or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: End the session
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Session ended (client clears its stored token)
+
+  /api/dashboard/summary:
+    get:
+      tags: [dashboard]
+      operationId: getDashboardSummary
+      summary: Every Dashboard card in one payload
+      responses:
+        "200":
+          description: Dashboard counts, all computed from the same claim dataset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /api/claims:
+    get:
+      tags: [claims]
+      operationId: listClaims
+      summary: Work-queue list
+      description: |
+        Without `page`, returns a bare JSON array (the mode the frontend uses
+        today — it paginates client-side). With `page`, returns the pagination
+        envelope. Other params are honored by the server and ignored by the mock.
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/ClaimStatus" }, description: Comma-separated for multi-select }
+        - { name: priority, in: query, schema: { $ref: "#/components/schemas/Priority" } }
+        - { name: incident, in: query, schema: { $ref: "#/components/schemas/IncidentType" } }
+        - { name: evidence, in: query, schema: { type: string, enum: [Complete, Incomplete] } }
+        - { name: policy_match, in: query, schema: { type: string, enum: [Matched, Partial, Requires Review, Not Evaluated] } }
+        - { name: q, in: query, schema: { type: string }, description: Free-text search (id, customer, incident label, policy ref) }
+        - { name: sort, in: query, schema: { type: string, enum: [id, customer, incident, date, evidence, ai, policy, priority, status, updated] } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 }, description: Presence of this param switches the response to the envelope }
+        - { name: page_size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        "200":
+          description: Claims (bare array without `page`, envelope with it)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: "#/components/schemas/Claim"
+                  - $ref: "#/components/schemas/PageEnvelope"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [claims]
+      operationId: createClaim
+      summary: Create a claim from the modal draft
+      description: |
+        Server rules the mock applies today and must keep applying:
+        `status` starts `new`; `evidence` is `Complete` only when at least 3
+        document slots were filled; `evidenceItems` counts photos + documents;
+        empty `policyRef` becomes "Not assigned"; empty `incident` becomes `other`;
+        ids follow `CLM-#####` above the current max. File bytes are uploaded
+        first via the evidence endpoint — this payload carries references only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimDraft"
+      responses:
+        "201":
+          description: Created claim
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Claim"
+        "400":
+          description: Validation failed (missing customer/date/incident, oversized payload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/claims/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        example: CLM-10482
+    get:
+      tags: [claims]
+      operationId: getClaim
+      summary: One claim for the workspace page
+      responses:
+        "200":
+          description: The claim
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Claim"
+        "404":
+          description: No such claim (frontend maps this to its "Claim not found" panel)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/claims/{claimId}/evidence:
+    parameters:
+      - name: claimId
+        in: path
+        required: true
+        schema: { type: string }
+        example: CLM-10482
+    post:
+      tags: [claims]
+      operationId: uploadEvidence
+      summary: Upload one evidence file (multipart)
+      description: |
+        Field name `file`. Upload rules (client-enforced today, server must
+        enforce too): photos JPG/PNG/HEIC/WebP max 10 MB each, max 20 photos
+        per claim; documents PDF/DOCX max 15 MB each. Progress is read client-side
+        via XHR `upload.onprogress` (fetch provides none).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Stored file reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoredFile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "413":
+          description: File exceeds the size limit (10 MB photo / 15 MB document)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          description: Unsupported file type or claim rule violation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/analytics:
+    get:
+      tags: [analytics]
+      operationId: getAnalytics
+      summary: One filtered selection for every KPI, chart, and table
+      parameters:
+        - name: date_range
+          in: query
+          schema: { type: string, enum: [7d, 30d, 90d, year], default: "30d" }
+        - name: incident
+          in: query
+          schema: { type: string, enum: [all, vehicle, rear-end, side, other], default: all }
+        - name: workflow
+          in: query
+          schema:
+            oneOf:
+              - type: string
+                enum: [all]
+              - $ref: "#/components/schemas/ClaimStatus"
+          default: all
+      responses:
+        "200":
+          description: Analytics selection (types in src/lib/analyticsData.ts, AnalyticsSelection)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSelection"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/chat/conversations:
+    get:
+      tags: [chat]
+      operationId: listConversations
+      summary: The reviewer's conversation list
+      responses:
+        "200":
+          description: Conversations, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/chat/messages:
+    post:
+      tags: [chat]
+      operationId: sendChatMessage
+      summary: Send a question, receive the assistant reply
+      description: |
+        Returns one complete assistant message (the frontend appends it to the
+        active conversation). Streaming is an open question — if adopted, keep
+        this buffered envelope as the fallback shape; see "Open questions for
+        backend" in docs/API_CONTRACT.md.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                claim_id:
+                  type: string
+                  nullable: true
+                  description: Conversation's pinned claim context (optional)
+                  example: CLM-10476
+      responses:
+        "200":
+          description: Assistant message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          description: Generation failed (UI renders message in a retryable error bubble)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/notifications:
+    get:
+      tags: [notifications]
+      operationId: listNotifications
+      summary: The reviewer's notification list
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/notifications/{id}/read:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [notifications]
+      operationId: markNotificationRead
+      summary: Mark one notification as read
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          description: Unknown notification id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token returned by POST /api/auth/login; sent as `Authorization: Bearer …`
+        by src/api/http.js once stored. Session model (JWT vs server session,
+        storage vs httpOnly cookie) is an open question.
+
+  responses:
+    Unauthorized:
+      description: Missing, expired, or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable string (e.g. invalid_credentials, network_error)
+            message:
+              type: string
+              description: Human-readable; rendered verbatim in the UI's error states
+            details:
+              nullable: true
+      example:
+        error:
+          code: invalid_credentials
+          message: Incorrect email or password
+          details: null
+
+    PageEnvelope:
+      type: object
+      required: [items, page, page_size, total, total_pages]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Claim" } }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1, maximum: 100 }
+        total: { type: integer }
+        total_pages: { type: integer }
+
+    ClaimStatus:
+      type: string
+      enum: [new, evidence_collection, ai_analysis, human_review, completed]
+      description: Workflow stage token (labels are mapped client-side)
+
+    Priority:
+      type: string
+      enum: [high, medium, low]
+
+    IncidentType:
+      type: string
+      enum: [rear_end_collision, side_collision, vehicle_collision, other]
+
+    User:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role:
+          type: string
+          enum: [claims_reviewer]
+          description: Role permissions are an open question
+
+    Session:
+      type: object
+      required: [user, token]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        token: { type: string }
+
+    ClaimPhoto:
+      type: object
+      required: [name, url]
+      properties:
+        name: { type: string }
+        url:
+          type: string
+          description: Stored-file URL once uploads are real; dead blob URL in the prototype
+        caption: { type: string }
+
+    Claim:
+      type: object
+      required:
+        [id, customer, incident, dateReported, dateReportedValue, policyRef,
+         evidenceItems, evidence, aiAnalysis, policyMatch, priority, status,
+         updatedLabel, updatedMinutes]
+      properties:
+        id: { type: string, example: CLM-10482 }
+        customer: { type: string, example: Sarah Mitchell }
+        incident: { $ref: "#/components/schemas/IncidentType" }
+        dateReported:
+          type: string
+          description: Preformatted display string, e.g. "Oct 2, 2026"
+        dateReportedValue:
+          type: integer
+          format: int64
+          description: Epoch milliseconds, UTC midnight of the reported date (sort/filter field)
+        policyRef: { type: string, example: POL-88214 }
+        evidenceItems: { type: integer }
+        evidence: { type: string, enum: [Complete, Incomplete] }
+        aiAnalysis: { type: string, enum: [Available, Processing, Incomplete, "Not started"] }
+        policyMatch: { type: string, enum: [Matched, Partial, Requires Review, "Not Evaluated"] }
+        priority: { $ref: "#/components/schemas/Priority" }
+        status: { $ref: "#/components/schemas/ClaimStatus" }
+        updatedLabel:
+          type: string
+          description: Display string, e.g. "Just now" / "12 min ago"
+        updatedMinutes: { type: integer, description: Sortable age in minutes }
+        description: { type: string }
+        photos:
+          type: array
+          items: { $ref: "#/components/schemas/ClaimPhoto" }
+
+    ClaimDraft:
+      type: object
+      required: [customer, date, priority]
+      properties:
+        customer: { type: string }
+        date: { type: string, format: date, description: Reported date, YYYY-MM-DD }
+        incident: { $ref: "#/components/schemas/IncidentType" }
+        description: { type: string, maxLength: 2000 }
+        policyRef: { type: string }
+        priority: { $ref: "#/components/schemas/Priority" }
+        photos:
+          type: array
+          maxItems: 20
+          description: References to files already uploaded via the evidence endpoint
+          items: { $ref: "#/components/schemas/ClaimPhoto" }
+        documents:
+          type: array
+          maxItems: 3
+          description: Display names of filled document slots (accident report, customer statement, policy document)
+          items: { type: string }
+
+    StoredFile:
+      type: object
+      required: [id, name, url]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        url: { type: string }
+        size: { type: integer, format: int64 }
+
+    DashboardSummary:
+      type: object
+      required: [total, open, needsReview, inAnalysis, awaitingDecision, stages, priorities, insights, recentActivity]
+      properties:
+        total: { type: integer, description: All claims; stages must sum to this }
+        open: { type: integer, description: All stages except completed }
+        needsReview: { type: integer, description: Equals priorities.high }
+        inAnalysis: { type: integer }
+        awaitingDecision: { type: integer }
+        stages:
+          type: object
+          description: Count per stage token
+          additionalProperties: { type: integer }
+          properties:
+            new: { type: integer }
+            evidence_collection: { type: integer }
+            ai_analysis: { type: integer }
+            human_review: { type: integer }
+            completed: { type: integer }
+        priorities:
+          type: object
+          additionalProperties: { type: integer }
+          properties:
+            high: { type: integer }
+            medium: { type: integer }
+            low: { type: integer }
+        insights:
+          type: object
+          required: [damagePattern, missingEvidence, policyReview]
+          properties:
+            damagePattern: { type: integer, description: High-priority rear-end collisions }
+            missingEvidence: { type: integer, description: Evidence category "Missing Documents" }
+            policyReview: { type: integer, description: Evidence category "Requires Verification" }
+        recentActivity:
+          type: array
+          items:
+            type: object
+            required: [time, action, claim]
+            properties:
+              time: { type: string }
+              action: { type: string }
+              claim: { type: string }
+
+    DistributionRow:
+      type: object
+      required: [key, label, count, percent, tone]
+      properties:
+        key:
+          type: string
+          description: Stage/incident token (rows deep-link to #/claims?tab=… / ?incident=…)
+        label: { type: string, description: Display text }
+        count: { type: integer }
+        percent: { type: integer, description: Integer share within its distribution, summing to 100 }
+        tone: { type: string, description: Bar colour suffix; never the only cue }
+
+    AnalyticsSelection:
+      type: object
+      required: [claims, statusText, kpis, volume, workflow, evidence, ai, incidents, attention, empty]
+      properties:
+        claims:
+          type: array
+          items: { $ref: "#/components/schemas/Claim" }
+        statusText:
+          type: string
+          description: Screen-reader announcement when filters change
+        kpis:
+          type: object
+          required: [received, receivedDelta, underReview, evidenceCompletion, humanReviewPending]
+          properties:
+            received: { type: integer }
+            receivedDelta:
+              type: [integer, "null"]
+              description: Change vs previous equal-length window; null when no previous data
+            underReview: { type: integer }
+            evidenceCompletion: { type: integer, description: Whole percent, floored }
+            humanReviewPending: { type: integer }
+        volume:
+          type: object
+          properties:
+            granularity: { type: string, enum: [day, week, month] }
+            buckets:
+              type: array
+              items:
+                type: object
+                properties:
+                  key: { type: string }
+                  label: { type: string }
+                  fullLabel: { type: string }
+                  start: { type: integer, format: int64 }
+                  end: { type: integer, format: int64 }
+            received: { type: array, items: { type: integer } }
+            completed: { type: array, items: { type: integer } }
+            peak: { type: integer }
+            yMax: { type: integer }
+            empty: { type: boolean }
+            description: { type: string }
+        workflow:
+          type: array
+          items: { $ref: "#/components/schemas/DistributionRow" }
+        evidence:
+          type: object
+          properties:
+            rows: { type: array, items: { $ref: "#/components/schemas/DistributionRow" } }
+            missing: { type: integer }
+            verification: { type: integer }
+            total: { type: integer }
+            insight: { type: string }
+        ai:
+          type: object
+          properties:
+            metrics:
+              type: array
+              items:
+                type: object
+                properties:
+                  key: { type: string }
+                  label: { type: string }
+                  value: { type: string }
+                  hint: { type: string }
+            activity:
+              type: object
+              description: Completed analyses over time (same buckets as volume)
+            outcomes:
+              type: array
+              items: { $ref: "#/components/schemas/DistributionRow" }
+            caption: { type: string, description: Sentence reconciling the panel's numbers }
+        incidents:
+          type: array
+          items: { $ref: "#/components/schemas/DistributionRow" }
+        attention:
+          type: array
+          items:
+            type: object
+            required: [claim, issue]
+            properties:
+              claim: { $ref: "#/components/schemas/Claim" }
+              issue: { type: string, description: Derived from claim fields, never free text }
+        empty: { type: boolean, description: True = page shows its "No data" state }
+
+    Section:
+      type: object
+      required: [kind]
+      description: |
+        One block of an assistant reply. Union in src/lib/chatData.ts:
+        heading | paragraph | bullets | numbered | point | sources | flags |
+        reminder | expand — discriminated on `kind`.
+      properties:
+        kind:
+          type: string
+          enum: [heading, paragraph, bullets, numbered, point, sources, flags, reminder, expand]
+        text: { type: string }
+        items: { type: array, items: { type: string } }
+        sourceIds: { type: array, items: { type: string } }
+
+    ChatMessage:
+      type: object
+      required: [id, role, time]
+      properties:
+        id: { type: string }
+        role: { type: string, enum: [user, assistant] }
+        time: { type: string, description: Display clock string, e.g. "09:41" }
+        text: { type: string, description: Plain text (user messages and error bubbles) }
+        sections: { type: array, items: { $ref: "#/components/schemas/Section" } }
+        activity:
+          type: array
+          description: Illustrative tool-activity summaries shown while thinking
+          items:
+            type: object
+            properties:
+              text: { type: string }
+        demo:
+          type: boolean
+          description: Marks canned content; drop when a real model is behind the endpoint
+        error: { type: boolean, description: Failed-response state with retry }
+
+    Conversation:
+      type: object
+      required: [id, title, group, time, messages]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        group: { type: string, enum: [Recent, Earlier] }
+        time: { type: string }
+        claimId: { type: string, description: Pinned claim context; omitted = general assistant }
+        messages: { type: array, items: { $ref: "#/components/schemas/ChatMessage" } }
+
+    Notification:
+      type: object
+      required: [id, title, body, time, read]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        body: { type: string }
+        time: { type: string }
+        read: { type: boolean }
+        link: { type: string, description: In-app hash route, e.g. "#/claims/CLM-10482" }

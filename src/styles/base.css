@@ -1,0 +1,205 @@
+/* ==========================================================================
+   Base — reset, document defaults, accessibility primitives
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--t-meta);
+  line-height: var(--lh-body);
+  font-feature-settings: 'cv05' 1, 'cv09' 1, 'ss03' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+p,
+figure,
+dl,
+dd {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: inherit;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+a {
+  color: var(--teal-600);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--teal-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+::selection {
+  background: rgba(21, 154, 156, 0.2);
+  color: var(--text-primary);
+}
+
+/* ---- Focus: visible, consistent, never removed ---- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+/* ---- Scrollbars: unobtrusive ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  border-radius: var(--r-pill);
+  background-clip: content-box;
+}
+
+/* ---- Accessibility helpers ---- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--s-4);
+  top: -60px;
+  z-index: 200;
+  background: var(--teal-600);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  font-size: var(--t-meta);
+  font-weight: 600;
+  transition: top var(--t-base) var(--ease);
+}
+
+.skip-link:focus {
+  top: var(--s-4);
+  text-decoration: none;
+  color: #fff;
+}
+
+/* Shared page states — data loading and failure panels for pages that fetch
+   through src/api/. Kept generic (base.css) so every page can use them. */
+.page-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-8) var(--s-5);
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.page-state__title {
+  margin: 0;
+  font-size: var(--t-meta);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.page-state__text {
+  margin: 0;
+  max-width: 44ch;
+  font-size: var(--t-meta);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.page-state--error .page-state__title {
+  color: var(--error);
+}
+
+/* Motion in this product is decorative: it never carries information that is
+   not also in the text, so it can all go. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

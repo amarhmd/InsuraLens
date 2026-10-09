@@ -1,0 +1,378 @@
+/* ==========================================================================
+   Login page — two-column shell, brand panel, auth column, footer
+   Desktop-first: the split collapses to a single prioritised column on mobile
+   and the abstract visual leaves rather than compete for the fold.
+   ========================================================================== */
+
+.login {
+  display: grid;
+  grid-template-columns: var(--brand-col) minmax(0, 1fr);
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* --------------------------------------------------------------------------
+   Left: brand / product
+   -------------------------------------------------------------------------- */
+
+.brand {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-9) var(--s-8);
+  color: var(--text-on-navy);
+  /* One restrained pass of depth across a very large surface. Not a feature. */
+  background: linear-gradient(155deg, var(--navy) 0%, var(--navy-deep) 100%);
+}
+
+.brand__visual {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.brand__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.brand__logo {
+  flex: none;
+  margin-bottom: var(--s-6);
+}
+
+.brand__copy {
+  margin-top: auto;
+  max-width: 380px;
+}
+
+.brand__statement {
+  font-size: var(--t-display);
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: -0.022em;
+  color: var(--text-on-navy);
+  margin-bottom: var(--s-4);
+}
+
+.brand__support {
+  font-size: var(--t-meta);
+  line-height: var(--lh-body);
+  color: var(--text-on-navy-muted);
+  max-width: 360px;
+}
+
+/* --------------------------------------------------------------------------
+   Logo lockup
+   -------------------------------------------------------------------------- */
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.logo__mark {
+  display: block;
+  flex: none;
+  object-fit: contain;
+}
+
+/* The mark is 95% #0E544C, which is 1.55:1 against the navy panel. On white it
+   is 8.78:1. The tile is how the shipped asset is presented, not a new asset. */
+.logo__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  padding: 8px;
+  background: var(--surface);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.logo__word {
+  font-size: var(--t-brand);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   Right: authentication
+   -------------------------------------------------------------------------- */
+
+.auth {
+  display: flex;
+  min-width: 0;
+  background: var(--bg-page);
+}
+
+.auth__inner {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  width: 100%;
+  max-width: min(var(--auth-max), 440px);
+  margin: 0 auto;
+  padding: var(--s-7) var(--s-6) var(--s-5);
+}
+
+.auth__center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: var(--s-5) 0;
+}
+
+.card {
+  width: 100%;
+  max-width: min(var(--auth-max), 420px);
+  padding: var(--auth-pad);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+  margin: 0 auto;
+}
+
+.auth__head {
+  margin-bottom: var(--s-7);
+}
+
+.auth__title {
+  font-size: var(--t-title);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.022em;
+  color: var(--text-primary);
+}
+
+.auth__subtitle {
+  margin-top: var(--s-2);
+  font-size: var(--t-lead);
+  line-height: var(--lh-snug);
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+
+.pagefoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border);
+  font-size: var(--t-meta);
+  color: var(--text-secondary);
+}
+
+.pagefoot__links {
+  display: flex;
+  gap: var(--s-5);
+}
+
+.pagefoot__links a {
+  color: var(--teal-600);
+  text-decoration: none;
+  font-size: var(--t-meta);
+}
+
+.pagefoot__links a:hover,
+.pagefoot__links a:focus-visible {
+  color: var(--teal-700);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Demo workspace placeholder
+
+   Not a dashboard — the brief builds the claims screens later. It exists so
+   "Continue with demo" lands somewhere real instead of doing nothing.
+   -------------------------------------------------------------------------- */
+
+.entered {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--s-8) var(--s-5);
+  background: var(--bg-page);
+}
+
+.entered__card {
+  width: 100%;
+  max-width: 460px;
+  padding: var(--s-8);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.entered__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--s-5);
+  padding: 4px 10px;
+  font-size: var(--t-caption);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  background: var(--bg-page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+}
+
+.entered__tag::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal-500);
+}
+
+.entered__title {
+  margin-top: var(--s-5);
+  font-size: var(--t-title);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.022em;
+  color: var(--text-primary);
+}
+
+.entered__body {
+  margin-top: var(--s-3);
+  font-size: var(--t-lead);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+}
+
+.entered__actions {
+  margin-top: var(--s-7);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+/* Tablet: narrow the brand panel, keep the form at a comfortable width. */
+@media (max-width: 1100px) {
+  .login {
+    grid-template-columns: minmax(280px, 36%) minmax(0, 1fr);
+  }
+
+  .brand {
+    padding: var(--s-8) var(--s-7);
+  }
+
+  .brand__statement {
+    font-size: 28px;
+  }
+
+  .brand__copy {
+    max-width: 320px;
+  }
+
+  .brand__support {
+    max-width: 300px;
+  }
+}
+
+/* Mobile: stack, lead with the form, drop the decorative visual. */
+@media (max-width: 900px) {
+  .login {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .brand {
+    padding: var(--s-6) var(--s-5);
+  }
+
+  .brand__visual {
+    display: none;
+  }
+
+  .brand__copy {
+    margin-top: var(--s-6);
+    max-width: none;
+  }
+
+  .brand__statement {
+    font-size: 24px;
+    margin-bottom: var(--s-3);
+  }
+
+  .brand__support {
+    max-width: 52ch;
+  }
+
+  .auth__inner {
+    max-width: none;
+    padding: var(--s-6) var(--s-5) var(--s-5);
+  }
+
+  .auth__center {
+    padding: var(--s-4) 0;
+  }
+
+  .pagefoot {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+@media (max-width: 520px) {
+  .card {
+    padding: var(--s-6);
+  }
+
+  .brand {
+    padding: var(--s-5) var(--s-4);
+  }
+
+  .brand__support {
+    font-size: var(--t-meta);
+  }
+
+  .pagefoot {
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Logo — navy variant fixes (moved from logo-fix.css)
+   -------------------------------------------------------------------------- */
+
+.login-logo {
+  display: block;
+}
+
+.login-logo--navy {
+  height: 36px !important;
+  width: auto !important;
+  max-width: 160px !important;
+  min-width: auto !important;
+  object-fit: contain;
+  flex: none;
+}
+
+@media (max-width: 768px) {
+  .login-logo--navy {
+    height: 28px !important;
+  }
+}

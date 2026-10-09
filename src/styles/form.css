@@ -1,0 +1,407 @@
+/* ==========================================================================
+   Auth form — fields, buttons, notices, demo entry, recovery dialog
+
+   One rhythm throughout: label → control → message, 8px spacing, 10px radii,
+   a 1px border, and shadows soft enough to be felt rather than seen.
+   ========================================================================== */
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   Fields
+   -------------------------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Everything below the header stacks on a 20px beat; the two fields sit a
+   touch tighter so they read as one pair. */
+.field + .field,
+.form__aux,
+.form__rule,
+.trust {
+  margin-top: var(--s-5);
+}
+
+.btn {
+  margin-top: var(--s-4);
+}
+
+.field__label {
+  font-size: var(--t-label);
+  font-weight: 600;
+  line-height: var(--lh-snug);
+  color: var(--text-primary);
+  margin-bottom: var(--s-2);
+}
+
+.field__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field__input {
+  width: 100%;
+  height: 48px;
+  padding: 0 var(--s-4);
+  font-size: var(--t-body);
+  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition: border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease),
+    background-color var(--t-base) var(--ease);
+}
+
+.field__input::placeholder {
+  color: var(--text-secondary);
+  opacity: 1; /* otherwise browsers drop it to ~55% and it fails contrast */
+}
+
+.field__input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.field__input:focus {
+  outline: none;
+  border-color: var(--teal-500);
+  box-shadow: var(--ring);
+}
+
+.field__input:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+/* The message below the field says what is wrong in words, so the border is
+   a reinforcement rather than the signal. */
+.field--invalid .field__input {
+  border-color: var(--error-border);
+}
+
+.field--invalid .field__input:focus {
+  box-shadow: var(--ring-error);
+}
+
+.field__control--trailing .field__input {
+  padding-right: 46px;
+}
+
+.field__toggle {
+  position: absolute;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--text-secondary);
+  border-radius: var(--r-sm);
+  transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+
+.field__toggle:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.field__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: var(--s-2);
+  font-size: var(--t-label);
+  line-height: var(--lh-snug);
+  color: var(--error);
+}
+
+.field__error-icon {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* --------------------------------------------------------------------------
+   Auxiliary row (forgot password)
+   -------------------------------------------------------------------------- */
+
+.form__aux {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.linkbtn {
+  font-size: var(--t-label);
+  font-weight: 600;
+  color: var(--teal-600);
+  border-radius: var(--r-xs);
+  padding: 2px;
+}
+
+.linkbtn:hover:not(:disabled) {
+  color: var(--teal-700);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.linkbtn:disabled {
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  width: 100%;
+  height: 48px; /* generous target */
+  font-size: var(--t-btn);
+  font-weight: 600;
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease),
+    color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease),
+    transform var(--t-fast) var(--ease);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+}
+
+/* Teal at its text-safe depth: #0F7F81 is 4.80:1 with white, where the
+   brand #159A9C is 3.42:1. See tokens.css and scripts/contrast-check.mjs. */
+.btn--primary {
+  color: #ffffff;
+  background: var(--teal-600);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--teal-700);
+}
+
+.btn--primary:active:not(:disabled) {
+  background: var(--teal-800);
+}
+
+.btn--primary:disabled {
+  color: #ffffff;
+  background: var(--border-strong);
+  box-shadow: none;
+}
+
+.btn--secondary {
+  color: var(--text-primary);
+  background: var(--surface);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.btn--secondary:disabled {
+  color: var(--text-secondary);
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   Error alert — the "incorrect email or password" state on submit
+   -------------------------------------------------------------------------- */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: #fdf3f1;
+  border: 1px solid #d9b0ab;
+  border-radius: var(--r-md);
+  animation: fade-in var(--t-slow) var(--ease) both;
+}
+
+.alert__icon {
+  flex: none;
+  margin-top: 2px;
+  color: #a33026;
+}
+
+.alert__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert__title {
+  font-size: var(--t-label);
+  font-weight: 600;
+  line-height: var(--lh-snug);
+  color: #a33026;
+}
+
+/* --------------------------------------------------------------------------
+   Rules & demo entry
+   -------------------------------------------------------------------------- */
+
+.form__rule {
+  height: 1px;
+  background: var(--border);
+}
+
+.demo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.demo .btn {
+  margin-top: 0;
+}
+
+.demo__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t-meta);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+/* A small dot, not a badge: the label is honest labelling, not a status. */
+.demo__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal-500);
+}
+
+.trust {
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Password recovery dialog
+   -------------------------------------------------------------------------- */
+
+.dialog__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: var(--s-5);
+  background: rgba(13, 36, 57, 0.44);
+  animation: fade-in var(--t-base) var(--ease) both;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--s-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  animation: dialog-in var(--t-slow) var(--ease) both;
+}
+
+.dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.dialog__title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+}
+
+.dialog__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  margin: -4px -4px 0 0;
+  color: var(--text-secondary);
+  border-radius: var(--r-sm);
+  transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+
+.dialog__close:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.dialog__body {
+  margin-top: var(--s-3);
+  font-size: var(--t-lead);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+}
+
+/* --------------------------------------------------------------------------
+   Motion
+   -------------------------------------------------------------------------- */
+
+.spinner {
+  animation: spin 720ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

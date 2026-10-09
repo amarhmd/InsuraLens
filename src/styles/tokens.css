@@ -1,0 +1,112 @@
+/* ==========================================================================
+   InsuraLens — design tokens
+
+   Enterprise palette: deep navy brand panel, teal action, slate-blue accent,
+   cool white canvas. Borders stay thin and light; elevation stays soft.
+
+   A note on the teal ramp. The brief names #159A9C as the brand teal, and it
+   is — for everything that does not carry small text: focus rings, decorative
+   strokes, dividers. Measured against white it is 3.42:1, which clears the
+   3:1 non-text threshold but not the 4.5:1 that body text needs. So
+   interactive fills and links step down to --teal-600 (#0F7F81, 4.80:1),
+   which is visually the same hue at a hair more depth. scripts/contrast-check.mjs
+   gates every pair below.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand ---- */
+  --navy: #12304a; /* Deep Navy — brand panel */
+  --navy-deep: #0d2439; /* derived, for the panel's soft gradient */
+  --navy-line: #1f4767; /* derived, hairlines on the navy panel */
+
+  --teal-500: #159a9c; /* Teal — brand accent, non-text only */
+  --teal-600: #0f7f81; /* text-bearing teal: button fill, links */
+  --teal-700: #0c6e70; /* hover */
+  --teal-800: #0a6264; /* active */
+
+  --slate: #4c6fff; /* Slate Blue — accent, decorative */
+  --slate-tint: rgba(76, 111, 255, 0.16);
+
+  /* ---- Canvas & surfaces ---- */
+  --bg-page: #f7f9fb; /* Background */
+  --surface: #ffffff; /* White */
+  --surface-sunken: #f2f5f8;
+  --surface-hover: #f7f9fb;
+
+  /* ---- Ink ---- */
+  --text-primary: #172b3a; /* Primary Text */
+  --text-secondary: #64748b; /* Secondary Text */
+  --text-on-navy: #ffffff;
+  --text-on-navy-muted: #c7d8e6; /* brighter for AA on navy */
+
+  /* ---- Borders ---- */
+  --border: #e2e8f0; /* Border */
+  --border-strong: #cbd5e1;
+
+  /* ---- Focus ---- */
+  --ring: 0 0 0 3px rgba(21, 154, 156, 0.22);
+  --ring-error: 0 0 0 3px rgba(217, 45, 32, 0.16);
+  --ring-on-navy: 0 0 0 3px rgba(21, 154, 156, 0.45);
+
+  /* ---- Status: restrained, never dominant ----
+     Used only on validation messages and the form-level notice. */
+  --error: #b42318;
+  --error-border: #d92d20;
+  --error-tint: #fef3f2;
+
+  /* ---- Radius: moderate, structured ---- */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 10px; /* inputs, buttons */
+  --r-lg: 12px; /* auth card */
+  --r-xl: 14px; /* dialog */
+  --r-pill: 999px;
+
+  /* ---- Elevation: very soft ---- */
+  --shadow-xs: 0 1px 2px rgba(18, 48, 74, 0.04);
+  --shadow-sm: 0 1px 2px rgba(18, 48, 74, 0.05), 0 1px 3px rgba(18, 48, 74, 0.04);
+  --shadow-md: 0 8px 24px -16px rgba(18, 48, 74, 0.24), 0 1px 2px rgba(18, 48, 74, 0.05);
+  --shadow-lg: 0 24px 48px -24px rgba(18, 48, 74, 0.28), 0 2px 6px rgba(18, 48, 74, 0.06);
+
+  /* ---- Spacing: 8px-based ---- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 32px;
+  --s-8: 40px;
+  --s-9: 48px;
+  --s-10: 64px;
+  --s-11: 80px;
+
+  /* ---- Typography ---- */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  --t-display: 32px; /* brand statement */
+  --t-title: 32px; /* "Welcome back" — 32px as requested */
+  --t-brand: 19px; /* wordmark */
+  --t-lead: 15px; /* supporting copy — brief range 14–16px */
+  --t-body: 16px; /* input value — 16px as requested */
+  --t-label: 14px; /* field labels — 14px minimum */
+  --t-btn: 15px; /* button — brief range 14–15px */
+  --t-meta: 14px; /* helper text/footer — 14px minimum */
+  --t-caption: 13px;
+
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-body: 1.55;
+
+  /* ---- Motion: subtle and fast ---- */
+  --ease: cubic-bezier(0.32, 0.72, 0.28, 1);
+  --t-fast: 110ms;
+  --t-base: 160ms;
+  --t-slow: 240ms;
+
+  /* ---- Layout ---- */
+  --brand-col: 40%; /* brand panel width on desktop */
+  --auth-max: 420px; /* auth card max width */
+  --auth-pad: 36px; /* auth card padding */
+}

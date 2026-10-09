@@ -1,0 +1,28 @@
+{
+  "name": "insuralens",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "InsuraLens — enterprise AI-assisted insurance claims review platform.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --force",
+    "contrast": "node scripts/contrast-check.mjs && node scripts/chat-contrast-check.mjs && node scripts/analytics-contrast-check.mjs && node scripts/settings-contrast-check.mjs",
+    "check:chat": "node scripts/stage-chat-check.mjs && node scripts/chat-css-check.mjs",
+    "check:analytics": "node scripts/stage-analytics-check.mjs && node scripts/analytics-css-check.mjs",
+    "check:settings": "node scripts/stage-settings-check.mjs && node scripts/settings-css-check.mjs && node scripts/settings-ssr-smoke.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

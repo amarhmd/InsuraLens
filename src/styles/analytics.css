@@ -1,0 +1,1065 @@
+/* ==========================================================================
+   InsuraLens — Analytics (#/analytics)
+
+   Reuses the dashboard shell, .panel vocabulary, claims controls (.claims-btn,
+   .claims-select), and the claims table. Everything analytics-specific is
+   ax-/analytics- prefixed.
+
+   Accessibility notes that the class names below are holding up:
+
+   * Bar rows always print count and percent next to the fill — colour is
+     never the only encoding, and the two-series line chart is distinguished
+     by line style (solid vs dashed) as well as hue.
+   * Text colours are the dark end of each ramp (#475467, #0c6e70, #2a5f94):
+     every pair is gated in scripts/analytics-contrast-check.mjs, including
+     bar fills against the white panel (>= 3:1, non-text).
+   * Charts are pointer + keyboard operable (one roving tab stop per chart,
+     arrow keys along the axis) with an sr-only data table behind them.
+   * Motion is limited to bar/line transitions and a skeleton shimmer, both
+     removed under prefers-reduced-motion.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Page chrome
+   -------------------------------------------------------------------------- */
+
+.analytics-page {
+  padding-bottom: 48px;
+}
+
+/* The Export control rides in the filter toolbar (AnalyticsFilters' child),
+   right-aligned with the filters that define what would be exported. */
+.ax-export {
+  display: flex;
+  align-items: center;
+}
+
+.ax-export__btn[aria-disabled='true'] {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  color: #475467;
+  cursor: not-allowed;
+}
+
+.ax-export__btn[aria-disabled='true']:hover {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+}
+
+/* --------------------------------------------------------------------------
+   Filter toolbar — sticky so the selection controls stay reachable while
+   scrolling the charts and tables below.
+   -------------------------------------------------------------------------- */
+
+.ax-filters {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.ax-filters__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ax-filters__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #475467;
+}
+
+.ax-filters__field .claims-select {
+  width: 100%;
+  max-width: 260px;
+  min-width: 180px;
+}
+
+/* Non-colour active state: 2px border instead of 1px, plus the chip below. */
+.ax-select--on {
+  border-width: 2px;
+  border-color: var(--teal-600);
+  padding-left: 11px;
+  font-weight: 600;
+}
+
+.ax-filters__end {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.ax-filters__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ax-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  color: #475467;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ax-chip--on {
+  background: rgba(21, 154, 156, 0.1);
+  border-color: rgba(21, 154, 156, 0.45);
+  color: #0c6e70;
+}
+
+.ax-reset:disabled {
+  opacity: 1;
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  color: #475467;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+   KPI row
+   -------------------------------------------------------------------------- */
+
+.ax-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.ax-kpi__hint {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #475467;
+}
+
+.ax-kpi__delta {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Layout grids — every row stretches to equal card heights with the same
+   24px rhythm above and below.
+   -------------------------------------------------------------------------- */
+
+.ax-grid {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 24px;
+  align-items: stretch;
+}
+
+.ax-grid--split {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+/* Evidence completeness + incident mix + workflow performance in one row,
+   so the incident and workflow cards fill what used to be empty space
+   beside the evidence panel. */
+.ax-grid--thirds {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* --------------------------------------------------------------------------
+   Panels
+   -------------------------------------------------------------------------- */
+
+.ax-panel {
+  padding: 20px;
+}
+
+.ax-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.ax-panel__title {
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+/* Right-hand controls of a panel header (chart legend + view toggle). */
+.ax-panel__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+/* The one "Illustrative" label, on the Workflow performance card title. */
+.ax-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+  padding: 2px 9px;
+  vertical-align: middle;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #475467;
+}
+
+.ax-subhead {
+  margin: 20px 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #475467;
+}
+
+.ax-footnote {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Charts
+   -------------------------------------------------------------------------- */
+
+.ax-chart {
+  margin: 0;
+}
+
+.ax-chart__plot {
+  position: relative;
+  width: 100%;
+}
+
+.ax-chart__hit {
+  position: absolute;
+}
+
+.ax-hit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: crosshair;
+  border-radius: 4px;
+}
+
+.ax-hit:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: -1px;
+}
+
+.ax-gridline {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.ax-axis-label {
+  fill: #475467;
+  font-size: 11px;
+  font-family: var(--font-ui);
+}
+
+.ax-guide {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.ax-line {
+  fill: none;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.ax-line--navy {
+  stroke: #12304a;
+}
+
+.ax-line--teal {
+  stroke: #0f7f81;
+}
+
+.ax-line--dashed {
+  stroke-dasharray: 6 5;
+}
+
+.ax-point {
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.ax-point--navy {
+  fill: #12304a;
+}
+
+.ax-point--teal {
+  fill: #0f7f81;
+}
+
+.ax-col {
+  fill: #12304a;
+  shape-rendering: crispEdges;
+}
+
+.ax-col--navy {
+  fill: #12304a;
+}
+
+.ax-col--teal {
+  fill: #0f7f81;
+}
+
+.ax-col--on {
+  stroke: var(--text-primary);
+  stroke-width: 1.5;
+}
+
+/* Tooltip — white card so the series colours stay readable inside it. */
+.ax-tip {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -100%);
+  min-width: 168px;
+  padding: 8px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.ax-tip__label {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ax-tip__row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: #475467;
+}
+
+.ax-tip__row + .ax-tip__row {
+  margin-top: 4px;
+}
+
+.ax-tip__row-label {
+  min-width: 0;
+}
+
+.ax-tip__row-value {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.ax-tip__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.ax-tip__dot--navy {
+  background: #12304a;
+}
+
+.ax-tip__dot--teal {
+  background: #0f7f81;
+}
+
+/* Legend — swatch is a line, so line style (not hue) carries the meaning. */
+.ax-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ax-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #475467;
+}
+
+.ax-legend__swatch {
+  width: 18px;
+  height: 0;
+  border-top: 3px solid transparent;
+  border-radius: 2px;
+}
+
+.ax-legend__swatch--navy {
+  border-top-color: #12304a;
+}
+
+.ax-legend__swatch--teal {
+  border-top-color: #0f7f81;
+}
+
+.ax-legend__swatch--dashed {
+  border-top-style: dashed;
+}
+
+/* View toggle — flips the volume panel between Chart and Table view.
+   Selected state is teal fill + white text, also announced by aria-pressed. */
+.ax-seg {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.ax-seg__btn {
+  height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475467;
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+
+.ax-seg__btn:hover {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.ax-seg__btn:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 1px;
+}
+
+.ax-seg__btn--on,
+.ax-seg__btn--on:hover {
+  background: #0f7f81;
+  border-color: #0f7f81;
+  color: #ffffff;
+}
+
+/* Visible table view of the same series the chart plots. */
+.ax-tableview {
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.ax-tableview .claims-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Chart fallback */
+.ax-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 40px 20px;
+  text-align: center;
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+}
+
+.ax-unavailable__icon {
+  display: flex;
+  color: #475467;
+}
+
+.ax-unavailable__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ax-unavailable__text {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Distribution bars
+   -------------------------------------------------------------------------- */
+
+.ax-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ax-bar {
+  position: relative;
+}
+
+.ax-bar__row {
+  display: grid;
+  grid-template-columns: minmax(0, 172px) minmax(40px, 1fr) minmax(78px, auto);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+/* Relaxed columns inside the narrower thirds-row cards, so the bars never
+   overflow a panel at 1366px. */
+.ax-grid--thirds .ax-bar__row {
+  grid-template-columns: minmax(0, 146px) minmax(30px, 1fr) minmax(58px, auto);
+  gap: 10px;
+}
+
+.ax-bar__btn {
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease);
+}
+
+.ax-bar__btn:hover {
+  background: var(--surface-hover);
+}
+
+.ax-bar__btn:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+}
+
+.ax-bar__label {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.ax-bar__track {
+  display: block;
+  height: 10px;
+  overflow: hidden;
+  background: #eef2f6;
+  border-radius: var(--r-pill);
+}
+
+.ax-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  transition: width var(--t-slow) var(--ease);
+}
+
+.ax-bar__fill--slate {
+  background: #475467;
+}
+.ax-bar__fill--navy {
+  background: #12304a;
+}
+.ax-bar__fill--blue {
+  background: #3578b8;
+}
+.ax-bar__fill--teal {
+  background: #0f7f81;
+}
+.ax-bar__fill--amber {
+  background: #c98200;
+}
+.ax-bar__fill--green {
+  background: #168a5b;
+}
+.ax-bar__fill--critical {
+  background: #c24141;
+}
+
+.ax-bar__value {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.ax-bar__pct {
+  min-width: 34px;
+  text-align: right;
+  font-weight: 500;
+  color: #475467;
+}
+
+/* Hover/focus tooltip — same information the row already prints, plus the
+   category name in one sentence. */
+.ax-bar__tip {
+  position: absolute;
+  right: 4px;
+  bottom: calc(100% - 4px);
+  z-index: 4;
+  max-width: min(360px, 100%);
+  padding: 7px 10px;
+  background: var(--navy);
+  color: var(--text-on-navy);
+  font-size: 12px;
+  line-height: 1.45;
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--t-fast) var(--ease);
+}
+
+.ax-bar--tip:hover .ax-bar__tip,
+.ax-bar--tip:focus-within .ax-bar__tip {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* --------------------------------------------------------------------------
+   Evidence insight + CTA
+   -------------------------------------------------------------------------- */
+
+.ax-insight {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: rgba(21, 154, 156, 0.08);
+  border: 1px solid rgba(21, 154, 156, 0.3);
+  border-radius: 10px;
+}
+
+.ax-insight__icon {
+  display: flex;
+  flex: none;
+  margin-top: 1px;
+  color: #0c6e70;
+}
+
+.ax-insight__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ax-insight__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ax-insight__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #475467;
+}
+
+.ax-cta {
+  margin-top: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   AI analysis
+   -------------------------------------------------------------------------- */
+
+.ax-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ax-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.ax-mini__label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #475467;
+}
+
+.ax-mini__value {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.ax-mini__hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Workflow performance
+   -------------------------------------------------------------------------- */
+
+/* 2x2 inside the narrow third-of-a-row card (wider cards than a 4-up row);
+   steps up to 4-up when the row stacks to full width, below. */
+.ax-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ax-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.ax-metric__value {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.ax-metric__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ax-metric__hint {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Attention table
+   -------------------------------------------------------------------------- */
+
+.ax-table-empty {
+  margin: 0;
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 14px;
+  color: #475467;
+}
+
+.ax-rowbtn {
+  height: 30px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--teal-600);
+  cursor: pointer;
+  transition: background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.ax-rowbtn:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.ax-rowbtn:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Footer — the single muted demo/AI line that replaced the repeated
+   disclaimer banners.
+   -------------------------------------------------------------------------- */
+
+.ax-footer {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Loading + empty states
+   -------------------------------------------------------------------------- */
+
+.ax-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.ax-skel-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.ax-skel-row--split {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.ax-skel-row--thirds {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.ax-skel {
+  background: linear-gradient(100deg, #eef2f6 30%, #f7f9fb 50%, #eef2f6 70%);
+  background-size: 200% 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  animation: ax-shimmer 1.4s linear infinite;
+}
+
+.ax-skel--kpi {
+  height: 150px;
+}
+
+.ax-skel--chart {
+  height: 320px;
+}
+
+.ax-skel--short {
+  height: 264px;
+}
+
+.ax-skel--panel {
+  height: 460px;
+}
+
+@keyframes ax-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+.ax-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 24px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.ax-empty__icon {
+  display: flex;
+  color: #475467;
+}
+
+.ax-empty__title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.ax-empty__text {
+  margin: 0 0 8px;
+  max-width: 54ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #475467;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+/* Below ~1340px the three-up evidence row would squeeze the bar columns,
+   so it stacks — and the workflow metrics step up to a 4-up row now that
+   the card is full width. */
+@media (max-width: 1340px) {
+  .ax-grid--thirds {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ax-skel-row--thirds {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ax-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1120px) {
+  .ax-grid--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ax-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ax-skel-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ax-skel-row--split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .ax-filters__end {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .ax-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .ax-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ax-mini-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ax-skel-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ax-filters__field {
+    width: 100%;
+  }
+
+  .ax-filters__field .claims-select {
+    max-width: none;
+    min-width: 0;
+  }
+
+  .ax-filters__end {
+    gap: 8px;
+  }
+
+  .ax-filters__end .claims-btn {
+    flex: 1 1 auto;
+  }
+
+  /* Bars: label + count on one row, track underneath. */
+  .ax-bar__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 10px;
+  }
+
+  .ax-bar__track {
+    grid-column: 1 / -1;
+  }
+
+  /* Table rows already stack into cards via claims.css data-label rules. */
+  .ax-panel .claims-table-wrap {
+    padding: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .ax-metrics {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ax-panel {
+    padding: 16px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ax-skel {
+    animation: none;
+    background: #eef2f6;
+  }
+
+  .ax-bar__fill {
+    transition: none;
+  }
+}
