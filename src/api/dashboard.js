@@ -1,14 +1,23 @@
 /* Dashboard API — the organization-wide overview behind #/dashboard.
 
-   Live mode: the card totals, stage counts and priority counts come from
-   GET /api/dashboard/summary. Still demo data for now: `insights` (computed
-   from src/mocks/claims.ts, the backend has no equivalent) and
-   `recentActivity` (src/mocks/dashboard.ts, mapped in the next step). */
+   Live mode: card totals, stage counts, priority counts and the recent
+   activity feed come from GET /api/dashboard/summary. Still demo data:
+   `insights` only (computed from src/mocks/claims.ts, the backend has no
+   equivalent yet). */
 
 import { request } from './http'
 import { evidenceCategory } from '../lib/analyticsData'
 import { mockClaims } from '../mocks/claims'
-import { mockRecentActivity } from '../mocks/dashboard'
+
+/** How many recent-activity rows the card shows. */
+const ACTIVITY_LIMIT = 4
+
+/** "2026-10-13T09:42:10.000Z" -> "09:42" in the viewer's local time. */
+function formatTime(iso) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
 
 /**
  * Everything the Dashboard cards read in one payload.
@@ -39,6 +48,17 @@ export async function getDashboardSummary() {
   const stageCount = (stage) => byStage.find((s) => s.stage === stage)?.count ?? 0
   const priorityCount = (priority) =>
     byPriority.find((p) => p.priority === priority)?.count ?? 0
+
+  /* Newest first, then map the backend row to the card's { time, action, claim }. */
+  const recentActivity = (data.recentActivity ?? [])
+    .slice()
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, ACTIVITY_LIMIT)
+    .map((item) => ({
+      time: formatTime(item.createdAt),
+      action: item.message || item.action || '',
+      claim: item.claimId ?? '',
+    }))
 
   const all = mockClaims
   return {
@@ -71,7 +91,6 @@ export async function getDashboardSummary() {
       policyReview: all.filter((c) => evidenceCategory(c) === 'Requires Verification').length,
     },
 
-    /* TODO: map data.recentActivity to the ActivityItem shape (next step). */
-    recentActivity: mockRecentActivity.map((item) => ({ ...item })),
+    recentActivity,
   }
 }
