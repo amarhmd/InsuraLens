@@ -1,145 +1,74 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
-import { TopHeader } from '../../components/layout/TopHeader'
+import { TopBar } from '../../components/layout/TopBar'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { ToastNotification } from '../../components/feedback/ToastNotification'
-import {
-  SettingsNavigation,
-  type SettingsSectionKey,
-} from './SettingsNavigation'
+import { useSettingsValue } from '../../hooks/useSettingsValue'
+import { saveSettings, type Settings } from '../../lib/settingsStore'
 import { ProfileSettings } from './ProfileSettings'
-import { PreferencesSettings } from './PreferencesSettings'
 import { NotificationSettings } from './NotificationSettings'
 import { AIReviewSettings } from './AIReviewSettings'
-import { WorkspaceSettings } from './WorkspaceSettings'
-import { PrivacySecuritySettings } from './PrivacySecuritySettings'
-import { AboutSettings } from './AboutSettings'
-import {
-  DEFAULT_SETTINGS,
-  getSettings,
-  saveSettings,
-  subscribeSettings,
-  type Settings,
-} from '../../lib/settingsStore'
-
-/** Reads the shared settings store and re-renders on every save. */
-function useSettings(): Settings {
-  const [settings, setSettings] = useState(getSettings)
-  useEffect(() => subscribeSettings(() => setSettings(getSettings())), [])
-  return settings
-}
 
 /**
- * #/settings — profile, preferences, notifications, AI review presentation,
- * workspace, privacy, and about. Every save goes through the shared store so
- * the login landing page, the claims table density, and the sidebar workspace
- * name pick changes up without any page reaching into another page's state.
+ * #/settings — My Profile, AI Review Preferences, and Notifications, stacked as
+ * cards on one page. Every save goes through the shared store so the login
+ * landing page, the claims table density, and the sidebar workspace name pick
+ * changes up without any page reaching into another page's state.
  */
 export function SettingsPage() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [section, setSection] = useState<SettingsSectionKey>('profile')
   const [toast, setToast] = useState<string | null>(null)
-  const settings = useSettings()
+  const settings = useSettingsValue()
 
-  const panelRef = useRef<HTMLDivElement>(null)
-  const mounted = useRef(false)
+  /* Settings used to live behind a sub-menu. Anything still pointing at a
+     sub-route — a deep link, or a same-document hash change — lands on the
+     single page instead. */
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true
-      return
+    const normalize = () => {
+      if (window.location.hash.startsWith('#/settings/')) {
+        window.location.hash = '#/settings'
+      }
     }
-    panelRef.current?.focus()
-  }, [section])
+    normalize()
+    window.addEventListener('hashchange', normalize)
+    return () => window.removeEventListener('hashchange', normalize)
+  }, [])
 
-  const notify = useCallback((message: string) => setToast(message), [])
-
-  const persist = useCallback(
-    (patch: Partial<Settings>, message: string) => {
-      saveSettings(patch)
-      notify(message)
-    },
-    [notify],
-  )
+  const persist = useCallback((patch: Partial<Settings>, message: string) => {
+    saveSettings(patch)
+    setToast(message)
+  }, [])
 
   return (
     <div className="dashboard-shell">
       <AppSidebar open={menuOpen} active="settings" />
       {menuOpen && (
-        <div
-          className="sidebar-scrim"
-          onClick={() => setMenuOpen(false)}
-          aria-hidden="true"
-        />
+        <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />
       )}
 
       <main className="main" id="main">
-        <TopHeader
-          onMenu={() => setMenuOpen((open) => !open)}
-          breadcrumb="Workspace / Settings"
-          title="Settings"
-          subtitle="Manage your profile, workspace preferences, and review experience."
-          showSearch={false}
-        />
+        <TopBar onMenu={() => setMenuOpen((open) => !open)} breadcrumb="Workspace / Settings" />
 
         <div className="dashboard-content settings-page">
-          <div className="st-layout">
-            <SettingsNavigation active={section} onChange={setSection} />
+          <PageHeader
+            title="Settings"
+            subtitle="Manage your profile and how AI assists your review."
+          />
 
-            <section
-              className="st-panel"
-              aria-label="Settings section"
-              tabIndex={-1}
-              ref={panelRef}
-            >
-              {section === 'profile' && (
-                <ProfileSettings
-                  value={settings.profile}
-                  onSave={(next, message) => persist({ profile: next }, message)}
-                />
-              )}
+          <div className="st-stack">
+            <section className="st-panel" aria-label="My Profile">
+              <ProfileSettings
+                value={settings.profile}
+                onSave={(next, message) => persist({ profile: next }, message)}
+              />
+            </section>
 
-              {section === 'preferences' && (
-                <PreferencesSettings
-                  value={settings.preferences}
-                  onSave={(next, message) => persist({ preferences: next }, message)}
-                  onReset={() =>
-                    persist(
-                      { preferences: { ...DEFAULT_SETTINGS.preferences } },
-                      'Preferences reset to defaults',
-                    )
-                  }
-                />
-              )}
+            <section className="st-panel" aria-label="AI Review Preferences">
+              <AIReviewSettings />
+            </section>
 
-              {section === 'notifications' && (
-                <NotificationSettings
-                  value={settings.notifications}
-                  onSave={(next, message) => persist({ notifications: next }, message)}
-                />
-              )}
-
-              {section === 'ai' && (
-                <AIReviewSettings
-                  value={settings.ai}
-                  onSave={(next, message) => persist({ ai: next }, message)}
-                />
-              )}
-
-              {section === 'workspace' && (
-                <WorkspaceSettings
-                  value={settings.workspace}
-                  role={settings.profile.role}
-                  onSave={(next, message) => persist({ workspace: next }, message)}
-                />
-              )}
-
-              {section === 'privacy' && (
-                <PrivacySecuritySettings
-                  profile={settings.profile}
-                  workspace={settings.workspace}
-                />
-              )}
-
-              {section === 'about' && <AboutSettings />}
+            <section className="st-panel" aria-label="Notifications">
+              <NotificationSettings />
             </section>
           </div>
 
@@ -159,8 +88,7 @@ export function SettingsPage() {
                 <path d="M12 3l7 3v5.5c0 4-3 7.4-7 8.5-4-1.1-7-4.5-7-8.5V6z" />
               </svg>
             </span>
-            AI helps connect and explain evidence. Humans remain responsible for the final
-            decision.
+            AI helps connect and explain evidence. Humans remain responsible for the final decision.
           </p>
         </div>
       </main>

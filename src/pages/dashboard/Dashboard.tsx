@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
-import { TopHeader } from '../../components/layout/TopHeader'
+import { TopBar } from '../../components/layout/TopBar'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { ClaimMetrics } from './ClaimMetrics'
 import { ClaimStatus } from './ClaimStatus'
 import { RecentActivity } from './RecentActivity'
@@ -51,9 +52,14 @@ export function Dashboard() {
       )}
 
       <main className="main" id="main">
-        <TopHeader onMenu={() => setMenuOpen((was) => !was)} showSearch={false} />
+        <TopBar onMenu={() => setMenuOpen((was) => !was)} />
 
         <div className="dashboard-content">
+          <PageHeader
+            title="Claims Overview"
+            subtitle="Monitor your claims workload, review priorities, and recent activity."
+          />
+
           <p className="human-review-note">
             AI findings support reviewers. Final decisions remain with authorized reviewers.
           </p>

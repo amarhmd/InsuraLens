@@ -1,5 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { PaperclipIcon, SendIcon } from './chatIcons'
+import { SuggestionChip } from './SuggestionCard'
 import { SUGGESTIONS } from '../../lib/chatData'
 
 type Props = {
@@ -9,13 +10,16 @@ type Props = {
   onAttach: () => void
   onPickSuggestion: (text: string) => void
   sending: boolean
+  /** Compact suggestion chips appear only after the first message. */
+  hasMessages: boolean
   /** e.g. "Using context: CLM-10482", or null in general mode. */
   contextLabel: string | null
 }
 
 /**
- * Bottom composer. Enter sends, Shift + Enter inserts a newline,
- * sending is disabled while the input is empty or a reply is pending.
+ * Bottom composer. Enter sends, Shift + Enter inserts a newline, sending is
+ * disabled while the input is empty or a reply is pending. The suggested
+ * prompts collapse from the welcome grid to this compact chip row.
  */
 export function MessageComposer({
   value,
@@ -24,6 +28,7 @@ export function MessageComposer({
   onAttach,
   onPickSuggestion,
   sending,
+  hasMessages,
   contextLabel,
 }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -44,6 +49,14 @@ export function MessageComposer({
 
   return (
     <div className="composer">
+      {hasMessages && value.trim().length === 0 && !sending && (
+        <div className="composer__chips" aria-label="Suggested prompts">
+          {SUGGESTIONS.map((s) => (
+            <SuggestionChip key={s.id} text={s.text} onPick={onPickSuggestion} />
+          ))}
+        </div>
+      )}
+
       <div className="composer__row">
         <button
           type="button"
@@ -53,7 +66,7 @@ export function MessageComposer({
           onClick={onAttach}
           disabled={sending}
         >
-          <PaperclipIcon size={16} />
+          <PaperclipIcon size={17} />
         </button>
 
         <label className="sr-only" htmlFor="composer-input">
@@ -64,7 +77,7 @@ export function MessageComposer({
           ref={inputRef}
           className="composer__input"
           rows={1}
-          placeholder="Ask a question about this claim..."
+          placeholder="Ask a question about this claim…"
           value={value}
           onChange={(e) => {
             onChange(e.target.value)
@@ -75,7 +88,7 @@ export function MessageComposer({
 
         <button
           type="button"
-          className="composer__send"
+          className={canSend ? 'composer__send is-ready' : 'composer__send'}
           aria-label="Send message"
           disabled={!canSend}
           onClick={onSend}
@@ -88,25 +101,8 @@ export function MessageComposer({
         </button>
       </div>
 
-      {value.trim().length === 0 && !sending && (
-        <div className="composer__suggestions">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              className="composer__suggestion"
-              onClick={() => onPickSuggestion(s.text)}
-            >
-              {s.text}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div className="composer__foot">
-        <span className="composer__hint">
-          Enter to send · Shift + Enter for a new line
-        </span>
+        <span className="composer__hint">Enter to send · Shift + Enter for a new line</span>
         {contextLabel ? (
           <span className="composer__context">{contextLabel}</span>
         ) : (

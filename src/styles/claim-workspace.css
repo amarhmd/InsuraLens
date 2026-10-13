@@ -1,0 +1,822 @@
+/* ==========================================================================
+   Claim workspace (#/claims/:id)
+
+   A self-contained content style layer. Everything is scoped under `.cw-root`
+   and every class is prefixed `cw-`, so this sheet never touches the rest of
+   the app. The brief's content tokens live here as `--cw-*` custom properties.
+   The page reuses the app's shared shell (AppSidebar + TopBar) and the app's
+   base font, so only the main content area carries this visual treatment.
+   ========================================================================== */
+
+.cw-root {
+  /* Content tokens — exactly the values from the brief. */
+  --cw-bg: #f4f7f9;
+  --cw-card: #ffffff;
+  --cw-border: #dde5ec;
+  --cw-ink: #13293d;
+  --cw-muted: #4a6275;
+  --cw-navy: #0e2740;
+  --cw-navy-text: #b9cbdb;
+  --cw-navy-line: #20405d;
+  --cw-teal: #0d7d77;
+  --cw-teal-ink: #0a625d;
+  --cw-red: #c62828;
+
+  flex: 1;
+  background: var(--cw-bg);
+  color: var(--cw-ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Visible, consistent focus ring for every control on the page. */
+.cw-root :focus-visible {
+  outline: 2px solid var(--cw-teal);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Content                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.cw-content {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding: 28px 32px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cards, headers, sections                                                    */
+/* -------------------------------------------------------------------------- */
+
+.cw-card {
+  background: var(--cw-card);
+  border: 1px solid var(--cw-border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 2px rgba(19, 41, 61, 0.03);
+}
+
+.cw-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 24px;
+  flex-wrap: wrap;
+}
+
+.cw-header__main {
+  min-width: 0;
+}
+
+.cw-header__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cw-header__title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--cw-ink);
+}
+
+.cw-header__badges {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cw-header__sub {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--cw-muted);
+}
+
+.cw-header__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cw-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cw-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cw-section__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cw-ink);
+}
+
+/* ---- Summary strip ---- */
+
+/* auto-fit lets the strip fold to fewer columns when it runs out of room,
+   rather than forcing an overflow. */
+.cw-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.cw-summary__item {
+  min-width: 0;
+}
+
+.cw-summary__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--cw-muted);
+}
+
+.cw-summary__value {
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cw-ink);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Badges & chips                                                              */
+/* -------------------------------------------------------------------------- */
+
+.cw-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.cw-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #c08a00;
+}
+
+.cw-badge--human {
+  background: #e3eefa;
+  color: #1a4f8a;
+}
+
+.cw-badge--priority {
+  background: #fde8e8;
+  color: #a12626;
+}
+
+.cw-badge--demo {
+  background: #fff4d6;
+  color: #7a5200;
+  border-color: #f0d58a;
+}
+
+.cw-badge--supported {
+  background: #e1f3e8;
+  color: #14693a;
+}
+
+.cw-badge--needs {
+  background: #fff0c7;
+  color: #7a5200;
+}
+
+.cw-badge--info {
+  background: #e3eefa;
+  color: #1a4f8a;
+}
+
+/* Section-level tag, e.g. "AI-SUGGESTED" / "AI-GENERATED · VERIFY". */
+.cw-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  background: rgba(13, 125, 119, 0.1);
+  border: 1px solid rgba(13, 125, 119, 0.28);
+  color: var(--cw-teal-ink);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Buttons                                                                     */
+/* -------------------------------------------------------------------------- */
+
+.cw-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.cw-btn:hover {
+  text-decoration: none;
+}
+
+.cw-btn--primary {
+  background: var(--cw-teal);
+  color: #fff;
+}
+
+.cw-btn--primary:hover {
+  background: #0b6b66;
+}
+
+.cw-btn--secondary {
+  background: #fff;
+  border-color: #c5d2dd;
+  color: var(--cw-ink);
+}
+
+.cw-btn--secondary:hover {
+  background: var(--cw-bg);
+  border-color: #afc0ce;
+}
+
+/* White button for use on the dark decision card. */
+.cw-btn--light {
+  background: #fff;
+  color: var(--cw-navy);
+}
+
+.cw-btn--light:hover {
+  background: #e8eef4;
+}
+
+/* Transparent button with a light border, for the dark decision card. */
+.cw-btn--ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+}
+
+.cw-btn--ghost:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cw-btn--block {
+  width: 100%;
+}
+
+/* aria-disabled (not `disabled`) keeps the button in the tab order, so the
+   reason it is unavailable stays discoverable. */
+.cw-btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cw-btn[aria-disabled='true']:hover {
+  background: var(--cw-teal);
+  color: #fff;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Two-column body                                                             */
+/* -------------------------------------------------------------------------- */
+
+.cw-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cw-grid__main,
+.cw-grid__side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Evidence grid                                                               */
+/* -------------------------------------------------------------------------- */
+
+.cw-evidence {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.cw-evidence__tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 104px;
+  padding: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.cw-evidence__tile--photo {
+  background: linear-gradient(135deg, #e6edf3 0%, #c7d6e2 100%);
+}
+
+.cw-evidence__tile--doc {
+  background: #fff;
+  border: 1px dashed #b9c7d4;
+}
+
+.cw-evidence__thumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4a6275;
+}
+
+.cw-evidence__thumb svg {
+  width: 28px;
+  height: 28px;
+}
+
+.cw-evidence__caption {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2e4257;
+}
+
+/* Applied briefly when a finding chip points at this tile. */
+.cw-evidence__tile--highlight {
+  border-color: var(--cw-teal);
+  box-shadow: 0 0 0 2px var(--cw-teal), 0 0 0 4px rgba(13, 125, 119, 0.18);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Damage map                                                                  */
+/* -------------------------------------------------------------------------- */
+
+.cw-damage__layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.cw-damage__canvas {
+  position: relative;
+  width: 100%;
+  max-width: 240px;
+  margin-inline: auto;
+}
+
+.cw-car {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.cw-car__label {
+  fill: #5a7285;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.cw-dmg-box {
+  position: absolute;
+  padding: 0;
+  border: 2px solid var(--cw-red);
+  border-radius: 6px;
+  background: rgba(198, 40, 40, 0.16);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.cw-dmg-box:hover {
+  background: rgba(198, 40, 40, 0.24);
+}
+
+/* Selected: stronger red fill with a white/red double ring. */
+.cw-dmg-box--selected {
+  background: rgba(198, 40, 40, 0.3);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--cw-red);
+}
+
+/* Dismissed: faded with a dashed border. */
+.cw-dmg-box--dismissed {
+  opacity: 0.4;
+  border-style: dashed;
+  background: rgba(198, 40, 40, 0.1);
+}
+
+.cw-dmg-box__num {
+  position: absolute;
+  top: -10px;
+  inset-inline-start: -10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--cw-red);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+
+.cw-damage__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.cw-dmg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cw-dmg-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #f7f9fb;
+  text-align: start;
+}
+
+.cw-dmg-row:hover {
+  background: #eef3f7;
+}
+
+/* Selected list row: teal 2px border. */
+.cw-dmg-row--selected {
+  border-color: var(--cw-teal);
+  background: #eaf5f4;
+}
+
+.cw-dmg-row__num {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(198, 40, 40, 0.14);
+  color: #a12626;
+  font-size: 12px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.cw-dmg-row__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cw-dmg-row__zone {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--cw-ink);
+}
+
+.cw-dmg-row__meta {
+  font-size: 12.5px;
+  color: var(--cw-muted);
+}
+
+.cw-dmg-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--cw-border);
+  border-radius: 10px;
+}
+
+.cw-dmg-detail__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cw-muted);
+}
+
+.cw-dmg-detail__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cw-ink);
+}
+
+.cw-dmg-detail__photo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #e6edf3 0%, #c7d6e2 100%);
+}
+
+.cw-dmg-detail__thumb {
+  display: flex;
+  color: #4a6275;
+}
+
+.cw-dmg-detail__thumb svg {
+  width: 24px;
+  height: 24px;
+}
+
+.cw-dmg-detail__photo-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2e4257;
+}
+
+.cw-dmg-detail__finding {
+  font-size: 13.5px;
+  color: #3e5568;
+}
+
+.cw-dmg-detail__status {
+  font-size: 13px;
+  color: var(--cw-muted);
+}
+
+.cw-dmg-detail__status strong {
+  color: var(--cw-ink);
+}
+
+.cw-dmg-detail__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cw-dmg-detail__actions .cw-btn {
+  flex: 1 1 auto;
+}
+
+/* -------------------------------------------------------------------------- */
+/* AI findings                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.cw-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cw-finding {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--cw-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+/* The "needs review" finding gets the warm background + amber border. */
+.cw-finding--needs {
+  background: #fffaf0;
+  border-color: #ebc98a;
+}
+
+.cw-finding__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cw-finding__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cw-ink);
+}
+
+.cw-finding__text {
+  font-size: 13.5px;
+  color: #3e5568;
+}
+
+.cw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.cw-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(13, 125, 119, 0.3);
+  background: rgba(13, 125, 119, 0.1);
+  color: var(--cw-teal-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cw-chip:hover {
+  background: rgba(13, 125, 119, 0.18);
+}
+
+/* Grow the tap target to 44px without growing the pill. */
+.cw-chip::after {
+  content: '';
+  position: absolute;
+  inset-block: -6px;
+  inset-inline: 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Side column                                                                 */
+/* -------------------------------------------------------------------------- */
+
+.cw-progress__count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cw-ink);
+}
+
+.cw-progress__track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e3eaf0;
+  overflow: hidden;
+}
+
+.cw-progress__bar {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--cw-teal);
+  transition: width 0.2s ease;
+}
+
+.cw-progress__line {
+  font-size: 13.5px;
+  color: #3e5568;
+}
+
+.cw-progress__hint {
+  font-size: 13px;
+  color: var(--cw-muted);
+}
+
+.cw-progress__hint--done {
+  color: var(--cw-teal-ink);
+  font-weight: 600;
+}
+
+.cw-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cw-policy__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cw-policy__label {
+  font-size: 13.5px;
+  color: var(--cw-muted);
+}
+
+.cw-policy__value {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--cw-ink);
+  text-align: end;
+}
+
+.cw-policy__value--success {
+  color: #14693a;
+}
+
+.cw-decision {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 12px;
+  background: var(--cw-navy);
+  color: #fff;
+}
+
+.cw-decision__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cw-decision__text {
+  font-size: 13.5px;
+  color: #c7d8e6;
+}
+
+.cw-decision__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Not-found fallback                                                          */
+/* -------------------------------------------------------------------------- */
+
+.cw-notfound {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cw-notfound__title {
+  font-size: 24px;
+}
+
+.cw-muted {
+  font-size: 14px;
+  color: var(--cw-muted);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Responsive: below 900px the two body columns stack                          */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 899px) {
+  .cw-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Car on top, list + detail beneath it. */
+  .cw-damage__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 639px) {
+  .cw-content {
+    padding: 20px 16px 48px;
+  }
+
+  .cw-header {
+    align-items: flex-start;
+  }
+
+  .cw-header__actions {
+    width: 100%;
+  }
+
+  .cw-header__actions .cw-btn {
+    flex: 1 1 auto;
+  }
+}

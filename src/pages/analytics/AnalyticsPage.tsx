@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
-import { TopHeader } from '../../components/layout/TopHeader'
+import { TopBar } from '../../components/layout/TopBar'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { AnalyticsHeader } from './AnalyticsHeader'
 import { AnalyticsFilters } from './AnalyticsFilters'
 import { AnalyticsKPIs } from './AnalyticsKPIs'
@@ -111,15 +112,14 @@ export function AnalyticsPage() {
       )}
 
       <main className="main" id="main">
-        <TopHeader
-          onMenu={() => setMenuOpen((was) => !was)}
-          breadcrumb="Workspace / Analytics"
-          title="Claims Analytics"
-          subtitle="Understand claims trends, workflow performance, and evidence review activity."
-          showSearch={false}
-        />
+        <TopBar onMenu={() => setMenuOpen((was) => !was)} breadcrumb="Workspace / Analytics" />
 
         <div className="dashboard-content analytics-page">
+          <PageHeader
+            title="Claims Analytics"
+            subtitle="Understand claims trends, workflow performance, and evidence review activity."
+          />
+
           <AnalyticsFilters
             filters={filters}
             onChange={setFilters}

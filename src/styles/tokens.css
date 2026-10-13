@@ -98,6 +98,41 @@
   --lh-tight: 1.2;
   --lh-snug: 1.35;
   --lh-body: 1.55;
+  --lh-chat: 1.6;
+
+  /* ---- Type scale (chat workspace) ---- */
+  --fs-page: 21px; /* compact page/lead title */
+  --fs-title: 17px; /* message + panel titles */
+  --fs-section: 15px; /* section headings */
+  --fs-body: 15px; /* base body inside chat */
+  --fs-sm: 14px;
+  --fs-caption: 12.5px;
+
+  /* ---- Accent (one strong teal; -bright is decorative only) ---- */
+  --accent: #0f7f81; /* text-bearing teal — AA on white (4.80:1) */
+  --accent-strong: #0c6e70; /* hover/pressed */
+  --accent-bright: #16b5a4; /* decorative gradient/glow only */
+  --accent-soft: rgba(15, 127, 129, 0.1);
+  --accent-line: rgba(15, 127, 129, 0.34);
+  --accent-grad: linear-gradient(135deg, #16b5a4 0%, #0f7f81 100%);
+
+  /* ---- Semantic status ---- */
+  --success: #116946;
+  --success-soft: #e7f6ef;
+  --success-line: rgba(22, 138, 91, 0.32);
+  --warning: #8a5a00;
+  --warning-soft: #fdf3e2;
+  --warning-line: rgba(201, 130, 0, 0.36);
+  --danger: #a13232;
+  --danger-soft: #fdecec;
+  --danger-line: rgba(194, 65, 65, 0.36);
+  --info: #2a5f94;
+  --info-soft: rgba(53, 120, 184, 0.08);
+  --info-line: rgba(53, 120, 184, 0.3);
+
+  /* ---- Surfaces (chat elevations) ---- */
+  --surface-soft: #f4f7fb;
+  --surface-inset: #eef2f7;
 
   /* ---- Motion: subtle and fast ---- */
   --ease: cubic-bezier(0.32, 0.72, 0.28, 1);

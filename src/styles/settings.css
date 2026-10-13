@@ -25,6 +25,13 @@
   align-items: start;
 }
 
+/* The simplified page stacks its sections as cards on one page. */
+.st-stack {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
 /* --------------------------------------------------------------------------
    Section navigation (desktop)
    -------------------------------------------------------------------------- */
@@ -275,22 +282,36 @@
   color: var(--text-secondary);
 }
 
+/* 44px hit target wrapping the smaller visible track. */
 .st-switch {
   position: relative;
-  width: 42px;
-  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
   padding: 0;
   flex: none;
-  border: 1.5px solid #64748b;
-  border-radius: var(--r-pill);
-  background: var(--surface-sunken);
+  border: 0;
+  background: none;
   cursor: pointer;
-  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
 }
 
 .st-switch:focus-visible {
   outline: 2px solid var(--teal-600);
   outline-offset: 2px;
+  border-radius: var(--r-pill);
+}
+
+.st-switch__track {
+  position: relative;
+  display: block;
+  width: 42px;
+  height: 24px;
+  border: 1.5px solid #64748b;
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
 }
 
 .st-switch__knob {
@@ -306,7 +327,7 @@
   transition: left var(--t-base) var(--ease);
 }
 
-.st-switch--on {
+.st-switch--on .st-switch__track {
   background: var(--teal-600);
   border-color: var(--teal-600);
 }
@@ -1002,6 +1023,36 @@
   color: var(--teal-700);
 }
 
+/* Inline confirmation — toggles save immediately, so there is no Save bar. */
+.st-saved {
+  min-height: 20px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--teal-700);
+}
+
+/* Fixed reminder inside the AI Review Preferences card — not a control. */
+.st-fixed-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding: 12px 14px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.st-fixed-note__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
 /* Keep keyboard focus visible across every settings control. */
 .st-panel a:focus-visible,
 .st-panel button:focus-visible {
@@ -1145,6 +1196,7 @@ html[data-density='compact'] .claims-th__btn {
 @media (prefers-reduced-motion: reduce) {
   .st-nav__btn,
   .st-switch,
+  .st-switch__track,
   .st-switch__knob,
   .st-pill,
   .st-card {

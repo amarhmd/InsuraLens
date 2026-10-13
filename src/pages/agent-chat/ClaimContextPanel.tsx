@@ -1,6 +1,10 @@
+import type { ReactNode } from 'react'
 import { evidenceBreakdown, type EvidenceRow } from '../../lib/chatData'
 import type { Claim } from '../../lib/claimsData'
 import { StatusBadge } from '../../components/ui/StatusBadge'
+import { cx } from '../../lib/cx'
+import { StatusStepper, type Step } from './StatusStepper'
+import { FileIcon, ImageIcon, InfoIcon, NoteIcon, ShieldIcon } from './chatIcons'
 
 type Props = {
   claim: Claim | undefined
@@ -16,24 +20,27 @@ const FILE_LABEL: Record<string, [singular: string, plural: string]> = {
   'policy-documents': ['file', 'files'],
 }
 
-const SOURCE_NAME: Record<string, string> = {
-  'accident-report': 'Accident Report',
-  'vehicle-photos': 'Vehicle Photos',
-  'customer-statement': 'Customer Statement',
-  'policy-documents': 'Policy Documents',
+const SOURCE: Record<string, { name: string; icon: ReactNode }> = {
+  'accident-report': { name: 'Accident Report', icon: <FileIcon size={16} /> },
+  'vehicle-photos': { name: 'Vehicle Photos', icon: <ImageIcon size={16} /> },
+  'customer-statement': { name: 'Customer Statement', icon: <NoteIcon size={16} /> },
+  'policy-documents': { name: 'Policy Documents', icon: <ShieldIcon size={16} /> },
 }
+
+/* Illustrative review sequence — read from the same mock claim, not live data. */
+const STEPS: Step[] = [
+  { state: 'complete', label: 'Evidence collection', value: 'Complete' },
+  { state: 'complete', label: 'AI analysis', value: 'Available' },
+  { state: 'attention', label: 'Policy review', value: 'Needs reviewer attention' },
+  { state: 'pending', label: 'Final decision', value: 'Pending human review' },
+]
 
 const rowLabel = (row: EvidenceRow) => {
   const [one, many] = FILE_LABEL[row.sourceId] ?? ['file', 'files']
   return `${row.count} ${row.count === 1 ? one : many}`
 }
 
-export function ClaimContextPanel({
-  claim,
-  highlightedId,
-  onOpenSource,
-  onClose,
-}: Props) {
+export function ClaimContextPanel({ claim, highlightedId, onOpenSource, onClose }: Props) {
   const breakdown = evidenceBreakdown(claim)
   const total = breakdown.reduce((sum, row) => sum + row.count, 0)
 
@@ -62,7 +69,13 @@ export function ClaimContextPanel({
       ) : (
         <>
           <section className="chat-ctx__summary" aria-label="Claim summary">
-            <span className="chat-ctx__claim-id">{claim.id}</span>
+            <div className="chat-ctx__summary-head">
+              <span className="chat-ctx__claim-id">{claim.id}</span>
+              <div className="chat-ctx__badges">
+                <StatusBadge status={claim.status} />
+                <StatusBadge status={claim.priority} />
+              </div>
+            </div>
             <dl className="chat-ctx__fields">
               <div className="chat-ctx__field">
                 <dt>Incident</dt>
@@ -71,18 +84,6 @@ export function ClaimContextPanel({
               <div className="chat-ctx__field">
                 <dt>Reported</dt>
                 <dd>{claim.dateReported}</dd>
-              </div>
-              <div className="chat-ctx__field">
-                <dt>Current status</dt>
-                <dd>
-                  <StatusBadge status={claim.status} />
-                </dd>
-              </div>
-              <div className="chat-ctx__field">
-                <dt>Priority</dt>
-                <dd>
-                  <StatusBadge status={claim.priority} />
-                </dd>
               </div>
             </dl>
           </section>
@@ -96,23 +97,34 @@ export function ClaimContextPanel({
             </div>
             <ul className="chat-ctx__evidence">
               {breakdown.map((row) => {
+                const meta = SOURCE[row.sourceId] ?? { name: row.sourceId, icon: <FileIcon size={16} /> }
                 const isHi = highlightedId === row.sourceId
                 return (
-                  <li key={row.sourceId}>
+                  <li key={row.sourceId} className="chat-ctx__evidence-item">
                     <button
                       type="button"
-                      className={`chat-ctx__evidence-btn${isHi ? ' is-highlighted' : ''}`}
+                      className={cx('chat-ctx__evidence-btn', isHi && 'is-highlighted')}
                       onClick={() => onOpenSource(row.sourceId)}
-                      aria-label={`Preview ${SOURCE_NAME[row.sourceId] ?? row.sourceId}`}
+                      aria-label={`Preview ${meta.name}`}
                     >
-                      <span className="chat-ctx__evidence-name">
-                        {SOURCE_NAME[row.sourceId] ?? row.sourceId}
+                      <span className="chat-ctx__evidence-icon" aria-hidden="true">
+                        {meta.icon}
                       </span>
-                      <span className="chat-ctx__evidence-count">{rowLabel(row)}</span>
+                      <span className="chat-ctx__evidence-main">
+                        <span className="chat-ctx__evidence-name">{meta.name}</span>
+                        <span className="chat-ctx__evidence-count">{rowLabel(row)}</span>
+                      </span>
+                      {row.sourceId === 'vehicle-photos' && (
+                        <span className="chat-ctx__thumbs" aria-hidden="true">
+                          {Array.from({ length: Math.min(row.count, 3) }).map((_, i) => (
+                            <span key={i} className="chat-ctx__thumb">
+                              <ImageIcon size={14} />
+                            </span>
+                          ))}
+                        </span>
+                      )}
                     </button>
-                    {isHi && (
-                      <span className="chat-ctx__evidence-flag">Last previewed</span>
-                    )}
+                    {isHi && <span className="chat-ctx__evidence-flag">Last previewed</span>}
                   </li>
                 )
               })}
@@ -121,17 +133,13 @@ export function ClaimContextPanel({
 
           <section className="chat-ctx__section" aria-label="Investigation status">
             <h3 className="chat-ctx__section-title">Investigation status</h3>
-            <ul className="chat-ctx__status-list">
-              <StatusRow state="complete" label="Evidence collection" value="Complete" />
-              <StatusRow state="complete" label="AI analysis" value="Available" />
-              <StatusRow state="attention" label="Policy review" value="Requires reviewer attention" />
-              <StatusRow state="pending" label="Final decision" value="Pending human review" />
-            </ul>
-            <p className="chat-ctx__status-note">
-              An available AI analysis is not an approval — final decisions remain with an
-              authorized reviewer.
-            </p>
+            <StatusStepper steps={STEPS} />
           </section>
+
+          <p className="chat-ctx__disclaimer">
+            <InfoIcon size={15} />
+            <span>AI analysis is not an approval — final decisions remain with a human reviewer.</span>
+          </p>
 
           <a className="chat-ctx__workspace-btn" href={`#/claims/${encodeURIComponent(claim.id)}`}>
             Open Claim Workspace
@@ -141,28 +149,6 @@ export function ClaimContextPanel({
           </a>
         </>
       )}
-
-
     </div>
   )
 }
-
-function StatusRow({
-  state,
-  label,
-  value,
-}: {
-  state: 'complete' | 'attention' | 'pending'
-  label: string
-  value: string
-}) {
-  return (
-    <li className={`chat-ctx__status chat-ctx__status--${state}`}>
-      <span className="chat-ctx__status-dot" aria-hidden="true" />
-      <span className="chat-ctx__status-label">{label}</span>
-      <span className="chat-ctx__status-value">{value}</span>
-    </li>
-  )
-}
-
-

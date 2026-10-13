@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
-import { TopHeader } from '../../components/layout/TopHeader'
+import { TopBar } from '../../components/layout/TopBar'
 import { ChatHeader } from './ChatHeader'
 import { ChatMessageList } from './ChatMessageList'
 import { ConversationSidebar } from './ConversationSidebar'
@@ -9,8 +10,9 @@ import { EvidencePreviewPanel } from './EvidencePreviewPanel'
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog'
 import { ToastNotification } from '../../components/feedback/ToastNotification'
 import { cx } from '../../lib/cx'
-import { CHAT_PAGE_TITLE, incidentLabel } from '../../lib/constants'
+import { incidentLabel } from '../../lib/constants'
 import { useAgentChat } from './useAgentChat'
+import { useChatTheme } from './useChatTheme'
 
 /**
  * Agent Chat — investigation workspace.
@@ -57,28 +59,35 @@ export function AgentChatPage() {
     setClaimContext,
     send,
     retryLastUserMessage,
+    regenerateLast,
     openSource,
     pickSuggestion,
     attachDemo,
   } = useAgentChat()
 
+  const { theme, toggle: toggleTheme } = useChatTheme()
+
+  /* A brief skeleton pulse when switching conversation or claim context. */
+  const [switching, setSwitching] = useState(false)
+  const switchTimer = useRef<number | undefined>(undefined)
+  const pulseSwitch = () => {
+    setSwitching(true)
+    window.clearTimeout(switchTimer.current)
+    switchTimer.current = window.setTimeout(() => setSwitching(false), 320)
+  }
+  useEffect(() => () => window.clearTimeout(switchTimer.current), [])
+
   const context = active?.claimId && claim ? `${claim.id} · ${incidentLabel(claim.incident)}` : null
 
   return (
-    <div className="dashboard-shell">
+    <div className="dashboard-shell" data-theme={theme}>
       <AppSidebar open={menuOpen} active="chat" />
       {menuOpen && (
         <div className="sidebar-scrim" onClick={() => setMenuOpen(false)} aria-hidden="true" />
       )}
 
       <main className="main main--chat" id="main">
-        <TopHeader
-          onMenu={() => setMenuOpen((was) => !was)}
-          breadcrumb="Workspace / Agent Chat"
-          title={CHAT_PAGE_TITLE}
-          subtitle="Explore claim evidence, understand policy context, and investigate findings with AI assistance."
-          showSearch={false}
-        />
+        <TopBar onMenu={() => setMenuOpen((was) => !was)} breadcrumb="Workspace / Agent Chat" />
 
         <div className="chat-layout">
           {loading && (
@@ -107,6 +116,7 @@ export function AgentChatPage() {
                 onSearch={setSearch}
                 onSelect={(id) => {
                   setActiveId(id)
+                  pulseSwitch()
                   setLeftOpen(false)
                   setRightMode({ kind: 'context' })
                 }}
@@ -124,12 +134,17 @@ export function AgentChatPage() {
                   context={context}
                   claimOptions={claimOptions}
                   selectedClaimId={active?.claimId ?? ''}
-                  onClaimChange={setClaimContext}
+                  onClaimChange={(id) => {
+                    setClaimContext(id)
+                    pulseSwitch()
+                  }}
                   onNewChat={startNewConversation}
                   onClear={() => setConfirm({ kind: 'clear' })}
                   onDeleteConversation={() =>
                     active && setConfirm({ kind: 'delete', id: active.id })
                   }
+                  theme={theme}
+                  onToggleTheme={toggleTheme}
                   showPanelToggles={showPanelToggles}
                   leftOpen={leftOpen}
                   rightOpen={rightOpen}
@@ -140,9 +155,14 @@ export function AgentChatPage() {
                 <ChatMessageList
                   messages={active?.messages ?? []}
                   loading={sending}
-                  busyLabel="Reviewing mock claim records…"
+                  skeleton={switching}
+                  busyLabel="Analyzing evidence…"
                   onOpenSource={openSource}
                   onRetry={retryLastUserMessage}
+                  onRegenerate={regenerateLast}
+                  onSaveNote={() =>
+                    setToast('Saved to claim notes (demo — nothing is persisted).')
+                  }
                   onPickSuggestion={pickSuggestion}
                   notice={
                     <p className="chat-notice">
@@ -160,6 +180,7 @@ export function AgentChatPage() {
                   onAttach={attachDemo}
                   onPickSuggestion={pickSuggestion}
                   sending={sending}
+                  hasMessages={(active?.messages.length ?? 0) > 0}
                   contextLabel={active?.claimId ? `Using context: ${active.claimId}` : null}
                 />
 

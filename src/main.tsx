@@ -13,6 +13,7 @@ import './styles/claims.css'
 import './styles/chat.css'
 import './styles/analytics.css'
 import './styles/settings.css'
+import './styles/claim-workspace.css'
 
 const container = document.getElementById('root')
 

@@ -44,13 +44,23 @@ const cases = [
   ['critical-dark on white (delete menu item)', '#A13232', WHITE, 4.5],
   ['text-secondary on white (timestamps, hints)', '#64748B', WHITE, 4.5],
   ['text-secondary on page (field labels)', '#64748B', PAGE, 4.5],
-  ['white on navy (send button, workspace button)', WHITE, '#12304a', 4.5],
+  ['white on navy (user avatar, workspace button, preview)', WHITE, '#12304a', 4.5],
+  ['white on teal-600 (user bubble, send button)', WHITE, '#0f7f81', 4.5],
+  ['white on sidebar active gradient end', WHITE, '#0b6365', 4.5],
+  ['sidebar label on navy (inactive, icons)', '#c7d8e6', '#12304a', 4.5],
   ['text-primary on surface-hover (active conversation)', '#172B3A', PAGE, 4.5],
   ['disabled send icon / border fill', '#64748B', '#e2e8f0', 3.0],
-  ['slate focus ring on white', '#4C6FFF', WHITE, 3.0],
-  ['slate focus ring on page', '#4C6FFF', PAGE, 3.0],
+  ['accent focus ring on white', '#0F7F81', WHITE, 3.0],
+  ['accent focus ring on page', '#0F7F81', PAGE, 3.0],
   ['teal border on white (panel affordances)', '#159A9C', WHITE, 3.0],
   ['scrim navy vs page', '#12304a', PAGE, 3.0],
+  /* Dark theme (data-theme="dark") */
+  ['dark primary text on dark surface', '#e9f1f7', '#10222f', 4.5],
+  ['dark secondary text on dark surface', '#9db3c2', '#10222f', 4.5],
+  ['dark accent on dark surface', '#4fd8c8', '#10222f', 4.5],
+  ['dark ink on bright accent (send icon)', '#06231f', '#4fd8c8', 4.5],
+  ['dark info note on info tint', '#8fc0ee', blend('rgba(53,120,184,0.2)', '#10222f'), 4.5],
+  ['dark warning title on warning tint', '#f0be63', blend('rgba(201,130,0,0.2)', '#10222f'), 4.5],
 ]
 
 let fail = 0

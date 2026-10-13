@@ -26,7 +26,8 @@ export function AppSidebar({ open, active = 'dashboard' }: SidebarProps) {
   return (
     <aside className={cx('sidebar', open && 'sidebar--open')}>
       <div className="sidebar__top">
-        <img src="/insuralens-logo.png" alt="InsuraLens" className="sidebar__logo" />
+        {/* White logo variant on the Deep Navy sidebar (dark logo would blend in) */}
+        <img src="/insuralens-logo-white.png" alt="InsuraLens" className="sidebar__logo" />
         <div className="sidebar__workspace">{getSettings().workspace.displayName}</div>
       </div>
 
@@ -98,8 +99,8 @@ function NavIcon({ name }: { name: SidebarKey }) {
   return (
     <svg
       className="sidebar__nav-icon"
-      width="18"
-      height="18"
+      width="20"
+      height="20"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

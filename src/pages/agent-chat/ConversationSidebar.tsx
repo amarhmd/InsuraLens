@@ -179,8 +179,11 @@ export function ConversationSidebar({
                           aria-current={isActive ? 'true' : undefined}
                           onClick={() => onSelect(conv.id)}
                         >
-                          <span className="conv-item__title">{conv.title}</span>
-                          <span className="conv-item__time">{conv.time}</span>
+                          <span className="conv-item__indicator" aria-hidden="true" />
+                          <span className="conv-item__body">
+                            <span className="conv-item__title">{conv.title}</span>
+                            <span className="conv-item__time">{conv.time}</span>
+                          </span>
                         </button>
                         <button
                           type="button"

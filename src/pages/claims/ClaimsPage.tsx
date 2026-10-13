@@ -1,5 +1,6 @@
 import { AppSidebar } from '../../components/layout/AppSidebar'
-import { TopHeader } from '../../components/layout/TopHeader'
+import { TopBar } from '../../components/layout/TopBar'
+import { PageHeader } from '../../components/layout/PageHeader'
 import { ClaimsToolbar } from './ClaimsToolbar'
 import { ClaimsStatusTabs } from './ClaimsStatusTabs'
 import { ClaimsTable } from './ClaimsTable'
@@ -73,15 +74,14 @@ export function ClaimsPage({ query }: ClaimsPageProps) {
       )}
 
       <main className="main" id="main">
-        <TopHeader
-          onMenu={() => setMenuOpen((was) => !was)}
-          breadcrumb="Workspace / Claims"
-          title="Claims"
-          subtitle="Manage, review, and track vehicle insurance claims across their lifecycle."
-          showSearch={false}
-        />
+        <TopBar onMenu={() => setMenuOpen((was) => !was)} breadcrumb="Workspace / Claims" />
 
         <div className="dashboard-content claims-page">
+          <PageHeader
+            title="Claims"
+            subtitle="Manage, review, and track vehicle insurance claims across their lifecycle."
+          />
+
           {loading && (
             <div className="page-state" role="status">
               <p className="page-state__title">Loading claims…</p>

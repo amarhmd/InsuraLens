@@ -1,6 +1,6 @@
-/* Temporary smoke test: server-renders SettingsPage and each of the seven
-   sections through Vite's SSR pipeline, so any render-time crash shows up
-   in Node without a browser. Run: node scripts/settings-ssr-smoke.mjs */
+/* Temporary smoke test: server-renders SettingsPage and each remaining
+   section through Vite's SSR pipeline, so any render-time crash shows up in
+   Node without a browser. Run: node scripts/settings-ssr-smoke.mjs */
 import { createServer } from 'vite'
 import React from 'react'
 import { renderToString } from 'react-dom/server'
@@ -37,33 +37,29 @@ try {
     value: d.profile,
     onSave: () => {},
   })
-  await render('PreferencesSettings', '/src/pages/settings/PreferencesSettings.tsx', 'PreferencesSettings', {
-    value: d.preferences,
-    onSave: () => {},
-    onReset: () => {},
-  })
-  await render('NotificationSettings', '/src/pages/settings/NotificationSettings.tsx', 'NotificationSettings', {
-    value: d.notifications,
-    onSave: () => {},
-  })
-  await render('AIReviewSettings', '/src/pages/settings/AIReviewSettings.tsx', 'AIReviewSettings', {
-    value: d.ai,
-    onSave: () => {},
-  })
-  await render('WorkspaceSettings', '/src/pages/settings/WorkspaceSettings.tsx', 'WorkspaceSettings', {
-    value: d.workspace,
-    role: d.profile.role,
-    onSave: () => {},
-  })
-  await render('PrivacySecuritySettings', '/src/pages/settings/PrivacySecuritySettings.tsx', 'PrivacySecuritySettings', {
-    profile: d.profile,
-    workspace: d.workspace,
-  })
-  await render('AboutSettings', '/src/pages/settings/AboutSettings.tsx', 'AboutSettings')
+  await render('NotificationSettings', '/src/pages/settings/NotificationSettings.tsx', 'NotificationSettings')
+  await render('AIReviewSettings', '/src/pages/settings/AIReviewSettings.tsx', 'AIReviewSettings')
 
-  /* Routing: every settings hash must resolve to the settings route. */
+  /* Removed sections must be gone: their modules should no longer load. */
+  for (const gone of [
+    '/src/pages/settings/PreferencesSettings.tsx',
+    '/src/pages/settings/WorkspaceSettings.tsx',
+    '/src/pages/settings/PrivacySecuritySettings.tsx',
+    '/src/pages/settings/AboutSettings.tsx',
+    '/src/pages/settings/SettingsNavigation.tsx',
+  ]) {
+    try {
+      await server.ssrLoadModule(gone)
+      fails.push(`removed section still loads: ${gone}`)
+    } catch {
+      console.log(`OK   removed module absent: ${gone.split('/').pop()}`)
+    }
+  }
+
+  /* Routing: every settings hash — including legacy sub-routes — resolves to
+     the single settings route. */
   const router = await server.ssrLoadModule('/src/lib/router.ts')
-  for (const hash of ['#/settings', '#settings']) {
+  for (const hash of ['#/settings', '#settings', '#/settings/preferences', '#/settings/notifications']) {
     const route = router.routeFromHash(hash)
     if (route.name !== 'settings') fails.push(`routeFromHash(${hash}) → ${route.name}`)
     else console.log(`OK   routeFromHash(${hash}) → settings`)
@@ -80,4 +76,4 @@ if (fails.length) {
   fails.forEach((f) => console.log('  - ' + f))
   process.exit(1)
 }
-console.log('\nSSR smoke OK — SettingsPage, all 7 sections, and routing render clean.')
+console.log('\nSSR smoke OK — SettingsPage, remaining sections, and routing render clean.')

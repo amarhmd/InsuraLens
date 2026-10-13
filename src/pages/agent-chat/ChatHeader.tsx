@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { CHAT_PAGE_TITLE } from '../../lib/constants'
-import { PlusIcon, SparkIcon } from './chatIcons'
+import { PlusIcon } from './chatIcons'
+import { ThemeToggle } from './ThemeToggle'
+import type { ChatTheme } from './useChatTheme'
 
 type Props = {
   /** e.g. "CLM-10482 · Vehicle Collision", or null in general mode. */
@@ -13,6 +15,8 @@ type Props = {
   onNewChat: () => void
   onClear: () => void
   onDeleteConversation: () => void
+  theme: ChatTheme
+  onToggleTheme: () => void
   /** Toggles the conversation panel (small viewports). */
   showPanelToggles: boolean
   leftOpen: boolean
@@ -29,6 +33,8 @@ export function ChatHeader({
   onNewChat,
   onClear,
   onDeleteConversation,
+  theme,
+  onToggleTheme,
   showPanelToggles,
   leftOpen,
   rightOpen,
@@ -75,9 +81,7 @@ export function ChatHeader({
         )}
 
         <div className="chat-header__titles">
-          <div className="chat-header__title-row">
-            <h1 className="chat-header__title">{CHAT_PAGE_TITLE}</h1>
-          </div>
+          <h1 className="chat-header__title">{CHAT_PAGE_TITLE}</h1>
           <div className="chat-header__meta">
             <div className="chat-claim-switch">
               <label className="sr-only" htmlFor="chat-claim-switch">
@@ -122,7 +126,10 @@ export function ChatHeader({
                   )}
                 </span>
                 {selectedClaimId && (
-                  <a className="chat-header__workspace-link" href={`#/claims/${encodeURIComponent(selectedClaimId)}`}>
+                  <a
+                    className="chat-header__workspace-link"
+                    href={`#/claims/${encodeURIComponent(selectedClaimId)}`}
+                  >
                     Open Claim Workspace
                   </a>
                 )}
@@ -133,6 +140,7 @@ export function ChatHeader({
       </div>
 
       <div className="chat-header__actions">
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
         <button type="button" className="chat-ghost-btn" onClick={onNewChat}>
           <PlusIcon size={14} />
           <span className="chat-ghost-btn__label">New chat</span>
@@ -202,14 +210,5 @@ export function ChatHeader({
         )}
       </div>
     </header>
-  )
-}
-
-/** Small icon-only assistant mark used beside AI responses. */
-export function AssistantMark() {
-  return (
-    <span className="chat-assistant-mark" aria-hidden="true">
-      <SparkIcon size={14} />
-    </span>
   )
 }

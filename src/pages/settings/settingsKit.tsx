@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { cx } from '../../lib/cx'
 
 /* ==========================================================================
@@ -85,11 +85,19 @@ export function SettingRow({ label, hint, htmlFor, children }: RowProps) {
 
 type ToggleProps = {
   id: string
+  /** Id of the element that names this switch. */
+  labelId: string
   checked: boolean
   onChange: (next: boolean) => void
 }
 
-function Toggle({ id, checked, onChange }: ToggleProps) {
+/**
+ * A real <button role="switch"> with a 44px hit target that wraps the smaller
+ * visible track. The on/off state reads three ways — knob position, the
+ * aria-checked state screen readers announce, and a text state for assistive
+ * technology — so it never depends on colour alone.
+ */
+function Toggle({ id, labelId, checked, onChange }: ToggleProps) {
   return (
     <button
       type="button"
@@ -97,9 +105,13 @@ function Toggle({ id, checked, onChange }: ToggleProps) {
       id={id}
       className={cx('st-switch', checked && 'st-switch--on')}
       aria-checked={checked}
+      aria-labelledby={labelId}
       onClick={() => onChange(!checked)}
     >
-      <span className="st-switch__knob" aria-hidden="true" />
+      <span className="st-switch__track" aria-hidden="true">
+        <span className="st-switch__knob" />
+      </span>
+      <span className="sr-only">{checked ? 'On' : 'Off'}</span>
     </button>
   )
 }
@@ -113,16 +125,54 @@ type ToggleRowProps = {
 }
 
 export function ToggleRow({ id, label, hint, checked, onChange }: ToggleRowProps) {
+  const labelId = `${id}-label`
   return (
     <div className="st-toggle">
       <div className="st-toggle__text">
-        <label className="st-toggle__label" htmlFor={id}>
+        <span className="st-toggle__label" id={labelId}>
           {label}
-        </label>
+        </span>
         {hint && <p className="st-toggle__hint">{hint}</p>}
       </div>
-      <Toggle id={id} checked={checked} onChange={onChange} />
+      <Toggle id={id} labelId={labelId} checked={checked} onChange={onChange} />
     </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* Saved flash — toggles save immediately, so they confirm inline             */
+/* -------------------------------------------------------------------------- */
+
+/** Briefly true after a change, so a section can flash a "Saved" status. */
+export function useSavedFlash(duration = 1600) {
+  const [saved, setSaved] = useState(false)
+  const timer = useRef<number | null>(null)
+
+  useEffect(
+    () => () => {
+      if (timer.current !== null) window.clearTimeout(timer.current)
+    },
+    [],
+  )
+
+  const flash = () => {
+    setSaved(true)
+    if (timer.current !== null) window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setSaved(false), duration)
+  }
+
+  return { saved, flash }
+}
+
+/**
+ * Mounted live region so screen readers reliably announce the brief "Saved"
+ * confirmation. It stays in the DOM (empty when idle) to keep the region live.
+ */
+export function SavedStatus({ visible }: { visible: boolean }) {
+  return (
+    <p className="st-saved" role="status" aria-live="polite">
+      {visible ? 'Saved' : ''}
+    </p>
   )
 }
 

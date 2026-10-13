@@ -1,60 +1,44 @@
-import {
-  NOTIFICATION_GROUPS,
-  type NotificationKey,
-  type Notifications,
-} from '../../lib/settingsStore'
-import {
-  SectionHeader,
-  SettingsGroup,
-  SettingsSaveBar,
-  ToggleRow,
-  useDraft,
-} from './settingsKit'
-
-type Props = {
-  value: Notifications
-  onSave: (next: Notifications, toastMessage: string) => void
-}
+import { useSettingsValue } from '../../hooks/useSettingsValue'
+import { NOTIFICATION_ITEMS, saveSettings, type NotificationKey } from '../../lib/settingsStore'
+import { SavedStatus, SectionHeader, SettingsGroup, ToggleRow, useSavedFlash } from './settingsKit'
 
 /**
- * Notifications — three groups of switches. Native role="switch" buttons
- * keep the whole section keyboard operable; the state reads in text
- * (aria-checked), never colour alone.
+ * Notifications — the two switches for the top bar bell. Changes save
+ * immediately and persist in this browser only; nothing is sent to a server.
  */
-export function NotificationSettings({ value, onSave }: Props) {
-  const { draft, patch, dirty } = useDraft(value)
+export function NotificationSettings() {
+  const notifications = useSettingsValue().notifications
+  const { saved, flash } = useSavedFlash()
 
-  const setFlag = (key: NotificationKey, on: boolean) =>
-    patch({ [key]: on } as Partial<Notifications>)
+  const setFlag = (key: NotificationKey, on: boolean) => {
+    saveSettings({ notifications: { ...notifications, [key]: on } })
+    flash()
+  }
 
   return (
     <>
       <SectionHeader
         title="Notifications"
-        description="Choose which updates appear in your InsuraLens workspace."
+        description="Choose which claim updates the notification bell surfaces."
       />
 
-      {NOTIFICATION_GROUPS.map((group) => (
-        <SettingsGroup key={group.key} title={group.title} hint={group.hint}>
-          {group.items.map((item) => (
-            <ToggleRow
-              key={item.key}
-              id={`notif-${item.key}`}
-              label={item.label}
-              hint={item.hint}
-              checked={draft[item.key]}
-              onChange={(on) => setFlag(item.key, on)}
-            />
-          ))}
-        </SettingsGroup>
-      ))}
+      <SettingsGroup
+        title="Claim notifications"
+        hint="Stored in this browser only. Nothing is sent to a server."
+      >
+        {NOTIFICATION_ITEMS.map((item) => (
+          <ToggleRow
+            key={item.key}
+            id={`notif-${item.key}`}
+            label={item.label}
+            hint={item.hint}
+            checked={notifications[item.key]}
+            onChange={(on) => setFlag(item.key, on)}
+          />
+        ))}
+      </SettingsGroup>
 
-      <SettingsSaveBar
-        dirty={dirty}
-        saveLabel="Save Notification Preferences"
-        onSave={() => onSave(draft, 'Notification preferences saved in this demo')}
-        onCancel={() => patch({ ...value })}
-      />
+      <SavedStatus visible={saved} />
     </>
   )
 }

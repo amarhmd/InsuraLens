@@ -37,7 +37,7 @@ export function routeFromHash(hash: string): Route {
   if (path === 'claims') return { name: 'claims', query: parseClaimsQuery(search) }
   if (path === 'chat') return { name: 'chat' }
   if (path === 'analytics') return { name: 'analytics' }
-  if (path === 'settings') return { name: 'settings' }
+  if (path === 'settings' || path.startsWith('settings/')) return { name: 'settings' }
   if (path.startsWith('claims/')) {
     const id = decodeURIComponent(path.slice('claims/'.length))
     if (id) return { name: 'claim', id }

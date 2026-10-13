@@ -1,4 +1,4 @@
-/* Notifications API — future inbox behind the TopHeader bell.
+/* Notifications API — future inbox behind the TopBar bell.
 
    The bell is decorative in the prototype; these functions document the
    shape the backend should provide so wiring the inbox is a UI-only task. */

@@ -270,6 +270,49 @@ export function useAgentChat() {
   }, [active, sending])
 
   /* ---------------------------------------------------------------------- */
+  /* Regenerate                                                             */
+  /* ---------------------------------------------------------------------- */
+
+  /* Drops the trailing assistant reply for the last question and re-runs the
+     demo response through the same API call. */
+  const regenerateLast = useCallback(() => {
+    const conv = active
+    if (!conv || sending) return
+    const lastUserIndex = conv.messages.map((m) => m.role).lastIndexOf('user')
+    if (lastUserIndex < 0) return
+    const lastUser = conv.messages[lastUserIndex]
+    if (!lastUser.text) return
+
+    const kept = conv.messages.slice(0, lastUserIndex + 1)
+    setConversations((prev) =>
+      prev.map((c) => (c.id === conv.id ? { ...c, messages: kept } : c)),
+    )
+    setSending(true)
+    sendChatMessage({ question: lastUser.text, claimId: conv.claimId })
+      .then((reply) => {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conv.id ? { ...c, messages: [...c.messages, reply] } : c)),
+        )
+      })
+      .catch((cause: unknown) => {
+        const failed: ChatMessage = {
+          id: nextId('msg'),
+          role: 'assistant',
+          time: clockNow(),
+          error: true,
+          text:
+            cause instanceof Error
+              ? cause.message
+              : 'The assistant could not respond. Try again.',
+        }
+        setConversations((prev) =>
+          prev.map((c) => (c.id === conv.id ? { ...c, messages: [...c.messages, failed] } : c)),
+        )
+      })
+      .finally(() => setSending(false))
+  }, [active, sending])
+
+  /* ---------------------------------------------------------------------- */
   /* Evidence preview                                                       */
   /* ---------------------------------------------------------------------- */
 
@@ -341,6 +384,7 @@ export function useAgentChat() {
     setClaimContext,
     send,
     retryLastUserMessage,
+    regenerateLast,
     openSource,
     pickSuggestion,
     attachDemo,

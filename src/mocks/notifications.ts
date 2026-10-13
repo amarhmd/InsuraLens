@@ -1,6 +1,6 @@
-/* Mock notification items — future home of the inbox behind the TopHeader
-   bell. The bell is decorative in the prototype; the shape below is what
-   GET /api/notifications is expected to return. */
+/* Mock notification items — future home of the inbox behind the TopBar
+   bell. The bell reads these directly in the prototype; the shape below is
+   what GET /api/notifications is expected to return. */
 
 export interface Notification {
   id: string
