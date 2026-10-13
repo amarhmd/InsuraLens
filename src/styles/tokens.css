@@ -27,6 +27,27 @@
   --slate: #4c6fff; /* Slate Blue — accent, decorative */
   --slate-tint: rgba(76, 111, 255, 0.16);
 
+  /* ---- Brand gradient recipe ----
+     One navy→teal signature, shared by the Settings profile hero and the app
+     sidebar so the two surfaces never drift. The dotted grid and the soft teal
+     glow carry the same values the hero card ships; each surface only moves
+     where the glow sits. */
+  --brand-gradient: linear-gradient(135deg, var(--navy) 0%, var(--teal-800) 100%);
+  --brand-grid-dot: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1.6px);
+  --brand-grid-size: 22px 22px;
+  --brand-glow-color: rgba(22, 181, 164, 0.34);
+  /* The floating top bar carries the same recipe on a shallower axis: navy →
+     deep teal-blue → teal reading left to right, with the glow moved to the
+     top-right corner. Only the axis and the glow's anchor differ from the
+     sidebar, so the two read as a family rather than a copy. */
+  --brand-teal-mid: #0d4e5a;
+  --brand-gradient-bar: linear-gradient(
+    100deg,
+    var(--navy) 0%,
+    var(--brand-teal-mid) 52%,
+    var(--teal-800) 100%
+  );
+
   /* ---- Canvas & surfaces ---- */
   --bg-page: #f7f9fb; /* Background */
   --surface: #ffffff; /* White */
@@ -36,6 +57,8 @@
   /* ---- Ink ---- */
   --text-primary: #172b3a; /* Primary Text */
   --text-secondary: #64748b; /* Secondary Text */
+  --text-secondary-strong: #475569; /* darkened secondary — subtitle/footer at AA */
+  --text-secondary-deep: #334155; /* smallest helper/disclaimer text — AA with margin */
   --text-on-navy: #ffffff;
   --text-on-navy-muted: #c7d8e6; /* brighter for AA on navy */
 
@@ -115,6 +138,9 @@
   --accent-soft: rgba(15, 127, 129, 0.1);
   --accent-line: rgba(15, 127, 129, 0.34);
   --accent-grad: linear-gradient(135deg, #16b5a4 0%, #0f7f81 100%);
+  /* Text-bearing gradient CTA: both stops clear AA with white text, unlike
+     --accent-grad whose bright stop is decorative only. */
+  --accent-cta-grad: linear-gradient(135deg, var(--teal-600) 0%, var(--teal-800) 100%);
 
   /* ---- Semantic status ---- */
   --success: #116946;
@@ -134,6 +160,11 @@
   --surface-soft: #f4f7fb;
   --surface-inset: #eef2f7;
 
+  /* ---- Agent Chat focus layout (chat-scoped) ---- */
+  --chat-tabs-bg: #f1f5f9; /* conversation tabs bar */
+  --chat-bubble-user: #e6f7f4; /* reviewer message fill */
+  --chat-bubble-user-line: #bfece4;
+
   /* ---- Motion: subtle and fast ---- */
   --ease: cubic-bezier(0.32, 0.72, 0.28, 1);
   --t-fast: 110ms;
@@ -142,6 +173,6 @@
 
   /* ---- Layout ---- */
   --brand-col: 40%; /* brand panel width on desktop */
-  --auth-max: 420px; /* auth card max width */
-  --auth-pad: 36px; /* auth card padding */
+  --auth-max: 440px; /* auth card max width */
+  --auth-pad: 44px; /* auth card padding — scales with the card width */
 }

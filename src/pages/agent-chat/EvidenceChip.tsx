@@ -32,7 +32,6 @@ export function EvidenceChip({ source, onOpen }: Props) {
     >
       <FileIcon size={12} />
       <span className="chat-cite__label">{source.label}</span>
-      <span className="chat-cite__tag">demo ref</span>
     </button>
   )
 }

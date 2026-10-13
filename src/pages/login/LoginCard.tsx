@@ -1,11 +1,12 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { cx } from '../../lib/cx'
 import { FieldError } from './FieldError'
-import { Spinner, AlertIcon } from '../../components/ui/icons'
-import { PasswordInput } from './PasswordInput'
+import { Spinner, AlertIcon, MailIcon } from '../../components/ui/icons'
+import { PasswordField } from './PasswordField'
 import { DemoButton } from './DemoButton'
 import { PasswordRecoveryDialog } from './PasswordRecoveryDialog'
 import { login } from '../../api/auth'
+import { readRememberMe, writeRememberMe } from '../../lib/rememberMe'
 
 /* Deliberately loose: the point is to catch a typo, not to judge an address.
    Anything with a local part, an @ and a dot in the domain passes. */
@@ -13,14 +14,23 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type SubmitState = 'idle' | 'submitting' | 'wrong'
 
-export type LoginFormProps = {
+export type LoginCardProps = {
   /** Enter the demo workspace. Credentials are never read. */
   onDemo: () => void
 }
 
-export function LoginForm({ onDemo }: LoginFormProps) {
+/**
+ * The sign-in card. Behaviour is unchanged from the original form — mock auth,
+ * demo entry, validation timing — with presentation tightened: leading icons,
+ * a disabled-until-ready submit, a remember-me control, and one labelled
+ * divider instead of stray rules.
+ */
+export function LoginCard({ onDemo }: LoginCardProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  /* Unchecked until the reviewer chooses otherwise; the choice is read once
+     and written only when they actively toggle the control. */
+  const [remember, setRemember] = useState(() => readRememberMe())
   const [emailBlurred, setEmailBlurred] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
@@ -35,24 +45,32 @@ export function LoginForm({ onDemo }: LoginFormProps) {
   const emailMalformed = !emailMissing && !EMAIL_PATTERN.test(trimmed)
   const busy = submitState === 'submitting' || demoLoading
 
-  /* No message appears before the reviewer has had a chance to type: an empty
-     field is only wrong once they have asked to submit. A malformed address is
-     wrong as soon as they leave it. */
+  /* The submit button stays disabled until there is something valid to submit.
+     An empty or malformed field is still explained in words the moment the
+     reviewer leaves it, so the reason the button is inert is never a mystery. */
+  const canSubmit = !emailMissing && !emailMalformed && password !== '' && !busy
+
   const emailError = emailMissing
-    ? submitted
+    ? emailBlurred || submitted
       ? 'Please enter your work email.'
       : undefined
     : emailMalformed && (emailBlurred || submitted)
       ? 'Enter a valid work email.'
       : undefined
 
-  const passwordError = submitted
-    ? password === ''
-      ? 'Please enter your password.'
-      : submitState === 'wrong'
-        ? 'Incorrect email or password'
+  const passwordError =
+    submitState === 'wrong'
+      ? 'Incorrect email or password'
+      : submitted && password === ''
+        ? 'Please enter your password.'
         : undefined
-    : undefined
+
+  /* Returning focus to the password field after a rejected sign-in has to wait
+     for the field to leave its submitting (disabled) state, so it lives in an
+     effect rather than next to setSubmitState in the catch. */
+  useEffect(() => {
+    if (submitState === 'wrong') passwordRef.current?.focus()
+  }, [submitState])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -81,7 +99,6 @@ export function LoginForm({ onDemo }: LoginFormProps) {
       })
       .catch(() => {
         setSubmitState('wrong')
-        passwordRef.current?.focus()
       })
   }
 
@@ -106,7 +123,8 @@ export function LoginForm({ onDemo }: LoginFormProps) {
           <label className="field__label" htmlFor="login-email">
             Work email
           </label>
-          <div className="field__control">
+          <div className="field__control field__control--leading">
+            <MailIcon size={18} className="field__icon" />
             <input
               ref={emailRef}
               id="login-email"
@@ -120,9 +138,9 @@ export function LoginForm({ onDemo }: LoginFormProps) {
               spellCheck={false}
               disabled={busy}
               onChange={(event) => {
-            setEmail(event.target.value)
-            if (submitState === 'wrong') setSubmitState('idle')
-          }}
+                setEmail(event.target.value)
+                if (submitState === 'wrong') setSubmitState('idle')
+              }}
               onBlur={() => setEmailBlurred(true)}
               aria-invalid={emailError ? true : undefined}
               aria-describedby={emailError ? 'login-email-error' : undefined}
@@ -131,7 +149,7 @@ export function LoginForm({ onDemo }: LoginFormProps) {
           {emailError && <FieldError id="login-email-error">{emailError}</FieldError>}
         </div>
 
-        <PasswordInput
+        <PasswordField
           value={password}
           onChange={(value) => {
             setPassword(value)
@@ -146,12 +164,26 @@ export function LoginForm({ onDemo }: LoginFormProps) {
           }}
         />
 
-        <div className="form__aux">
+        <div className="form__options">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => {
+                const next = event.target.checked
+                setRemember(next)
+                writeRememberMe(next)
+              }}
+              disabled={busy}
+            />
+            <span>Remember me</span>
+          </label>
         </div>
 
         <button
           type="submit"
           className="btn btn--primary"
+          disabled={!canSubmit}
           aria-busy={busy || undefined}
         >
           {busy ? (
@@ -164,7 +196,9 @@ export function LoginForm({ onDemo }: LoginFormProps) {
           )}
         </button>
 
-        <div className="form__rule" aria-hidden="true" />
+        <div className="divider" aria-hidden="true">
+          <span className="divider__label">or</span>
+        </div>
 
         <DemoButton
           onClick={() => {
@@ -179,10 +213,8 @@ export function LoginForm({ onDemo }: LoginFormProps) {
           loading={demoLoading}
         />
 
-        <div className="form__rule" aria-hidden="true" />
-
         <p className="trust">
-          Your workspace is protected and designed for responsible claims review.
+          AI connects and explains evidence. Final claim decisions remain with a human reviewer.
         </p>
       </form>
 

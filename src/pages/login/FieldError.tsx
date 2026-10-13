@@ -6,10 +6,14 @@ import { AlertIcon } from '../../components/ui/icons'
  * wrong in plain language, so the state never depends on the reviewer seeing
  * red. The icon is decorative and hidden from assistive tech for the same
  * reason.
+ *
+ * `aria-live="polite"` lets the message announce itself when it appears (or
+ * changes) without interrupting whatever the reviewer is doing. The input still
+ * points at it through aria-describedby for a re-read on focus.
  */
 export function FieldError({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <p className="field__error" id={id}>
+    <p className="field__error" id={id} aria-live="polite">
       <AlertIcon size={14} className="field__error-icon" aria-hidden="true" />
       <span>{children}</span>
     </p>

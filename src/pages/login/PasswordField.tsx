@@ -1,9 +1,9 @@
 import { useId, useState, type RefObject } from 'react'
 import { cx } from '../../lib/cx'
-import { EyeIcon, EyeOffIcon } from '../../components/ui/icons'
+import { EyeIcon, EyeOffIcon, LockIcon } from '../../components/ui/icons'
 import { FieldError } from './FieldError'
 
-export type PasswordInputProps = {
+export type PasswordFieldProps = {
   label?: string
   name?: string
   value: string
@@ -20,14 +20,18 @@ export type PasswordInputProps = {
   placeholder?: string
   /** Lets the parent move focus here when a submitted form is invalid. */
   inputRef?: RefObject<HTMLInputElement>
-  /** Render "Forgot password?" link in the label row */
+  /** Render the "Forgot password?" action at the end of the label row. */
   forgotPassword?: {
     onClick: () => void
     disabled?: boolean
   }
 }
 
-export function PasswordInput({
+/**
+ * The password control: a lock at the start, a show/hide toggle at the end, and
+ * a label row that keeps the field label and the recovery link apart.
+ */
+export function PasswordField({
   label = 'Password',
   name = 'password',
   value,
@@ -36,10 +40,10 @@ export function PasswordInput({
   onBlur,
   autoComplete = 'current-password',
   disabled = false,
-  placeholder,
+  placeholder = 'Enter your password',
   inputRef,
   forgotPassword,
-}: PasswordInputProps) {
+}: PasswordFieldProps) {
   const uid = useId()
   const inputId = `pw-${uid}`
   const errorId = `${inputId}-error`
@@ -63,7 +67,9 @@ export function PasswordInput({
         )}
       </div>
 
-      <div className="field__control field__control--trailing">
+      <div className="field__control field__control--leading field__control--trailing">
+        <LockIcon size={18} className="field__icon" />
+
         <input
           ref={inputRef}
           id={inputId}

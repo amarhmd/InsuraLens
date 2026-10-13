@@ -33,22 +33,34 @@ const ratio = (a, b) => {
 const GATED = [
   ['Primary text / white', '#172B3A', '#FFFFFF', 4.5, 'heading, labels, input text'],
   ['Primary text / page', '#172B3A', '#F7F9FB', 4.5, 'heading on the auth column'],
-  ['Secondary text / white', '#64748B', '#FFFFFF', 4.5, 'subheading, field hints'],
-  ['Secondary text / page', '#64748B', '#F7F9FB', 4.5, 'footer, trust line'],
+  ['Secondary text / white', '#64748B', '#FFFFFF', 4.5, 'placeholder, leading icon'],
+  ['Secondary text / page', '#64748B', '#F7F9FB', 4.5, 'hints on the auth column'],
+  ['Strong secondary / white', '#475569', '#FFFFFF', 4.5, 'subtitle, divider label, checkbox'],
+  ['Strong secondary / page', '#475569', '#F7F9FB', 4.5, 'footer copyright'],
+  ['Deep secondary / white', '#334155', '#FFFFFF', 4.5, 'demo helper, trust line'],
+  ['Deep secondary / page', '#334155', '#F7F9FB', 4.5, 'demo helper, trust line on page'],
 
   ['White / primary button', '#FFFFFF', '#0F7F81', 4.5, 'Sign in, at rest'],
   ['White / primary hover', '#FFFFFF', '#0C6E70', 4.5, 'Sign in, :hover'],
   ['White / primary active', '#FFFFFF', '#0A6264', 4.5, 'Sign in, :active'],
   ['Link / white', '#0F7F81', '#FFFFFF', 4.5, 'Forgot password?'],
   ['Link hover / white', '#0C6E70', '#FFFFFF', 4.5, 'Forgot password?, :hover'],
+  ['Footer link / white', '#0C6E70', '#FFFFFF', 4.5, 'Privacy, Terms, Help'],
+  ['Footer link / page', '#0C6E70', '#F7F9FB', 4.5, 'Privacy, Terms, Help on page'],
+  ['Footer link hover / white', '#0A6264', '#FFFFFF', 4.5, 'footer link, :hover'],
 
   ['White / navy panel', '#FFFFFF', '#12304A', 4.5, 'brand statement, wordmark'],
   ['Muted / navy panel', '#A9BCD0', '#12304A', 4.5, 'brand supporting text'],
+  ['Supporting / navy panel', '#C7D8E6', '#12304A', 4.5, 'brand support + trust points'],
+  ['Accent gradient light / navy', '#7DE9DB', '#12304A', 4.5, 'headline "into focus", light stop'],
+  ['Accent gradient dark / navy', '#16B5A4', '#12304A', 4.5, 'headline "into focus", dark stop'],
   ['White logo tile / navy', '#FFFFFF', '#12304A', 3.0, 'tile edge against the panel'],
 
   ['Error text / white', '#B42318', '#FFFFFF', 4.5, 'field error message'],
   ['Error text / error tint', '#B42318', '#FEF3F2', 4.5, 'form-level notice'],
-  ['Disabled label / disabled fill', '#64748B', '#E2E8F0', 3.0, 'Sign in, empty form'],
+  ['Disabled label / disabled fill', '#475569', '#E2E8F0', 4.5, 'Sign in, empty form'],
+  ['Secondary disabled label / fill', '#475569', '#F2F5F8', 4.5, 'demo button, while busy'],
+  ['Demo pill text / pill', '#8A5B00', '#FFF7E6', 4.5, 'DEMO ENVIRONMENT marker'],
 
   // Non-text UI — 3:1
   ['Focus ring / white', '#159A9C', '#FFFFFF', 3.0, 'input focus indicator'],

@@ -53,7 +53,9 @@
 
 .ax-filters {
   position: sticky;
-  top: 0;
+  /* 108px = the floating bar's bottom edge (16 + 76) + a 16px gap; the toolbar's
+     natural top is the same, so it sticks without a jump. */
+  top: 108px;
   z-index: 20;
   display: flex;
   align-items: flex-end;
@@ -982,6 +984,11 @@
 }
 
 @media (max-width: 900px) {
+  .ax-filters {
+    /* Clear the compact floating bar (bottom edge 8 + 64). */
+    top: 84px;
+  }
+
   .ax-filters__end {
     margin-left: 0;
     width: 100%;

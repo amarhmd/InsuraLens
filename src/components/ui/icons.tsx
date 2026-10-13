@@ -80,3 +80,77 @@ export function Spinner({ size = 16, className }: IconProps) {
     </svg>
   )
 }
+
+/* Adding to the product's hand-written icon set rather than pulling in a
+   dependency: every glyph is a few strokes in a 24-box, stroked in the
+   current colour so it inherits the control's state. */
+
+export function MailIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="M4 7.6l7.2 5.1a1.5 1.5 0 0 0 1.6 0L20 7.6" />
+    </svg>
+  )
+}
+
+export function LockIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5" />
+      <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+      <path d="M12 14.2v2.4" />
+    </svg>
+  )
+}
+
+/* Explore / open-the-demo: a compass needle. */
+export function CompassIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M15.6 8.4l-2.1 5.1-5.1 2.1 2.1-5.1z" />
+    </svg>
+  )
+}
+
+/* Evidence-linked: two chain links, opened at the join. */
+export function LinkIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <path d="M10.2 13.8a3.4 3.4 0 0 0 4.9 0l2.4-2.4a3.5 3.5 0 0 0-4.9-5l-.9.9" />
+      <path d="M13.8 10.2a3.4 3.4 0 0 0-4.9 0l-2.4 2.4a3.5 3.5 0 0 0 4.9 5l.9-.9" />
+    </svg>
+  )
+}
+
+/* Explainable analysis: a spark. */
+export function SparkleIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <path d="M11 3.5l1.6 4.4 4.4 1.6-4.4 1.6L11 15.5 9.4 11.1 5 9.5l4.4-1.6z" />
+      <path d="M18 14.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
+    </svg>
+  )
+}
+
+/* Human-in-the-loop: a person with a confirmation tick. */
+export function UserCheckIcon({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <circle cx="10" cy="8" r="3.5" />
+      <path d="M3.8 19.5a6.3 6.3 0 0 1 12.4 0" />
+      <path d="M16.2 12.3l1.9 1.9 3.4-3.5" />
+    </svg>
+  )
+}
+
+/* Account / profile: a single person, used for the Profile settings section. */
+export function UserIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} className={className}>
+      <circle cx="12" cy="8" r="3.6" />
+      <path d="M5.4 19.6a6.6 6.6 0 0 1 13.2 0" />
+    </svg>
+  )
+}

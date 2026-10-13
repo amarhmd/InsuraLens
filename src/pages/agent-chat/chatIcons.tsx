@@ -225,3 +225,38 @@ export function MoonIcon({ size = 15, className }: Props) {
     </svg>
   )
 }
+
+export function ChatIcon({ size = 15, className }: Props) {
+  return (
+    <svg {...base(size, className)}>
+      <path d="M20 15a2 2 0 0 1-2 2H9l-5 3.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9Z" />
+      <path d="M8 9h8M8 12.5h5" />
+    </svg>
+  )
+}
+
+export function CloseIcon({ size = 15, className }: Props) {
+  return (
+    <svg {...base(size, className)}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  )
+}
+
+export function MoreIcon({ size = 15, className }: Props) {
+  return (
+    <svg {...base(size, className)}>
+      <circle cx="5.5" cy="12" r="1.3" />
+      <circle cx="12" cy="12" r="1.3" />
+      <circle cx="18.5" cy="12" r="1.3" />
+    </svg>
+  )
+}
+
+export function ArrowRightIcon({ size = 15, className }: Props) {
+  return (
+    <svg {...base(size, className)}>
+      <path d="M5 12h13M12.5 6l6 6-6 6" />
+    </svg>
+  )
+}

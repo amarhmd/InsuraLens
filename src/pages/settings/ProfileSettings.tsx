@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { UserIcon } from '../../components/ui/icons'
 import { initials, validateProfile, type Profile, type ProfileErrors } from '../../lib/settingsStore'
 import { SectionHeader, SettingsGroup, SettingsSaveBar, useDraft } from './settingsKit'
 
@@ -77,6 +78,7 @@ export function ProfileSettings({ value, onSave }: Props) {
   return (
     <>
       <SectionHeader
+        icon={<UserIcon size={20} />}
         title="My Profile"
         description="Manage the personal information associated with your InsuraLens workspace."
       />
@@ -98,7 +100,7 @@ export function ProfileSettings({ value, onSave }: Props) {
         </div>
         {!editing && (
           <div className="st-profile__action">
-            <button type="button" className="claims-btn" onClick={() => setEditing(true)}>
+            <button type="button" className="claims-btn st-btn-ghost" onClick={() => setEditing(true)}>
               Edit Profile
             </button>
           </div>

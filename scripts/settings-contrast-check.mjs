@@ -76,6 +76,31 @@ const cases = [
   ['note icon info on 7% info tint', '#3578B8', INFO_TINT_07, 3.0],
   ['principle icon teal-700 vs page background', '#0C6E70', PAGE, 3.0],
   ['About panel border navy-line vs white', '#1f4767', WHITE, 3.0],
+
+  /* ---- redesigned Settings: hero, callout, toggle gradient ---- */
+  ['section subtitle slate-600 on white', '#475569', WHITE, 4.5],
+  ['profile hero white on teal-800 stop', WHITE, '#0A6264', 4.5],
+  ['profile hero white over teal glow', WHITE, '#11707A', 4.5],
+  [
+    'profile email (white 70%) on navy side of hero',
+    blend('rgba(255,255,255,0.7)', '#103C50'),
+    '#103C50',
+    4.5,
+  ],
+  [
+    'avatar initials white on hero translucent tint',
+    WHITE,
+    blend('rgba(255,255,255,0.16)', '#0A6264'),
+    4.5,
+  ],
+  [
+    'hero chip white on dark translucent pill',
+    WHITE,
+    blend('rgba(13,36,57,0.32)', '#0A6264'),
+    4.5,
+  ],
+  ['switch ON track teal-500 stop vs white panel', '#159A9C', WHITE, 3.0],
+  ['callout lock teal-700 on light teal tint', '#0C6E70', '#F0FAF9', 4.5],
 ]
 
 let fail = 0

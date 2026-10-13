@@ -3,11 +3,23 @@ import { AppSidebar } from '../../components/layout/AppSidebar'
 import { TopBar } from '../../components/layout/TopBar'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { ToastNotification } from '../../components/feedback/ToastNotification'
+import { BellIcon } from '../../components/layout/icons'
+import { SparkleIcon, UserIcon } from '../../components/ui/icons'
 import { useSettingsValue } from '../../hooks/useSettingsValue'
 import { saveSettings, type Settings } from '../../lib/settingsStore'
+import { SettingsNav, type NavSection } from './SettingsNav'
 import { ProfileSettings } from './ProfileSettings'
 import { NotificationSettings } from './NotificationSettings'
 import { AIReviewSettings } from './AIReviewSettings'
+
+/* The three cards on the page, in order. Ids match the <section> ids below and
+   the targets the section nav scrolls to. Defined once so the array identity is
+   stable across renders (the nav's IntersectionObserver depends on it). */
+const SECTIONS: ReadonlyArray<NavSection> = [
+  { id: 'settings-profile', label: 'Profile', icon: <UserIcon size={16} /> },
+  { id: 'settings-ai', label: 'AI review', icon: <SparkleIcon size={16} /> },
+  { id: 'settings-notifications', label: 'Notifications', icon: <BellIcon size={16} /> },
+]
 
 /**
  * #/settings — My Profile, AI Review Preferences, and Notifications, stacked as
@@ -50,46 +62,56 @@ export function SettingsPage() {
         <TopBar onMenu={() => setMenuOpen((open) => !open)} breadcrumb="Workspace / Settings" />
 
         <div className="dashboard-content settings-page">
-          <PageHeader
-            title="Settings"
-            subtitle="Manage your profile and how AI assists your review."
-          />
+          <div className="st-layout">
+            <SettingsNav sections={SECTIONS} />
 
-          <div className="st-stack">
-            <section className="st-panel" aria-label="My Profile">
-              <ProfileSettings
-                value={settings.profile}
-                onSave={(next, message) => persist({ profile: next }, message)}
+            <div className="st-content">
+              <PageHeader
+                title="Settings"
+                subtitle="Manage your profile and how AI assists your review."
               />
-            </section>
 
-            <section className="st-panel" aria-label="AI Review Preferences">
-              <AIReviewSettings />
-            </section>
+              <div className="st-stack">
+                <section id="settings-profile" className="st-panel" aria-label="My Profile">
+                  <ProfileSettings
+                    value={settings.profile}
+                    onSave={(next, message) => persist({ profile: next }, message)}
+                  />
+                </section>
 
-            <section className="st-panel" aria-label="Notifications">
-              <NotificationSettings />
-            </section>
+                <section id="settings-ai" className="st-panel" aria-label="AI Review Preferences">
+                  <AIReviewSettings />
+                </section>
+
+                <section
+                  id="settings-notifications"
+                  className="st-panel"
+                  aria-label="Notifications"
+                >
+                  <NotificationSettings />
+                </section>
+              </div>
+
+              <p className="st-principle">
+                <span className="st-principle__icon" aria-hidden="true">
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    focusable="false"
+                  >
+                    <path d="M12 3l7 3v5.5c0 4-3 7.4-7 8.5-4-1.1-7-4.5-7-8.5V6z" />
+                  </svg>
+                </span>
+                AI helps connect and explain evidence. Humans remain responsible for the final decision.
+              </p>
+            </div>
           </div>
-
-          <p className="st-principle">
-            <span className="st-principle__icon" aria-hidden="true">
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                focusable="false"
-              >
-                <path d="M12 3l7 3v5.5c0 4-3 7.4-7 8.5-4-1.1-7-4.5-7-8.5V6z" />
-              </svg>
-            </span>
-            AI helps connect and explain evidence. Humans remain responsible for the final decision.
-          </p>
         </div>
       </main>
 

@@ -587,7 +587,8 @@
 
   .claims-table thead th {
     position: sticky;
-    top: 0;
+    /* Pin below the floating bar (bottom edge 16 + 76 = 92) + a 16px gap. */
+    top: 108px;
     z-index: 2;
     border-bottom: 0;
     box-shadow: inset 0 -1px 0 var(--border);

@@ -1,5 +1,5 @@
-import { BrandVisual } from './BrandVisual'
-import { LoginForm } from './LoginForm'
+import { BrandPanel } from './BrandPanel'
+import { LoginCard } from './LoginCard'
 
 export type LoginPageProps = {
   /** Enter the demo workspace. Credentials are never checked, stored, or sent. */
@@ -8,51 +8,32 @@ export type LoginPageProps = {
 
 /**
  * The sign-in screen: a brand panel that states what the product is, and an
- * auth card that gets a returning reviewer to work. Everything on the right
- * is form behaviour only — there is no authentication service behind it.
+ * auth column that centres the card above a footer pinned to the bottom.
+ * Everything on the right is form behaviour only — there is no authentication
+ * service behind it.
  */
 export function LoginPage({ onDemo }: LoginPageProps) {
   return (
     <div className="login">
-      <aside className="brand" aria-labelledby="brand-statement">
-        <BrandVisual className="brand__visual" />
-
-        <div className="brand__inner">
-          <div className="brand__logo">
-            <img src="/insuralens-logo-white.png" alt="InsuraLens" className="login-logo login-logo--navy" />
-          </div>
-
-          <div className="brand__copy">
-            <p className="brand__statement" id="brand-statement">
-              Bring complex claims evidence into focus.
-            </p>
-            <p className="brand__support">
-              AI-assisted claims review that connects evidence, explains findings, and keeps final
-              decisions in human hands.
-            </p>
-          </div>
-        </div>
-      </aside>
+      <BrandPanel />
 
       <main className="auth" id="main">
-        <div className="auth__inner">
-          <div className="auth__center">
-            <div className="card">
-              <LoginForm onDemo={onDemo} />
-            </div>
+        <div className="auth__center">
+          <div className="card">
+            <LoginCard onDemo={onDemo} />
           </div>
-
-          <footer className="pagefoot">
-            <p>© 2026 InsuraLens</p>
-            <nav className="pagefoot__links" aria-label="Footer">
-              {/* Placeholder destinations: the product has no legal or help
-                  pages in this prototype. */}
-              <a href="#/">Privacy</a>
-              <a href="#/">Terms</a>
-              <a href="#/">Help</a>
-            </nav>
-          </footer>
         </div>
+
+        <footer className="pagefoot">
+          <p>© 2026 InsuraLens</p>
+          <nav className="pagefoot__links" aria-label="Footer">
+            {/* Placeholder destinations: the pages do not exist yet, but the
+                links are honest about where they would go. */}
+            <a href="#/">Privacy</a>
+            <a href="#/">Terms</a>
+            <a href="#/">Help</a>
+          </nav>
+        </footer>
       </main>
     </div>
   )

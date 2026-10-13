@@ -3,117 +3,11 @@ import { cx } from '../../lib/cx'
 import type { ChatMessage, FlagLabel, PointLabel, Section } from '../../lib/chatData'
 import { ChatAvatar } from './ChatAvatar'
 import { EvidenceChip, EvidenceChipRow } from './EvidenceChip'
-import { FindingCard, findingTone } from './FindingCard'
+import { FindingCard } from './FindingCard'
 import { InvestigationActivity } from './InvestigationActivity'
 import { MessageActions, type Feedback } from './MessageActions'
-
-/* -------------------------------------------------------------------------- */
-/* Grouping — turns the flat Section[] into a readable report outline.         */
-/* Presentational only: the underlying sections are never mutated.             */
-/* -------------------------------------------------------------------------- */
-
-type Block =
-  | { kind: 'title'; text: string }
-  | { kind: 'lead'; text: string }
-  | { kind: 'findings'; items: string[] }
-  | { kind: 'callout'; title: string; items: string[] }
-  | { kind: 'section'; section: Section }
-
-function buildBlocks(sections: Section[]): Block[] {
-  const blocks: Block[] = []
-  let sawLead = false
-
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i]
-
-    if (section.kind === 'heading') {
-      const consumeItems = () => {
-        const items: string[] = []
-        while (
-          i + 1 < sections.length &&
-          (sections[i + 1].kind === 'bullets' || sections[i + 1].kind === 'numbered')
-        ) {
-          items.push(...(sections[i + 1] as { items: string[] }).items)
-          i++
-        }
-        return items
-      }
-
-      if (/key findings/i.test(section.text)) {
-        blocks.push({ kind: 'findings', items: consumeItems() })
-        continue
-      }
-      if (/needs further investigation/i.test(section.text)) {
-        blocks.push({ kind: 'callout', title: section.text, items: consumeItems() })
-        continue
-      }
-      if (!blocks.some((b) => b.kind === 'title')) {
-        blocks.push({ kind: 'title', text: section.text })
-        continue
-      }
-    }
-
-    if (section.kind === 'paragraph' && !sawLead) {
-      sawLead = true
-      blocks.push({ kind: 'lead', text: section.text })
-      continue
-    }
-
-    blocks.push({ kind: 'section', section })
-  }
-
-  return blocks
-}
-
-function Report({ sections, onOpenSource }: { sections: Section[]; onOpenSource: (id: string) => void }) {
-  const blocks = buildBlocks(sections)
-  return (
-    <>
-      {blocks.map((block, i) => {
-        switch (block.kind) {
-          case 'title':
-            return (
-              <h3 key={i} className="chat-report__title">
-                {block.text}
-              </h3>
-            )
-          case 'lead':
-            return (
-              <p key={i} className="chat-report__lead">
-                {block.text}
-              </p>
-            )
-          case 'findings':
-            return (
-              <div key={i} className="chat-findings">
-                <span className="chat-findings__label">Key findings</span>
-                <ul className="chat-findings__list">
-                  {block.items.map((item, j) => (
-                    <FindingCard key={j} tone={findingTone(item)}>
-                      {item}
-                    </FindingCard>
-                  ))}
-                </ul>
-              </div>
-            )
-          case 'callout':
-            return (
-              <div key={i} className="chat-callout">
-                <p className="chat-callout__title">{block.title}</p>
-                <ul className="chat-callout__list">
-                  {block.items.map((item, j) => (
-                    <li key={j}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )
-          default:
-            return <SectionView key={i} section={block.section} onOpenSource={onOpenSource} />
-        }
-      })}
-    </>
-  )
-}
+import { InfoIcon } from './chatIcons'
+import { buildReport } from './reportModel'
 
 /* -------------------------------------------------------------------------- */
 /* Message text (for the copy action)                                         */
@@ -147,6 +41,82 @@ function plainText(message: ChatMessage): string {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Assistant response card                                                    */
+/* -------------------------------------------------------------------------- */
+
+const BANNER_TEXT =
+  'Preliminary points, not a claim decision. A human reviewer decides.'
+
+function AssistantReport({
+  sections,
+  activity,
+  onOpenSource,
+}: {
+  sections: Section[]
+  activity?: ChatMessage['activity']
+  onOpenSource: (sourceId: string) => void
+}) {
+  const report = buildReport(sections)
+  const { findings, nextSteps, extras } = report
+
+  return (
+    <div className="chat-card">
+      <p className="chat-card__banner">
+        <InfoIcon size={15} />
+        <span>{BANNER_TEXT}</span>
+      </p>
+
+      {findings.length > 0 && (
+        <section className="chat-report" aria-label="Investigation summary">
+          <div className="chat-report__head">
+            <h3 className="chat-report__title">Investigation summary</h3>
+            <span className="chat-report__count">
+              {findings.length} finding{findings.length === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          <ul className={`chat-finding-grid chat-finding-grid--${Math.min(findings.length, 3)}`}>
+            {findings.map((finding, i) => (
+              <FindingCard
+                key={i}
+                index={i + 1}
+                status={finding.status}
+                text={finding.text}
+                evidence={finding.evidence}
+                onOpenSource={onOpenSource}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {nextSteps.length > 0 && (
+        <div className="chat-next">
+          <span className="chat-next__label">Next steps</span>
+          <div className="chat-next__row">
+            {nextSteps.map((step, i) => (
+              <span key={i} className="chat-next__pill">
+                {step}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {extras.length > 0 && (
+        <div className="chat-report__extra">
+          {extras.map((section, i) => (
+            <SectionView key={i} section={section} onOpenSource={onOpenSource} />
+          ))}
+        </div>
+      )}
+
+      {activity && <InvestigationActivity steps={activity} />}
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------------------- */
 /* Messages                                                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -154,16 +124,12 @@ export function UserMessage({ message }: { message: ChatMessage }) {
   return (
     <article className="chat-msg chat-msg--user chat-msg--enter" aria-label="Your message">
       <div className="chat-msg__content">
-        <div className="chat-msg__bubble chat-msg__bubble--user">
+        {/* Focusable so keyboard users can reveal the timestamp too. */}
+        <div className="chat-msg__bubble chat-msg__bubble--user" tabIndex={0}>
           <p className="chat-msg__text">{message.text}</p>
         </div>
-        <div className="chat-msg__meta chat-msg__meta--user">
-          <span>You</span>
-          <span aria-hidden="true">·</span>
-          <time>{message.time}</time>
-        </div>
+        <time className="chat-msg__time">{message.time}</time>
       </div>
-      <ChatAvatar role="user" />
     </article>
   )
 }
@@ -191,11 +157,28 @@ export function AssistantMessage({
   const [feedback, setFeedback] = useState<Feedback>(null)
   const [saved, setSaved] = useState(false)
 
+  /* The orb, author line and demo tag lead every assistant turn, including the
+     failed one, so the message identity never changes between states. */
+  const head = (
+    <div className="chat-msg__head">
+      <span className="chat-msg__author">InsuraLens Assistant</span>
+      <span aria-hidden="true">·</span>
+      <time>{message.time}</time>
+      <span
+        className="chat-demo-tag"
+        title="Illustrative content generated from mock records — no live AI model processed this conversation."
+      >
+        Demo content
+      </span>
+    </div>
+  )
+
   if (message.error) {
     return (
       <article className="chat-msg chat-msg--assistant chat-msg--enter" aria-label="Assistant error">
         <ChatAvatar role="assistant" />
         <div className="chat-msg__content">
+          {head}
           <div className="chat-msg__bubble chat-msg__bubble--assistant">
             <div className="chat-msg__error" role="alert">
               <p className="chat-msg__error-text">{message.text}</p>
@@ -207,11 +190,6 @@ export function AssistantMessage({
                 Retry
               </button>
             </div>
-          </div>
-          <div className="chat-msg__meta">
-            <span className="chat-msg__author">InsuraLens Assistant</span>
-            <span aria-hidden="true">·</span>
-            <time>{message.time}</time>
           </div>
         </div>
       </article>
@@ -235,10 +213,12 @@ export function AssistantMessage({
     <article className="chat-msg chat-msg--assistant chat-msg--enter" aria-label="Assistant response">
       <ChatAvatar role="assistant" />
       <div className="chat-msg__content">
-        <div className="chat-msg__bubble chat-msg__bubble--assistant">
-          <Report sections={message.sections ?? []} onOpenSource={onOpenSource} />
-          {message.activity && <InvestigationActivity steps={message.activity} />}
-        </div>
+        {head}
+        <AssistantReport
+          sections={message.sections ?? []}
+          activity={message.activity}
+          onOpenSource={onOpenSource}
+        />
 
         <div className="chat-msg__foot">
           <MessageActions
@@ -254,17 +234,6 @@ export function AssistantMessage({
               setSaved(true)
             }}
           />
-          <div className="chat-msg__meta">
-            <span className="chat-msg__author">InsuraLens Assistant</span>
-            <span aria-hidden="true">·</span>
-            <time>{message.time}</time>
-            <span
-              className="chat-demo-tag"
-              title="Illustrative content generated from mock records — no live AI model processed this conversation."
-            >
-              Demo content
-            </span>
-          </div>
         </div>
       </div>
     </article>

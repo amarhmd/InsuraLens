@@ -1,3 +1,5 @@
+import { ShieldIcon } from '../../components/layout/icons'
+import { EyeIcon, LinkIcon, LockIcon, SparkleIcon } from '../../components/ui/icons'
 import { useAiPrefs } from '../../hooks/useAiPrefs'
 import { saveAiPrefs, type AiPrefs } from '../../lib/aiPrefs'
 import { SectionHeader, SettingsGroup, SavedStatus, ToggleRow, useSavedFlash } from './settingsKit'
@@ -20,6 +22,7 @@ export function AIReviewSettings() {
   return (
     <>
       <SectionHeader
+        icon={<SparkleIcon size={20} />}
         title="AI Review Preferences"
         description="Choose how AI-assisted suggestions appear while you review a claim."
       />
@@ -30,22 +33,25 @@ export function AIReviewSettings() {
       >
         <ToggleRow
           id="ai-damage-boxes"
+          icon={<EyeIcon size={18} />}
           label="Show AI-suggested damage boxes on the damage map"
-          hint="Displays the numbered damage areas the AI marked over the vehicle illustration."
+          hint="Shows the numbered damage areas the AI marked on the illustration."
           checked={prefs.damageBoxes}
           onChange={(damageBoxes) => set({ damageBoxes })}
         />
         <ToggleRow
           id="ai-evidence-links"
+          icon={<LinkIcon size={18} />}
           label="Show evidence links on AI findings"
-          hint="Displays the chips that jump from a finding to the evidence it relies on."
+          hint="Shows the chips linking a finding to the evidence it relies on."
           checked={prefs.evidenceLinks}
           onChange={(evidenceLinks) => set({ evidenceLinks })}
         />
         <ToggleRow
           id="ai-badges"
+          icon={<SparkleIcon size={18} />}
           label="Show AI-generated badges and verification reminders"
-          hint="Displays the AI-suggested and AI-generated tags and each finding's status badge."
+          hint="Shows the AI-suggested tags and each finding's status badge."
           checked={prefs.aiBadges}
           onChange={(aiBadges) => set({ aiBadges })}
         />
@@ -54,10 +60,19 @@ export function AIReviewSettings() {
       <SavedStatus visible={saved} />
 
       <div className="st-fixed-note">
+        <span className="st-fixed-note__icon" aria-hidden="true">
+          <ShieldIcon size={18} />
+        </span>
         <p className="st-fixed-note__text">
-          Final claim decisions always remain with an authorized reviewer. This cannot be changed.
+          <strong className="st-fixed-note__lead">
+            Final claim decisions always remain with an authorized reviewer.
+          </strong>{' '}
+          This cannot be changed.
         </p>
-        <span className="st-chip st-chip--info">Always on</span>
+        <span className="st-fixed-note__lock">
+          <LockIcon size={14} />
+          Always on
+        </span>
       </div>
     </>
   )

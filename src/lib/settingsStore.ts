@@ -78,12 +78,12 @@ export const NOTIFICATION_ITEMS: NotificationItem[] = [
   {
     key: 'claimAssigned',
     label: 'Claims assigned to me',
-    hint: 'Sent when a new claim is routed to you for review.',
+    hint: 'Sent when a new claim is routed to you.',
   },
   {
     key: 'needsReview',
     label: 'Claims needing my review',
-    hint: 'Sent when a claim you own reaches a point that needs your decision.',
+    hint: 'Sent when a claim you own needs your decision.',
   },
 ]
 

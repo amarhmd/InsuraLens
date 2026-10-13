@@ -19,8 +19,17 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #12304a 0%, #0e2639 100%);
-  border-right: 1px solid #1f4767;
+  /* Navy→teal brand gradient (shared --brand-* recipe), the same dotted grid as
+     the Settings profile hero, plus a soft teal glow rising from the foot.
+     background-color is the solid fallback beneath the gradient image. */
+  background-color: var(--navy);
+  background-image:
+    var(--brand-grid-dot),
+    radial-gradient(120% 80% at 50% 115%, var(--brand-glow-color), transparent 60%),
+    var(--brand-gradient);
+  background-size: var(--brand-grid-size), 100% 100%, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat;
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -29,7 +38,7 @@
 
 .sidebar__top {
   padding: 24px 20px 16px;
-  border-bottom: 1px solid #1f4767;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .sidebar__logo {
@@ -69,17 +78,18 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
-  color: #c7d8e6; /* softened white on navy */
+  padding: 9px 11px; /* + 1px border below = the original 10px/12px inset */
+  border: 1px solid transparent; /* reserved so the active row never nudges */
+  color: rgba(255, 255, 255, 0.78); /* white at ~78% — AA over the gradient */
   text-decoration: none;
   border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
-  transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
 }
 
 .sidebar__nav-link:hover {
-  background: rgba(255, 255, 255, 0.08); /* clear hover on deeper navy */
+  background: rgba(255, 255, 255, 0.08); /* clear hover on the tinted shell */
   color: #ffffff;
   text-decoration: none;
 }
@@ -88,7 +98,7 @@
   flex: none;
   width: 20px;
   height: 20px;
-  color: #c7d8e6; /* softened white icons on navy */
+  color: rgba(255, 255, 255, 0.78); /* matches the label */
   transition: color 160ms ease;
 }
 
@@ -97,10 +107,10 @@
 }
 
 .sidebar__nav-link--active {
-  background: linear-gradient(135deg, #0f7f81 0%, #0b6365 100%);
+  background: rgba(255, 255, 255, 0.14); /* translucent white lift on teal */
+  border-color: rgba(255, 255, 255, 0.32); /* 1px translucent-white edge */
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 0 0 1px rgba(94, 231, 213, 0.35), 0 10px 22px -12px rgba(21, 154, 156, 0.9);
 }
 
 .sidebar__nav-link--active::before {
@@ -112,12 +122,12 @@
   width: 3px;
   height: 20px;
   border-radius: 0 3px 3px 0;
-  background: #5ee7d5;
+  background: #5ee7d5; /* light-teal edge indicator */
   box-shadow: 0 0 10px rgba(94, 231, 213, 0.9);
 }
 
 .sidebar__nav-link--active:hover {
-  background: linear-gradient(135deg, #0c6e70 0%, #0a5c5e 100%);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .sidebar__nav-link--active .sidebar__nav-icon {
@@ -126,7 +136,7 @@
 
 .sidebar__bottom {
   padding: 16px 20px;
-  border-top: 1px solid #1f4767;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -144,6 +154,7 @@
   font-weight: 600;
   font-size: 13px;
   flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.38); /* translucent-white ring */
 }
 
 .sidebar__user-info {
@@ -154,13 +165,13 @@
 .sidebar__user-name {
   font-weight: 600;
   font-size: 14px;
-  color: #ffffff;
+  color: #ffffff; /* full white, not translucent: AA over the teal glow foot */
   line-height: 1.3;
 }
 
 .sidebar__user-role {
   font-size: 13px;
-  color: #ffffff;
+  color: #ffffff; /* full white: 0.82 white falls below 4.5:1 here */
   line-height: 1.3;
 }
 
@@ -316,62 +327,86 @@
 
 .top-bar {
   position: sticky;
-  top: 0;
+  top: 16px;
   z-index: 45;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s-2);
-  height: 48px;
-  padding-inline: var(--s-4);
-  background: var(--surface);
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  backdrop-filter: blur(12px) saturate(140%);
-  border-block-end: 1px solid transparent;
-  transition: box-shadow var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
+  gap: var(--s-4);
+  height: 76px;
+  margin: 16px 16px 0;
+  padding-inline: 20px;
+  border-radius: 20px;
+  color: #fff;
+  /* Navy→teal brand recipe shared with the sidebar, mirrored on a shallower
+     axis (100deg, left→right) with the teal glow moved to the top-right corner. */
+  background-color: var(--navy);
+  background-image:
+    var(--brand-grid-dot),
+    radial-gradient(120% 150% at 100% 0%, var(--brand-glow-color), transparent 62%),
+    var(--brand-gradient-bar);
+  background-size: var(--brand-grid-size), 100% 100%, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 10px 30px rgba(15, 42, 68, 0.18);
+  transition: box-shadow var(--t-base) var(--ease);
 }
 
-.top-bar[data-scrolled='true'] {
-  border-block-end-color: var(--border);
-  box-shadow: var(--shadow-sm);
+.top-bar--scrolled {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 14px 38px rgba(15, 42, 68, 0.34);
 }
 
 .top-bar__start,
 .top-bar__end {
   display: flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-3);
   min-width: 0;
+}
+
+.top-bar__end {
+  flex: none;
+  gap: var(--s-2);
 }
 
 .top-bar__menu {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   flex: none;
-  border-radius: var(--r-lg);
-  color: var(--text-primary);
-  transition: background-color var(--t-fast) var(--ease);
+  border-radius: 50%;
+  color: #fff;
+  transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
 
 .top-bar__menu:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.12);
 }
 
-/* Amber DEMO DATA pill with a status dot — every page runs on mock data. */
+/* Every control on the gradient bar gets the light-teal focus ring. */
+.top-bar__menu:focus-visible,
+.notif__trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #7de9db;
+}
+
+/* Amber DEMO DATA pill, restyled for the dark gradient surface — a translucent
+   amber wash that keeps the light-amber label at AA over the teal end. */
 .top-bar__demo {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
-  border: 1px solid #f0c36a;
+  border: 1px solid rgba(250, 204, 117, 0.55);
   border-radius: var(--r-pill);
-  background: #fff7e6;
-  color: #8a5b00;
+  background: rgba(124, 74, 6, 0.34);
+  color: #ffe6b0;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -383,11 +418,12 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #b45309;
+  background: #ffca6b;
   flex: none;
 }
 
-/* Breadcrumb trail */
+/* Breadcrumb trail on the dark bar: parents and separators step back to 65%
+   white, the current page stays full white and semibold. */
 .crumbs {
   min-width: 0;
 }
@@ -402,24 +438,27 @@
   display: inline-flex;
   align-items: center;
   font-size: var(--fs-sm);
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.65);
   white-space: nowrap;
 }
 
 .crumbs__item + .crumbs__item::before {
   content: '/';
   margin-inline: 8px;
-  color: var(--border-strong);
+  color: rgba(255, 255, 255, 0.65);
 }
 
 .crumbs__text[aria-current='page'] {
-  color: var(--text-primary);
+  color: #fff;
   font-weight: 600;
 }
 
 /* Notifications bell + dropdown */
 .notif {
   position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
 }
 
 .notif__trigger {
@@ -427,33 +466,41 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--r-lg);
-  color: var(--text-secondary);
-  transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
 
 .notif__trigger:hover {
-  background: var(--surface-hover);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .notif__count {
   position: absolute;
-  top: 4px;
-  inset-inline-end: 4px;
-  min-width: 16px;
-  height: 16px;
+  top: 3px;
+  inset-inline-end: 3px;
+  min-width: 17px;
+  height: 17px;
   padding-inline: 4px;
   border-radius: var(--r-pill);
   background: var(--danger);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
-  line-height: 16px;
+  line-height: 17px;
   text-align: center;
   box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* The bar is always dark, so pin the count to a bright red on white regardless
+   of the page theme (the dark chat theme would otherwise lighten it). */
+.top-bar .notif__trigger .notif__count {
+  background: var(--error-border);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--navy);
 }
 
 .notif__panel {
@@ -652,7 +699,9 @@
    -------------------------------------------------------------------------- */
 
 .dashboard-content {
-  padding: 24px 32px 40px;
+  /* 16px top matches the floating bar's 16px inset so there is no doubled gap
+     under the bar (the bar is in flow — it already reserves its own height). */
+  padding: 16px 32px 40px;
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
@@ -1219,11 +1268,19 @@
   }
 
   .top-bar {
-    padding-inline: var(--s-3);
+    top: 8px;
+    height: 64px;
+    margin: 8px 8px 0;
+    padding-inline: 12px;
+  }
+
+  /* Compact bar: show only the current breadcrumb segment. */
+  .crumbs__item:not(:last-child) {
+    display: none;
   }
 
   .dashboard-content {
-    padding: 20px;
+    padding: 12px 20px 32px;
   }
 }
 
@@ -1240,8 +1297,9 @@
 }
 
 @media (max-width: 480px) {
-  /* Keep the compact bar readable: show only the current breadcrumb segment. */
-  .crumbs__item:not(:last-child) {
+  /* Keep the compact bar from crowding: drop the demo marker, keep the
+     controls. (Parent breadcrumb segments already hide at 900px.) */
+  .top-bar__demo {
     display: none;
   }
 }

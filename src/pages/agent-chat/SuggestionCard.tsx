@@ -50,12 +50,3 @@ export function SuggestionCard({
     </button>
   )
 }
-
-/** Compact chip used above the composer once a conversation has started. */
-export function SuggestionChip({ text, onPick }: { text: string; onPick: (text: string) => void }) {
-  return (
-    <button type="button" className="suggestion-chip" onClick={() => onPick(text)}>
-      {text}
-    </button>
-  )
-}

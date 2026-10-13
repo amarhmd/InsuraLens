@@ -37,6 +37,11 @@ export function ProfileMenu({ onClose }: Props) {
     navigate({ name: 'login' })
   }
 
+  const goSettings = () => {
+    onClose()
+    navigate({ name: 'settings' })
+  }
+
   return (
     <div className="pfm" ref={panelRef}>
       <div className="pfm__identity">
@@ -59,6 +64,9 @@ export function ProfileMenu({ onClose }: Props) {
       </p>
 
       <div className="pfm__footer">
+        <button type="button" className="pfm__link" onClick={goSettings}>
+          Settings
+        </button>
         <button type="button" className="pfm__link" onClick={signOut}>
           Back to sign in
         </button>

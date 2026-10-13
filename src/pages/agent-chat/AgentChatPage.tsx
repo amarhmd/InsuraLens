@@ -1,25 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
 import { TopBar } from '../../components/layout/TopBar'
-import { ChatHeader } from './ChatHeader'
+import { ChatTabsBar } from './ChatTabsBar'
 import { ChatMessageList } from './ChatMessageList'
-import { ConversationSidebar } from './ConversationSidebar'
 import { MessageComposer } from './MessageComposer'
-import { ClaimContextPanel } from './ClaimContextPanel'
+import { EvidenceDrawer } from './EvidenceDrawer'
 import { EvidencePreviewPanel } from './EvidencePreviewPanel'
 import { ConfirmDialog } from '../../components/feedback/ConfirmDialog'
 import { ToastNotification } from '../../components/feedback/ToastNotification'
 import { cx } from '../../lib/cx'
-import { incidentLabel } from '../../lib/constants'
 import { useAgentChat } from './useAgentChat'
 import { useChatTheme } from './useChatTheme'
+import { readNoticeDismissed, writeNoticeDismissed } from './noticeStore'
+import { CloseIcon } from './chatIcons'
 
 /**
  * Agent Chat — investigation workspace.
- * Three panels: conversations, chat, claim context / evidence preview.
- * Conversations and claims arrive through src/api/ (mock-backed); replies
- * come back from sendChatMessage() as the same canned demo content.
- * All state and handlers live in useAgentChat(); this is the view.
+ *
+ * A single chat card filling the content area below the top bar: conversation
+ * tabs, the message stream, and the composer. Conversations and claims arrive
+ * through src/api/ (mock-backed); replies come back from sendChatMessage() as
+ * the same canned demo content. Evidence lives in a slide-over opened from the
+ * tabs bar, and the claim context is switched from the composer chip. All state
+ * and handlers live in useAgentChat(); this is the view.
  */
 export function AgentChatPage() {
   const {
@@ -39,11 +42,8 @@ export function AgentChatPage() {
     rightMode,
     setRightMode,
     highlightId,
-    leftOpen,
-    setLeftOpen,
     rightOpen,
     setRightOpen,
-    showPanelToggles,
     confirm,
     setConfirm,
     toast,
@@ -67,6 +67,13 @@ export function AgentChatPage() {
 
   const { theme, toggle: toggleTheme } = useChatTheme()
 
+  /* One-line prototype notice: shown until dismissed, then remembered. */
+  const [noticeDismissed, setNoticeDismissed] = useState(readNoticeDismissed)
+  const dismissNotice = () => {
+    setNoticeDismissed(true)
+    writeNoticeDismissed(true)
+  }
+
   /* A brief skeleton pulse when switching conversation or claim context. */
   const [switching, setSwitching] = useState(false)
   const switchTimer = useRef<number | undefined>(undefined)
@@ -77,7 +84,18 @@ export function AgentChatPage() {
   }
   useEffect(() => () => window.clearTimeout(switchTimer.current), [])
 
-  const context = active?.claimId && claim ? `${claim.id} · ${incidentLabel(claim.incident)}` : null
+  /* Escape closes the evidence slide-over (the drawer handles its own too; this
+     covers the preview branch as well). */
+  useEffect(() => {
+    if (!rightOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRightOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [rightOpen, setRightOpen])
+
+  const workspaceHref = claim ? `#/claims/${encodeURIComponent(claim.id)}` : null
 
   return (
     <div className="dashboard-shell" data-theme={theme}>
@@ -107,134 +125,135 @@ export function AgentChatPage() {
           )}
 
           {!loading && !loadError && (
-            <>
-              <ConversationSidebar
+            <section className="chat-surface" aria-label="Chat conversation">
+              <ChatTabsBar
                 conversations={conversations}
                 activeId={activeId}
                 search={search}
-                open={leftOpen}
                 onSearch={setSearch}
                 onSelect={(id) => {
                   setActiveId(id)
                   pulseSwitch()
-                  setLeftOpen(false)
                   setRightMode({ kind: 'context' })
                 }}
                 onNew={startNewConversation}
+                onClear={() => setConfirm({ kind: 'clear' })}
+                onDelete={(id) => setConfirm({ kind: 'delete', id })}
                 onRename={(id, title) => {
                   updateConv(id, (c) => ({ ...c, title }))
                   setToast('Conversation renamed.')
                 }}
-                onDelete={(id) => setConfirm({ kind: 'delete', id })}
-                onClose={() => setLeftOpen(false)}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onOpenEvidence={() => {
+                  setRightMode({ kind: 'context' })
+                  setRightOpen(true)
+                }}
+                workspaceHref={workspaceHref}
               />
 
-              <section className="chat-center" aria-label="Chat conversation">
-                <ChatHeader
-                  context={context}
-                  claimOptions={claimOptions}
-                  selectedClaimId={active?.claimId ?? ''}
-                  onClaimChange={(id) => {
-                    setClaimContext(id)
-                    pulseSwitch()
-                  }}
-                  onNewChat={startNewConversation}
-                  onClear={() => setConfirm({ kind: 'clear' })}
-                  onDeleteConversation={() =>
-                    active && setConfirm({ kind: 'delete', id: active.id })
+              <ChatMessageList
+                messages={active?.messages ?? []}
+                loading={sending}
+                skeleton={switching}
+                busyLabel="Analyzing evidence…"
+                onOpenSource={openSource}
+                onRetry={retryLastUserMessage}
+                onRegenerate={regenerateLast}
+                onSaveNote={() =>
+                  setToast('Saved to claim notes (demo — nothing is persisted).')
+                }
+                onPickSuggestion={pickSuggestion}
+                notice={
+                  noticeDismissed ? null : (
+                    <div className="chat-notice" role="note">
+                      <span className="chat-notice__text">
+                        Prototype notice — illustrative mock content from demo records; no live
+                        AI model or backend is connected.
+                      </span>
+                      <button
+                        type="button"
+                        className="chat-notice__dismiss"
+                        aria-label="Dismiss prototype notice"
+                        title="Dismiss"
+                        onClick={dismissNotice}
+                      >
+                        <CloseIcon size={14} />
+                      </button>
+                    </div>
+                  )
+                }
+              />
+
+              <MessageComposer
+                value={input}
+                onChange={setInput}
+                onSend={() => send(input)}
+                onAttach={attachDemo}
+                onPickSuggestion={pickSuggestion}
+                sending={sending}
+                claimId={active?.claimId ?? null}
+                claimOptions={claimOptions}
+                onClaimChange={(id) => {
+                  setClaimContext(id)
+                  pulseSwitch()
+                }}
+              />
+
+              <input
+                ref={fileRef}
+                type="file"
+                className="sr-only"
+                aria-hidden="true"
+                tabIndex={-1}
+                onChange={(e) => {
+                  const name = e.target.files?.[0]?.name
+                  e.target.value = ''
+                  if (name) {
+                    setToast(
+                      `Demo attachment “${name}” selected — files are never uploaded in this prototype.`,
+                    )
                   }
-                  theme={theme}
-                  onToggleTheme={toggleTheme}
-                  showPanelToggles={showPanelToggles}
-                  leftOpen={leftOpen}
-                  rightOpen={rightOpen}
-                  onToggleLeft={() => setLeftOpen((was) => !was)}
-                  onToggleRight={() => setRightOpen((was) => !was)}
-                />
-
-                <ChatMessageList
-                  messages={active?.messages ?? []}
-                  loading={sending}
-                  skeleton={switching}
-                  busyLabel="Analyzing evidence…"
-                  onOpenSource={openSource}
-                  onRetry={retryLastUserMessage}
-                  onRegenerate={regenerateLast}
-                  onSaveNote={() =>
-                    setToast('Saved to claim notes (demo — nothing is persisted).')
-                  }
-                  onPickSuggestion={pickSuggestion}
-                  notice={
-                    <p className="chat-notice">
-                      Prototype notice — responses on this page are illustrative mock content
-                      generated from demo records. No live AI model, retrieval tool, or backend
-                      connection is present.
-                    </p>
-                  }
-                />
-
-                <MessageComposer
-                  value={input}
-                  onChange={setInput}
-                  onSend={() => send(input)}
-                  onAttach={attachDemo}
-                  onPickSuggestion={pickSuggestion}
-                  sending={sending}
-                  hasMessages={(active?.messages.length ?? 0) > 0}
-                  contextLabel={active?.claimId ? `Using context: ${active.claimId}` : null}
-                />
-
-                <input
-                  ref={fileRef}
-                  type="file"
-                  className="sr-only"
-                  aria-hidden="true"
-                  tabIndex={-1}
-                  onChange={(e) => {
-                    const name = e.target.files?.[0]?.name
-                    e.target.value = ''
-                    if (name) {
-                      setToast(
-                        `Demo attachment “${name}” selected — files are never uploaded in this prototype.`,
-                      )
-                    }
-                  }}
-                />
-              </section>
-
-              <aside
-                className={cx('chat-panel chat-panel--right', rightOpen && 'chat-panel--open')}
-                id="chat-context"
-                aria-label="Claim context"
-              >
-                {rightMode.kind === 'preview' ? (
-                  <EvidencePreviewPanel
-                    sourceId={rightMode.sourceId}
-                    claim={claim}
-                    onBack={() => setRightMode({ kind: 'context' })}
-                  />
-                ) : (
-                  <ClaimContextPanel
-                    claim={claim}
-                    highlightedId={highlightId}
-                    onOpenSource={openSource}
-                    onClose={() => setRightOpen(false)}
-                  />
-                )}
-              </aside>
-            </>
+                }}
+              />
+            </section>
           )}
         </div>
       </main>
 
-      {/* Drawer scrim for the two collapsible panels. */}
-      {(leftOpen || rightOpen) && (
-        <div
-          className="chat-scrim"
-          onClick={() => {
-            setLeftOpen(false)
+      {/* Evidence slide-over: the list, or a source preview when a citation opened. */}
+      {!loading && !loadError && rightMode.kind === 'preview' && (
+        <aside
+          className={cx('chat-evidence', rightOpen && 'chat-evidence--open')}
+          aria-label="Evidence preview"
+          aria-hidden={!rightOpen}
+        >
+          <EvidencePreviewPanel
+            sourceId={rightMode.sourceId}
+            claim={claim}
+            onBack={() => setRightMode({ kind: 'context' })}
+          />
+        </aside>
+      )}
+
+      {!loading && !loadError && rightMode.kind === 'context' && (
+        <EvidenceDrawer
+          claim={claim}
+          messages={active?.messages ?? []}
+          highlightedId={highlightId}
+          open={rightOpen}
+          onOpenSource={openSource}
+          onClose={() => {
             setRightOpen(false)
+            setRightMode({ kind: 'context' })
           }}
+        />
+      )}
+
+      {rightOpen && (
+        <div
+          className="chat-evidence-scrim"
+          onClick={() => setRightOpen(false)}
           aria-hidden="true"
         />
       )}

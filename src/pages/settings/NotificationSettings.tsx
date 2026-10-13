@@ -1,6 +1,12 @@
+import { BellIcon, ClockIcon, InboxIcon } from '../../components/layout/icons'
 import { useSettingsValue } from '../../hooks/useSettingsValue'
 import { NOTIFICATION_ITEMS, saveSettings, type NotificationKey } from '../../lib/settingsStore'
 import { SavedStatus, SectionHeader, SettingsGroup, ToggleRow, useSavedFlash } from './settingsKit'
+
+/** Decorative row icon per notification switch. */
+function iconFor(key: NotificationKey) {
+  return key === 'claimAssigned' ? <InboxIcon size={18} /> : <ClockIcon size={18} />
+}
 
 /**
  * Notifications — the two switches for the top bar bell. Changes save
@@ -18,6 +24,7 @@ export function NotificationSettings() {
   return (
     <>
       <SectionHeader
+        icon={<BellIcon size={20} />}
         title="Notifications"
         description="Choose which claim updates the notification bell surfaces."
       />
@@ -30,6 +37,7 @@ export function NotificationSettings() {
           <ToggleRow
             key={item.key}
             id={`notif-${item.key}`}
+            icon={iconFor(item.key)}
             label={item.label}
             hint={item.hint}
             checked={notifications[item.key]}

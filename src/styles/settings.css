@@ -8,10 +8,11 @@
 
    Contrast notes (scripts/settings-contrast-check.mjs gates each pair):
    * Active nav item   #0C6E70 on rgba(21,154,156,.08) over white ≈ 5.5:1
-   * Switch on         #0F7F81 track vs white 4.80:1; off #64748B border 4.76:1
+   * Switch on         teal-500→teal-600 track vs white ≥3.4:1 (both stops)
    * Chips / badges    #2A5F94 on rgba(53,120,184,.08) over white ≈ 5.8:1
    * Amber flag        #8A5A00 on rgba(201,130,0,.10) over white ≈ 5.3:1
-   * Navy brand panel  #FFFFFF 13.6:1, #C7D8E6 ≈ 9.3:1
+   * Profile hero      white on the teal-800 stop #0A6264 ≈ 7.2:1
+   * Callout lock      #0C6E70 on the #F0FAF9 tint ≈ 5.7:1
    ========================================================================== */
 
 .settings-page {
@@ -20,16 +21,49 @@
 
 .st-layout {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 32px;
   align-items: start;
+  /* The nav + cards read as one centered block; the card column is ~880px. */
+  max-width: 1112px;
+  margin: 0 auto;
+}
+
+/* Right column: page header, the stacked cards, and the principle line. */
+.st-content {
+  min-width: 0;
 }
 
 /* The simplified page stacks its sections as cards on one page. */
 .st-stack {
   display: grid;
-  gap: 24px;
+  gap: 28px;
   min-width: 0;
+}
+
+/* Cards fade/slide up on mount with a 60ms stagger. Motion is decorative, so
+   the reduced-motion block below removes it entirely. */
+@keyframes st-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.st-stack > .st-panel {
+  animation: st-rise 420ms var(--ease) both;
+}
+
+.st-stack > .st-panel:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.st-stack > .st-panel:nth-child(3) {
+  animation-delay: 120ms;
 }
 
 /* --------------------------------------------------------------------------
@@ -38,11 +72,14 @@
 
 .st-nav {
   position: sticky;
-  top: 16px;
+  /* 108px = the floating bar's bottom edge (16 + 76) + a 16px gap; the nav's
+     natural top is the same, so it sticks without a jump. */
+  top: 108px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 8px;
+  box-shadow: 0 8px 30px rgba(15, 42, 68, 0.06);
+  padding: 10px;
 }
 
 .st-nav__list {
@@ -101,37 +138,19 @@
 }
 
 /* --------------------------------------------------------------------------
-   Section navigation (small screens) — a labelled dropdown instead
-   -------------------------------------------------------------------------- */
-
-.st-mobile {
-  display: none;
-  margin-bottom: 16px;
-}
-
-.st-mobile__label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.st-mobile .claims-select {
-  width: 100%;
-  max-width: 360px;
-}
-
-/* --------------------------------------------------------------------------
    Content panel
    -------------------------------------------------------------------------- */
 
 .st-panel {
   min-width: 0;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border: 0;
+  border-radius: 18px;
   padding: 28px 32px;
+  box-shadow: 0 8px 30px rgba(15, 42, 68, 0.06);
+  /* Keeps a card clear of the floating top bar when the section nav jumps to it
+     (108px = the bar's bottom edge 92 + a 16px gap). */
+  scroll-margin-top: 108px;
 }
 
 /* Receives programmatic focus when the section changes, so keyboard users
@@ -146,7 +165,27 @@
 }
 
 .st-head {
-  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+/* 40px rounded tile carrying the section's icon on the teal brand gradient. */
+.st-head__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--accent-grad);
+  color: #ffffff;
+  box-shadow: 0 10px 20px -12px rgba(15, 127, 129, 0.9);
+}
+
+.st-head__text {
+  min-width: 0;
 }
 
 .st-title {
@@ -157,10 +196,11 @@
 }
 
 .st-desc {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--text-secondary);
+  /* slate-600 rather than the lighter secondary grey — AA with margin. */
+  color: var(--text-secondary-strong);
 }
 
 /* --------------------------------------------------------------------------
@@ -205,16 +245,34 @@
 
 .st-group__rows {
   display: grid;
-  gap: 16px;
+  gap: 0;
 }
 
 /* --------------------------------------------------------------------------
-   Rows — label + helper left, control right; thin dividers between rows
+   Rows — label + helper left, control right. Each row is a hoverable block;
+   an inset hairline separates neighbours (none before the first row).
    -------------------------------------------------------------------------- */
 
-.st-group__rows > * + * {
-  border-top: 1px solid var(--border);
-  padding-top: 16px;
+.st-row,
+.st-toggle {
+  position: relative;
+  padding: 14px;
+  border-radius: 12px;
+  transition: background-color 150ms ease;
+}
+
+.st-row:hover,
+.st-toggle:hover {
+  background: #f0faf9;
+}
+
+.st-group__rows > * + *::before {
+  content: '';
+  position: absolute;
+  inset-inline: 14px;
+  inset-block-start: 0;
+  height: 1px;
+  background: #eef2f7;
 }
 
 .st-row {
@@ -263,23 +321,40 @@
   align-items: center;
 }
 
+/* With a leading icon: icon | text | switch. */
+.st-toggle--with-icon {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px 14px;
+}
+
+.st-toggle__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(21, 154, 156, 0.12);
+  color: var(--teal-700);
+}
+
 .st-toggle__text {
   min-width: 0;
 }
 
 .st-toggle__label {
   display: inline-block;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
 }
 
 .st-toggle__hint {
-  margin-top: 4px;
+  margin-top: 3px;
   font-size: 13px;
   line-height: 1.45;
-  color: var(--text-secondary);
+  color: var(--text-secondary-strong);
 }
 
 /* 44px hit target wrapping the smaller visible track. */
@@ -311,7 +386,7 @@
   border: 1.5px solid #64748b;
   border-radius: var(--r-pill);
   background: var(--surface-sunken);
-  transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
+  transition: background-color 150ms ease, border-color 150ms ease;
 }
 
 .st-switch__knob {
@@ -324,11 +399,12 @@
   background: #ffffff;
   box-shadow: 0 1px 2px rgba(18, 48, 74, 0.24);
   transform: translateY(-50%);
-  transition: left var(--t-base) var(--ease);
+  transition: left 150ms ease;
 }
 
 .st-switch--on .st-switch__track {
-  background: var(--teal-600);
+  /* Both stops clear 3:1 against white, so the whole track reads as a control. */
+  background: linear-gradient(135deg, var(--teal-500) 0%, var(--teal-600) 100%);
   border-color: var(--teal-600);
 }
 
@@ -646,29 +722,43 @@
    -------------------------------------------------------------------------- */
 
 .st-profile {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
   flex-wrap: wrap;
   margin-top: 20px;
-  padding: 16px 20px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  padding: 24px 26px;
+  border-radius: 20px;
+  color: #ffffff;
+  overflow: hidden;
+  /* Navy→teal brand gradient, a dotted grid, and a soft teal glow — the shared
+     --brand-* recipe. The teal end is teal-800 so white text clears AA across
+     the whole card. */
+  background-image:
+    var(--brand-grid-dot),
+    radial-gradient(120% 150% at 88% 6%, var(--brand-glow-color), transparent 58%),
+    var(--brand-gradient);
+  background-size: var(--brand-grid-size), 100% 100%, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat;
+  box-shadow: 0 18px 40px -26px rgba(15, 42, 68, 0.7);
 }
 
 .st-avatar {
   display: grid;
   place-items: center;
   flex: none;
-  width: 48px;
-  height: 48px;
+  width: 76px;
+  height: 76px;
   border-radius: 50%;
-  background: var(--navy);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   color: #ffffff;
-  font-size: 16px;
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: 0.02em;
+  /* Teal glow ring. */
+  box-shadow: 0 0 0 4px rgba(22, 181, 164, 0.34), 0 14px 30px -12px rgba(0, 0, 0, 0.55);
 }
 
 .st-avatar--sm {
@@ -683,24 +773,23 @@
 }
 
 .st-profile__name {
-  font-size: 16px;
+  font-size: 24px;
   font-weight: 600;
-  color: var(--text-primary);
+  line-height: 1.2;
+  color: #ffffff;
 }
 
 .st-profile__email {
-  margin-top: 2px;
-  font-size: 13.5px;
-  /* sits on the sunken summary card — secondary-dark holds 7.0:1 there
-     where text-secondary only reaches 4.35:1 (contrast gate) */
-  color: #475467;
+  margin-top: 4px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
   overflow-wrap: anywhere;
 }
 
 .st-profile__aka {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 13px;
-  color: #475467;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .st-profile__chips {
@@ -709,8 +798,32 @@
   flex-wrap: wrap;
 }
 
+/* Translucent pills on the hero — dark enough that white labels stay AA. */
+.st-profile__chips .st-chip {
+  background: rgba(13, 36, 57, 0.32);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
 .st-profile__action {
   margin-left: auto;
+}
+
+/* White ghost button used on the navy/teal hero. */
+.st-btn-ghost {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+}
+
+.st-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.st-btn-ghost:focus-visible {
+  outline-color: #ffffff;
 }
 
 /* --------------------------------------------------------------------------
@@ -1032,25 +1145,50 @@
   color: var(--teal-700);
 }
 
-/* Fixed reminder inside the AI Review Preferences card — not a control. */
+/* Highlighted reminder inside the AI Review Preferences card — not a control.
+   Light teal panel with a teal left border, a shield, and a non-interactive
+   "Always on" lock. */
 .st-fixed-note {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 16px;
+  align-items: flex-start;
+  gap: 12px;
   flex-wrap: wrap;
   margin-top: 20px;
-  padding: 12px 14px;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  padding: 14px 16px;
+  background: #f0faf9;
+  border: 0;
+  border-left: 3px solid var(--teal-600);
+  border-radius: 12px;
+}
+
+.st-fixed-note__icon {
+  display: flex;
+  flex: none;
+  margin-top: 1px;
+  color: var(--teal-700);
 }
 
 .st-fixed-note__text {
+  flex: 1 1 220px;
   margin: 0;
   font-size: 13.5px;
   line-height: 1.5;
   color: var(--text-primary);
+}
+
+.st-fixed-note__lead {
+  font-weight: 700;
+}
+
+.st-fixed-note__lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-inline-start: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--teal-700);
 }
 
 /* Keep keyboard focus visible across every settings control. */
@@ -1085,24 +1223,12 @@ html[data-density='compact'] .claims-th__btn {
 
 @media (max-width: 1120px) {
   .st-layout {
-    grid-template-columns: 216px minmax(0, 1fr);
-    gap: 20px;
+    grid-template-columns: 176px minmax(0, 1fr);
+    gap: 24px;
   }
 
   .st-panel {
     padding: 24px;
-  }
-}
-
-@media (max-width: 900px) {
-  .st-layout {
-    grid-template-columns: 200px minmax(0, 1fr);
-    gap: 16px;
-  }
-
-  .st-def {
-    grid-template-columns: 180px minmax(0, 1fr);
-    gap: 4px 16px;
   }
 
   .st-form {
@@ -1110,22 +1236,58 @@ html[data-density='compact'] .claims-th__btn {
   }
 }
 
-@media (max-width: 768px) {
+/* Below 900px the section nav collapses into a horizontal, scrollable tab bar
+   that sticks under the top bar and sits above the cards. */
+@media (max-width: 900px) {
   .st-layout {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
 
   .st-nav {
-    display: none;
-  }
-
-  .st-mobile {
+    position: sticky;
+    /* 84px = the compact bar's bottom edge (8 + 64) + a 12px gap. */
+    top: 84px;
+    z-index: 20;
     display: block;
+    padding: 6px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
 
+  /* Clear both the bar and the horizontal section tabs when a section jumps. */
+  .st-panel {
+    scroll-margin-top: 148px;
+  }
+
+  .st-nav__list {
+    display: flex;
+    gap: 4px;
+  }
+
+  .st-nav__item {
+    flex: none;
+  }
+
+  .st-nav__btn {
+    width: auto;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+
+  .st-def {
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 4px 16px;
+  }
+}
+
+@media (max-width: 768px) {
   .st-panel {
     padding: 20px 18px;
+    border-radius: 16px;
   }
 
   .st-profile__action {
@@ -1163,7 +1325,7 @@ html[data-density='compact'] .claims-th__btn {
   }
 
   .st-profile {
-    padding: 14px 16px;
+    padding: 20px 18px;
   }
 
   .st-profile__chips {
@@ -1199,7 +1361,13 @@ html[data-density='compact'] .claims-th__btn {
   .st-switch__track,
   .st-switch__knob,
   .st-pill,
-  .st-card {
+  .st-card,
+  .st-row,
+  .st-toggle {
     transition: none;
+  }
+
+  .st-stack > .st-panel {
+    animation: none;
   }
 }

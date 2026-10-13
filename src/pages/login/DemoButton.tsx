@@ -1,5 +1,5 @@
 import { cx } from '../../lib/cx'
-import { Spinner } from '../../components/ui/icons'
+import { Spinner, CompassIcon } from '../../components/ui/icons'
 
 export type DemoButtonProps = {
   /** Enter the demo workspace. No credentials are read or checked. */
@@ -9,12 +9,17 @@ export type DemoButtonProps = {
   loading?: boolean
 }
 
+/**
+ * The secondary "get in without an account" path. It stays clearly below the
+ * primary Sign in — outlined, not filled — but earns its place with an icon,
+ * a one-line explanation, and the app's own Demo environment marker.
+ */
 export function DemoButton({ onClick, disabled, className, loading }: DemoButtonProps) {
   return (
     <div className={cx('demo', className)}>
       <button
         type="button"
-        className="btn btn--secondary"
+        className="btn btn--secondary demo__btn"
         onClick={onClick}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
@@ -22,18 +27,27 @@ export function DemoButton({ onClick, disabled, className, loading }: DemoButton
         {loading ? (
           <>
             <Spinner size={16} />
-            <span>Signing in…</span>
+            <span>Opening demo…</span>
           </>
         ) : (
-          'Continue with demo'
+          <>
+            <CompassIcon size={18} className="demo__icon" />
+            <span>Continue with demo</span>
+          </>
         )}
       </button>
 
-      {/* Labelled as what it is: an alternative entry, not a sign-in. */}
-      <p className="demo__label">
-        <span className="demo__dot" aria-hidden="true" />
+      <p className="demo__help">Explore with sample data, no account needed</p>
+
+      {/* Labelled as what it is: an alternative entry that runs on fictional
+          sample data, not real insurance claims. */}
+      <span
+        className="demo-pill"
+        title="All data, identities, and permissions are simulated for this frontend demo"
+      >
+        <span className="demo-pill__dot" aria-hidden="true" />
         Demo environment
-      </p>
+      </span>
     </div>
   )
 }

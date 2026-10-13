@@ -127,17 +127,19 @@ export function ChatMessageList({
       </div>
 
       {!atBottom && (
-        <button
-          type="button"
-          className="chat-jump"
-          onClick={() => {
-            stickRef.current = true
-            scrollToEnd('smooth')
-          }}
-        >
-          <ArrowDownIcon size={14} />
-          Jump to latest
-        </button>
+        <div className="chat-jump-row">
+          <button
+            type="button"
+            className="chat-jump"
+            onClick={() => {
+              stickRef.current = true
+              scrollToEnd('smooth')
+            }}
+          >
+            <ArrowDownIcon size={14} />
+            Jump to latest
+          </button>
+        </div>
       )}
     </div>
   )

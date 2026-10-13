@@ -19,17 +19,23 @@
   flex-direction: column;
 }
 
-/* Everything below the header stacks on a 20px beat; the two fields sit a
-   touch tighter so they read as one pair. */
+/* One vertical rhythm below the header: fields and the trust line open a 16px
+   gap; the submit button and the options row sit a touch tighter at 12px. Kept
+   deliberately compact so the whole card clears a 768px-tall laptop. */
 .field + .field,
-.form__aux,
-.form__rule,
 .trust {
-  margin-top: var(--s-5);
+  margin-block-start: var(--s-4);
 }
 
 .btn {
-  margin-top: var(--s-4);
+  margin-block-start: var(--s-3);
+}
+
+.form__options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: var(--s-3);
 }
 
 .field__label {
@@ -37,7 +43,21 @@
   font-weight: 600;
   line-height: var(--lh-snug);
   color: var(--text-primary);
-  margin-bottom: var(--s-2);
+  margin-block-end: var(--s-2);
+}
+
+/* Label on the left, its secondary action (e.g. "Forgot password?") on the
+   right, sharing one baseline and never colliding. */
+.field__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-block-end: var(--s-2);
+}
+
+.field__label-row .field__label {
+  margin-block-end: 0;
 }
 
 .field__control {
@@ -47,9 +67,10 @@
 }
 
 .field__input {
-  width: 100%;
-  height: 48px;
-  padding: 0 var(--s-4);
+  inline-size: 100%;
+  block-size: 48px;
+  padding-block: 0;
+  padding-inline: var(--s-4);
   font-size: var(--t-body);
   color: var(--text-primary);
   background: var(--surface);
@@ -90,17 +111,36 @@
   box-shadow: var(--ring-error);
 }
 
+/* Leading affordance (mail, lock): a decorative mark that never steals a click
+   from the input beneath it. */
+.field__icon {
+  position: absolute;
+  inset-inline-start: 13px;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.field__control--leading .field__input {
+  padding-inline-start: 44px;
+}
+
+.field--invalid .field__icon {
+  color: var(--error);
+}
+
 .field__control--trailing .field__input {
-  padding-right: 46px;
+  padding-inline-end: 46px;
 }
 
 .field__toggle {
   position: absolute;
-  right: 4px;
+  inset-inline-end: 4px;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  inline-size: 38px;
+  block-size: 38px;
   color: var(--text-secondary);
   border-radius: var(--r-sm);
   transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
@@ -120,7 +160,7 @@
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  margin-top: var(--s-2);
+  margin-block-start: var(--s-2);
   font-size: var(--t-label);
   line-height: var(--lh-snug);
   color: var(--error);
@@ -128,17 +168,12 @@
 
 .field__error-icon {
   flex: none;
-  margin-top: 1px;
+  margin-block-start: 1px;
 }
 
 /* --------------------------------------------------------------------------
-   Auxiliary row (forgot password)
+   Inline action link (forgot password) — sits in a field label row
    -------------------------------------------------------------------------- */
-
-.form__aux {
-  display: flex;
-  justify-content: flex-end;
-}
 
 .linkbtn {
   font-size: var(--t-label);
@@ -160,6 +195,30 @@
 }
 
 /* --------------------------------------------------------------------------
+   Remember me
+   -------------------------------------------------------------------------- */
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--t-label);
+  color: var(--text-secondary-strong);
+  cursor: pointer;
+}
+
+.checkbox input {
+  inline-size: 18px;
+  block-size: 18px;
+  accent-color: var(--teal-600);
+  cursor: pointer;
+}
+
+.checkbox input:disabled {
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
    Buttons
    -------------------------------------------------------------------------- */
 
@@ -168,8 +227,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--s-2);
-  width: 100%;
-  height: 48px; /* generous target */
+  inline-size: 100%;
+  block-size: 48px; /* generous target */
   font-size: var(--t-btn);
   font-weight: 600;
   line-height: 1;
@@ -205,8 +264,10 @@
 }
 
 .btn--primary:disabled {
-  color: #ffffff;
-  background: var(--border-strong);
+  /* A legible empty state: slate on a pale fill, 6.1:1 — clearly inert, but
+     the label never disappears. See scripts/contrast-check.mjs. */
+  color: var(--text-secondary-strong);
+  background: var(--border);
   box-shadow: none;
 }
 
@@ -223,7 +284,7 @@
 }
 
 .btn--secondary:disabled {
-  color: var(--text-secondary);
+  color: var(--text-secondary-strong);
   background: var(--surface-sunken);
   border-color: var(--border);
   box-shadow: none;
@@ -246,7 +307,7 @@
 
 .alert__icon {
   flex: none;
-  margin-top: 2px;
+  margin-block-start: 2px;
   color: #a33026;
 }
 
@@ -263,12 +324,28 @@
 }
 
 /* --------------------------------------------------------------------------
-   Rules & demo entry
+   "or" divider & demo entry
    -------------------------------------------------------------------------- */
 
-.form__rule {
-  height: 1px;
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-block: var(--s-3);
+  color: var(--text-secondary-strong);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  block-size: 1px;
   background: var(--border);
+}
+
+.divider__label {
+  font-size: var(--t-label);
+  font-weight: 500;
 }
 
 .demo {
@@ -279,31 +356,57 @@
 }
 
 .demo .btn {
-  margin-top: 0;
+  margin-block-start: 0;
 }
 
-.demo__label {
+/* The demo entry reads as a deliberate second path, not a disabled primary:
+   a compass marks it as "explore", and the amber pill echoes the DEMO DATA
+   badge used across the app. */
+.demo__btn {
+  font-weight: 600;
+}
+
+.demo__icon {
+  color: var(--teal-600);
+}
+
+.demo__help {
+  font-size: var(--t-meta);
+  line-height: var(--lh-snug);
+  color: var(--text-secondary-deep);
+  text-align: center;
+}
+
+/* Same recipe as .top-bar__demo, so "Demo environment" reads as the wink it is
+   rather than a status. */
+.demo-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: var(--t-meta);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-secondary);
+  padding: 3px 10px;
+  border: 1px solid #f0c36a;
+  border-radius: var(--r-pill);
+  background: #fff7e6;
+  color: #8a5b00;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-/* A small dot, not a badge: the label is honest labelling, not a status. */
-.demo__dot {
-  width: 5px;
-  height: 5px;
+.demo-pill__dot {
+  flex: none;
+  inline-size: 6px;
+  block-size: 6px;
   border-radius: 50%;
-  background: var(--teal-500);
+  background: #b45309;
 }
 
 .trust {
   font-size: var(--t-caption);
   line-height: var(--lh-body);
-  color: var(--text-secondary);
+  color: var(--text-secondary-deep);
   text-align: center;
 }
 
@@ -354,7 +457,8 @@
   flex: none;
   width: 32px;
   height: 32px;
-  margin: -4px -4px 0 0;
+  margin-block-start: -4px;
+  margin-inline-end: -4px;
   color: var(--text-secondary);
   border-radius: var(--r-sm);
   transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);

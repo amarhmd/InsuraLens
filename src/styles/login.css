@@ -1,7 +1,9 @@
 /* ==========================================================================
    Login page — two-column shell, brand panel, auth column, footer
-   Desktop-first: the split collapses to a single prioritised column on mobile
-   and the abstract visual leaves rather than compete for the fold.
+
+   Desktop-first: the split drops to a compact top banner plus a centred form
+   below 900px. Layout uses logical properties (padding-inline, margin-block,
+   inset-inline-*) so a future RTL pass is a direction flip, not a rewrite.
    ========================================================================== */
 
 .login {
@@ -17,56 +19,164 @@
 
 .brand {
   position: relative;
+  z-index: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: var(--s-9) var(--s-8);
+  gap: var(--s-6);
+  padding-block: var(--s-9);
+  padding-inline: var(--s-8);
   color: var(--text-on-navy);
-  /* One restrained pass of depth across a very large surface. Not a feature. */
-  background: linear-gradient(155deg, var(--navy) 0%, var(--navy-deep) 100%);
+  /* A faint dotted grid over one restrained pass of depth. The illustration
+     (z-index 0, next in tree) sits on top of this; the copy sits on top of it. */
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    radial-gradient(115% 72% at 80% 26%, rgba(22, 181, 164, 0.16), transparent 62%),
+    linear-gradient(155deg, var(--navy) 0%, var(--navy-deep) 100%);
+  background-size: 24px 24px, 100% 100%, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat;
+}
+
+/* The illustration is a large decorative background behind the copy. It is
+   wider than the panel and bleeds off the right edge, which `overflow: hidden`
+   on .brand clips. */
+.brand__art {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .brand__visual {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
+  inset-block-start: 50%;
+  inset-inline-start: -1%;
+  inline-size: 113%;
+  block-size: auto;
+  /* base.css caps every svg at max-width: 100%; allow this one to bleed. */
+  max-inline-size: none;
+  transform: translateY(-52%);
 }
 
-.brand__inner {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
+/* A soft navy veil behind the copy so the headline and trust points stay AA
+   against the illustration, without dimming the illustration itself. Painted
+   above the art (same z-index, later in the tree) and below the copy (z-index 1). */
+.brand::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 46%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(13, 36, 57, 0.6), rgba(13, 36, 57, 0) 100%);
 }
 
 .brand__logo {
+  position: relative;
+  z-index: 1;
   flex: none;
-  margin-bottom: var(--s-6);
 }
 
 .brand__copy {
-  margin-top: auto;
-  max-width: 380px;
+  position: relative;
+  z-index: 1;
+  flex: none;
+  margin-block-start: auto;
+  max-inline-size: 440px;
 }
 
 .brand__statement {
-  font-size: var(--t-display);
+  font-size: clamp(32px, 3vw, 44px);
   font-weight: 600;
-  line-height: 1.28;
-  letter-spacing: -0.022em;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
   color: var(--text-on-navy);
-  margin-bottom: var(--s-4);
+  margin-block-end: var(--s-4);
+}
+
+/* The accent gradient only on the payoff words. Large text (>=24px) needs 3:1;
+   both stops clear 4.5:1 on navy, so this is comfortable rather than bare. */
+.brand__accent {
+  background: linear-gradient(115deg, #7de9db 0%, #16b5a4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
+  .brand__accent {
+    color: #5eead4;
+  }
 }
 
 .brand__support {
-  font-size: var(--t-meta);
+  font-size: var(--t-lead);
   line-height: var(--lh-body);
   color: var(--text-on-navy-muted);
-  max-width: 360px;
+  max-inline-size: 380px;
+}
+
+.brand__trust {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-block-start: var(--s-6);
+}
+
+.trust-point {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-size: var(--t-meta);
+  line-height: var(--lh-snug);
+  color: var(--text-on-navy-muted);
+}
+
+.trust-point__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 26px;
+  block-size: 26px;
+  color: #8ff0e3;
+  background: rgba(21, 154, 156, 0.2);
+  border: 1px solid rgba(21, 154, 156, 0.34);
+  border-radius: var(--r-sm);
+}
+
+/* ---- Illustration motion: subtle, decorative, and safe to lose ----
+   The global prefers-reduced-motion rule in base.css collapses these. */
+.bv-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bv-pulse 3.6s var(--ease) infinite;
+}
+
+.bv-drift {
+  animation: bv-drift 22s ease-in-out infinite;
+}
+
+@keyframes bv-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.9);
+  }
+}
+
+@keyframes bv-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(7px, -9px);
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -105,49 +215,46 @@
 }
 
 /* --------------------------------------------------------------------------
-   Right: authentication
+   Right: authentication — a column so the footer can be pinned to the bottom
+   while the card sits centred in the space above it.
    -------------------------------------------------------------------------- */
 
 .auth {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-block: var(--s-6) var(--s-5);
+  padding-inline: var(--s-6);
   background: var(--bg-page);
-}
-
-.auth__inner {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  width: 100%;
-  max-width: min(var(--auth-max), 440px);
-  margin: 0 auto;
-  padding: var(--s-7) var(--s-6) var(--s-5);
 }
 
 .auth__center {
   display: flex;
+  flex: 1 0 auto; /* grow to centre, but never shrink below the card */
   align-items: center;
   justify-content: center;
-  min-height: 0;
-  padding: var(--s-5) 0;
+  inline-size: 100%;
 }
 
 .card {
-  width: 100%;
-  max-width: min(var(--auth-max), 420px);
+  inline-size: 100%;
+  max-inline-size: var(--auth-max);
   padding: var(--auth-pad);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-md);
-  margin: 0 auto;
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
 }
 
 .auth__head {
-  margin-bottom: var(--s-7);
+  margin-block-end: var(--s-5);
 }
 
 .auth__title {
-  font-size: var(--t-title);
+  font-size: 28px;
   font-weight: 600;
   line-height: var(--lh-tight);
   letter-spacing: -0.022em;
@@ -155,26 +262,30 @@
 }
 
 .auth__subtitle {
-  margin-top: var(--s-2);
+  margin-block-start: var(--s-2);
   font-size: var(--t-lead);
   line-height: var(--lh-snug);
-  color: var(--text-secondary);
+  color: var(--text-secondary-strong);
 }
 
 /* --------------------------------------------------------------------------
-   Footer
+   Footer — pinned to the bottom of the column, aligned with the card
    -------------------------------------------------------------------------- */
 
 .pagefoot {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3) var(--s-5);
-  padding-top: var(--s-5);
-  border-top: 1px solid var(--border);
+  inline-size: 100%;
+  max-inline-size: var(--auth-max);
+  margin-block-start: var(--s-5);
+  padding-block-start: var(--s-5);
+  border-block-start: 1px solid var(--border);
   font-size: var(--t-meta);
-  color: var(--text-secondary);
+  color: var(--text-secondary-strong);
 }
 
 .pagefoot__links {
@@ -183,14 +294,14 @@
 }
 
 .pagefoot__links a {
-  color: var(--teal-600);
+  color: var(--teal-700);
   text-decoration: none;
   font-size: var(--t-meta);
 }
 
 .pagefoot__links a:hover,
 .pagefoot__links a:focus-visible {
-  color: var(--teal-700);
+  color: var(--teal-800);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -271,62 +382,86 @@
 /* Tablet: narrow the brand panel, keep the form at a comfortable width. */
 @media (max-width: 1100px) {
   .login {
-    grid-template-columns: minmax(280px, 36%) minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 36%) minmax(0, 1fr);
   }
 
   .brand {
-    padding: var(--s-8) var(--s-7);
+    padding-block: var(--s-8);
+    padding-inline: var(--s-7);
   }
 
   .brand__statement {
-    font-size: 28px;
+    font-size: 34px;
   }
 
   .brand__copy {
-    max-width: 320px;
+    max-inline-size: 360px;
   }
 
   .brand__support {
-    max-width: 300px;
+    max-inline-size: 320px;
   }
 }
 
-/* Mobile: stack, lead with the form, drop the decorative visual. */
+/* Short laptops (1280x720 and the like): trim the outer padding and step the
+   card padding down to 32px so the footer still lands on-screen without a
+   scroll. Normal-height desktops keep the full 40px card. */
+@media (min-width: 901px) and (max-height: 740px) {
+  .auth {
+    padding-block: var(--s-4) var(--s-3);
+  }
+
+  .card {
+    padding: var(--s-7);
+  }
+
+  .auth__head {
+    margin-block-end: var(--s-4);
+  }
+
+  .pagefoot {
+    margin-block-start: var(--s-4);
+    padding-block-start: var(--s-4);
+  }
+}
+
+/* Very short viewports: there is no room left for a proportioned illustration,
+   so hide it rather than crop it or squeeze the copy against it. */
+@media (max-height: 699px) {
+  .brand__art {
+    display: none;
+  }
+}
+
+/* Mobile: the brand panel collapses to a compact navy banner (logo only) and
+   the form is centred below it. Rows are `auto 1fr` so the banner keeps its
+   natural height and the form takes the rest — scrolling rather than clipping
+   when a short viewport cannot fit everything. */
 @media (max-width: 900px) {
   .login {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
   }
 
   .brand {
-    padding: var(--s-6) var(--s-5);
+    min-height: auto;
+    padding-block: var(--s-4);
+    padding-inline: var(--s-5);
   }
 
-  .brand__visual {
+  .brand__art,
+  .brand__copy {
     display: none;
   }
 
-  .brand__copy {
-    margin-top: var(--s-6);
-    max-width: none;
-  }
-
-  .brand__statement {
-    font-size: 24px;
-    margin-bottom: var(--s-3);
-  }
-
-  .brand__support {
-    max-width: 52ch;
-  }
-
-  .auth__inner {
-    max-width: none;
-    padding: var(--s-6) var(--s-5) var(--s-5);
+  .auth {
+    min-height: 0;
+    padding-block: var(--s-6) var(--s-5);
+    padding-inline: var(--s-5);
   }
 
   .auth__center {
-    padding: var(--s-4) 0;
+    padding-block: var(--s-4);
   }
 
   .pagefoot {
@@ -341,11 +476,12 @@
   }
 
   .brand {
-    padding: var(--s-5) var(--s-4);
+    padding-block: var(--s-3);
+    padding-inline: var(--s-4);
   }
 
-  .brand__support {
-    font-size: var(--t-meta);
+  .auth {
+    padding-inline: var(--s-4);
   }
 
   .pagefoot {
@@ -363,16 +499,16 @@
 }
 
 .login-logo--navy {
-  height: 36px !important;
+  height: 44px !important;
   width: auto !important;
-  max-width: 160px !important;
+  max-width: 190px !important;
   min-width: auto !important;
   object-fit: contain;
   flex: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .login-logo--navy {
-    height: 28px !important;
+    height: 34px !important;
   }
 }

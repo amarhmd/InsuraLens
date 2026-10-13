@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { cx } from '../../lib/cx'
 import { Breadcrumbs } from './Breadcrumbs'
 import { NotificationsMenu } from './NotificationsMenu'
 import { MenuIcon } from './icons'
@@ -13,13 +14,19 @@ type Props = {
 }
 
 /**
- * The compact global top bar (48px): breadcrumb + DEMO DATA pill at the start,
- * notifications at the end. It is sticky and translucent, and only gains a
- * shadow once the page has scrolled. Page titles live in the content area
- * (PageHeader) rather than here.
+ * The floating global top bar (76px): breadcrumb at the start; the DEMO DATA
+ * pill and notifications bell at the end. It carries the same navy→teal brand
+ * recipe as the sidebar — mirrored on a shallower axis and with the teal glow in
+ * the top-right corner — floats 16px in from the content area's top/left/right
+ * edges, and is sticky so it stays visible on scroll, gaining a stronger shadow
+ * once the page has moved.
  *
- * No global search, command palette, theme toggle, or user menu — theme is a
- * Settings concern and the profile already lives in the sidebar.
+ * Identity has a single interactive home in the sidebar user block, so this bar
+ * carries no avatar or user menu — it adds no routing, data or behaviour. Page
+ * titles live in the content area (PageHeader) rather than here.
+ *
+ * No global search, command palette, or theme toggle — theme is a Settings
+ * concern.
  */
 export function TopBar({ onMenu, breadcrumb = 'Workspace / Dashboard', demo = true }: Props) {
   const [scrolled, setScrolled] = useState(false)
@@ -32,7 +39,7 @@ export function TopBar({ onMenu, breadcrumb = 'Workspace / Dashboard', demo = tr
   }, [])
 
   return (
-    <header className="top-bar" data-scrolled={scrolled || undefined}>
+    <header className={cx('top-bar', scrolled && 'top-bar--scrolled')}>
       <div className="top-bar__start">
         <button
           type="button"
@@ -44,7 +51,9 @@ export function TopBar({ onMenu, breadcrumb = 'Workspace / Dashboard', demo = tr
         </button>
 
         <Breadcrumbs label={breadcrumb} />
+      </div>
 
+      <div className="top-bar__end">
         {demo && (
           <span
             className="top-bar__demo"
@@ -54,9 +63,7 @@ export function TopBar({ onMenu, breadcrumb = 'Workspace / Dashboard', demo = tr
             Demo data
           </span>
         )}
-      </div>
 
-      <div className="top-bar__end">
         <NotificationsMenu />
       </div>
     </header>

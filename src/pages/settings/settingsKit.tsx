@@ -11,11 +11,26 @@ import { cx } from '../../lib/cx'
 /* Section header                                                              */
 /* -------------------------------------------------------------------------- */
 
-export function SectionHeader({ title, description }: { title: string; description: string }) {
+export function SectionHeader({
+  icon,
+  title,
+  description,
+}: {
+  icon?: ReactNode
+  title: string
+  description: string
+}) {
   return (
     <header className="st-head">
-      <h2 className="st-title">{title}</h2>
-      <p className="st-desc">{description}</p>
+      {icon != null && (
+        <span className="st-head__icon" aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      <div className="st-head__text">
+        <h2 className="st-title">{title}</h2>
+        <p className="st-desc">{description}</p>
+      </div>
     </header>
   )
 }
@@ -120,14 +135,22 @@ type ToggleRowProps = {
   id: string
   label: string
   hint?: string
+  /** Small leading icon that hints at the setting; decorative. */
+  icon?: ReactNode
   checked: boolean
   onChange: (next: boolean) => void
 }
 
-export function ToggleRow({ id, label, hint, checked, onChange }: ToggleRowProps) {
+export function ToggleRow({ id, label, hint, icon, checked, onChange }: ToggleRowProps) {
   const labelId = `${id}-label`
+  const hasIcon = icon != null
   return (
-    <div className="st-toggle">
+    <div className={cx('st-toggle', hasIcon && 'st-toggle--with-icon')}>
+      {hasIcon && (
+        <span className="st-toggle__icon" aria-hidden="true">
+          {icon}
+        </span>
+      )}
       <div className="st-toggle__text">
         <span className="st-toggle__label" id={labelId}>
           {label}
