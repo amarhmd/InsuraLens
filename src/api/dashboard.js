@@ -1,17 +1,14 @@
 /* Dashboard API — the organization-wide overview behind #/dashboard.
 
-   Mock mode: every number is computed from the shared claim dataset in
-   src/mocks/claims.ts (the same array the Claims and Analytics pages read),
-   so the three surfaces can never disagree. Only the recent-activity feed
-   is a fixed demo list from src/mocks/dashboard.ts. */
+   Live mode: the card totals, stage counts and priority counts come from
+   GET /api/dashboard/summary. Still demo data for now: `insights` (computed
+   from src/mocks/claims.ts, the backend has no equivalent) and
+   `recentActivity` (src/mocks/dashboard.ts, mapped in the next step). */
 
-import { delay } from './http'
+import { request } from './http'
 import { evidenceCategory } from '../lib/analyticsData'
 import { mockClaims } from '../mocks/claims'
 import { mockRecentActivity } from '../mocks/dashboard'
-
-/** Simulated network latency for mock responses (ms). */
-const MOCK_DELAY_MS = 250
 
 /**
  * Everything the Dashboard cards read in one payload.
@@ -34,32 +31,38 @@ const MOCK_DELAY_MS = 250
  * @returns {Promise<DashboardSummary>}
  */
 export async function getDashboardSummary() {
-  await delay(MOCK_DELAY_MS)
-  /* TODO(backend): return request('/api/dashboard/summary') */
+  const data = await request('/api/dashboard/summary')
+  const totals = data.totals ?? {}
+  const byStage = data.byStage ?? []
+  const byPriority = data.byPriority ?? []
+
+  const stageCount = (stage) => byStage.find((s) => s.stage === stage)?.count ?? 0
+  const priorityCount = (priority) =>
+    byPriority.find((p) => p.priority === priority)?.count ?? 0
 
   const all = mockClaims
   return {
-    total: all.length,
-    open: all.filter((c) => c.status !== 'completed').length,
-    needsReview: all.filter((c) => c.priority === 'high').length,
-    inAnalysis: all.filter((c) => c.status === 'ai_analysis').length,
-    awaitingDecision: all.filter((c) => c.status === 'human_review').length,
+    total: totals.claims ?? 0,
+    open: totals.open ?? 0,
+    needsReview: totals.highPriorityOpen ?? 0,
+    inAnalysis: stageCount('ai_analysis'),
+    awaitingDecision: stageCount('human_review'),
 
+    /* The backend names the first and last stages "intake" and "decided". */
     stages: {
-      new: all.filter((c) => c.status === 'new').length,
-      evidence_collection: all.filter((c) => c.status === 'evidence_collection').length,
-      ai_analysis: all.filter((c) => c.status === 'ai_analysis').length,
-      human_review: all.filter((c) => c.status === 'human_review').length,
-      completed: all.filter((c) => c.status === 'completed').length,
+      new: stageCount('intake'),
+      evidence_collection: stageCount('evidence_collection'),
+      ai_analysis: stageCount('ai_analysis'),
+      human_review: stageCount('human_review'),
+      completed: stageCount('decided'),
     },
     priorities: {
-      high: all.filter((c) => c.priority === 'high').length,
-      medium: all.filter((c) => c.priority === 'medium').length,
-      low: all.filter((c) => c.priority === 'low').length,
+      high: priorityCount('high'),
+      medium: priorityCount('medium'),
+      low: priorityCount('low'),
     },
 
-    /* Each insight states its predicate in the card copy — keep them in
-       sync with AIInsights.tsx when the backend defines its own. */
+    /* TODO(backend): demo data until the backend exposes insights. */
     insights: {
       damagePattern: all.filter(
         (c) => c.incident === 'rear_end_collision' && c.priority === 'high',
@@ -68,6 +71,7 @@ export async function getDashboardSummary() {
       policyReview: all.filter((c) => evidenceCategory(c) === 'Requires Verification').length,
     },
 
+    /* TODO: map data.recentActivity to the ActivityItem shape (next step). */
     recentActivity: mockRecentActivity.map((item) => ({ ...item })),
   }
 }

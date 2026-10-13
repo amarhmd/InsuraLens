@@ -9,14 +9,15 @@ import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
 import { landingRoute } from './lib/landing'
 import { navigate, routeFromHash, type Route } from './lib/router'
+import { loginDemo } from './api/auth' 
 import { useDocumentTitle } from './hooks/useDocumentTitle'
 import { useRouteTitle } from './hooks/useRouteTitle'
 
 /**
- * Hash routes keep deep links working on a static host. The demo entry
- * ("Continue with demo" or a valid form submission) simply lands on the
- * settings-chosen landing page — there is no session or authentication
- * service behind it, and direct links to any surface work on their own.
+ * Hash routes keep deep links working on a static host. "Continue with demo"
+ * now asks the backend for a demo session token (POST /auth/demo), stores it,
+ * and then lands on the settings-chosen landing page. Direct links to any
+ * surface still work on their own.
  */
 export function App() {
   const [route, setRoute] = useState<Route>(() => routeFromHash(window.location.hash))
@@ -28,6 +29,16 @@ export function App() {
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
+
+  async function handleDemo() {
+    try {
+      await loginDemo()
+      navigate(landingRoute())
+    } catch (e) {
+      console.error(e)
+      alert('Could not reach the server. Please try again in a moment.')
+    }
+  }
 
   let body: React.ReactNode
   if (route.name === 'dashboard') {
@@ -45,7 +56,7 @@ export function App() {
   } else if (route.name === 'demo') {
     body = <DemoWorkspacePage onExit={() => navigate({ name: 'login' })} />
   } else {
-    body = <LoginPage onDemo={() => navigate(landingRoute())} />
+    body = <LoginPage onDemo={handleDemo} />
   }
 
   return (

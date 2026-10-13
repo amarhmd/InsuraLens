@@ -6,7 +6,7 @@
    the prototype behaves today. Nothing is stored — the token helpers in
    ./http.js stay unused until a real backend issues credentials. */
 
-import { ApiError, delay } from './http'
+import { ApiError, delay, request, setToken } from './http'
 import { DEMO_PASSWORD, DEMO_SESSION } from '../mocks/auth'
 
 /** Simulated network latency for mock responses (ms). */
@@ -56,4 +56,15 @@ export async function logout() {
   await delay(MOCK_DELAY_MS)
   /* TODO(backend): await request('/api/auth/logout', { method: 'POST' }) */
   return undefined
+}
+/**
+ * POST /api/auth/demo — start a demo session on the real backend and store
+ * its token (no body needed). Used by the "Continue with demo" button.
+ *
+ * @returns {Promise<{ id: number, email: string, name: string, role: string }>}
+ */
+export async function loginDemo() {
+  const res = await request('/api/auth/demo', { method: 'POST' })
+  setToken(res.token)
+  return res.user
 }
