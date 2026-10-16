@@ -2,7 +2,7 @@ import type { DistributionRow } from '../../lib/analyticsData'
 import { BarList } from './chartKit'
 
 type Props = {
-  rows: DistributionRow[]
+  rows?: DistributionRow[]
   onSelect: (row: DistributionRow) => void
 }
 
@@ -11,7 +11,7 @@ type Props = {
  * opens the Claims page with that stage preselected, so the chart doubles as
  * a way into the underlying records rather than a dead end.
  */
-export function WorkflowDistributionChart({ rows, onSelect }: Props) {
+export function WorkflowDistributionChart({ rows = [], onSelect }: Props) {
   return (
     <section className="panel ax-panel" aria-labelledby="ax-workflow-title">
       <div className="ax-panel__head">

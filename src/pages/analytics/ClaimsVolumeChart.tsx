@@ -3,13 +3,25 @@ import { cx } from '../../lib/cx'
 import type { VolumeSeries } from '../../lib/analyticsData'
 import { ChartLegend, LineChart } from './chartKit'
 
+/** Safe fallback so a partial selection renders the chart's empty state. */
+const EMPTY_VOLUME: VolumeSeries = {
+  granularity: 'day',
+  buckets: [],
+  received: [],
+  completed: [],
+  peak: 0,
+  yMax: 4,
+  empty: true,
+  description: 'No volume data is available for this selection.',
+}
+
 /**
  * Two-series line chart against reviews completed, with an equivalent table
  * view of the same numbers. Hover or keyboard-focus a point for the date and
  * both values, or flip the toggle to read the period rows directly — the two
  * views are fed from one array, so they can never disagree.
  */
-export function ClaimsVolumeChart({ series }: { series: VolumeSeries }) {
+export function ClaimsVolumeChart({ series = EMPTY_VOLUME }: { series?: VolumeSeries }) {
   const [view, setView] = useState<'chart' | 'table'>('chart')
 
   return (

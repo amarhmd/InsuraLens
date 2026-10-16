@@ -64,12 +64,24 @@ const CARDS: Array<{
 ]
 
 /**
+ * Safe fallback so a malformed/partial selection can never crash the page —
+ * every field reads as zero rather than throwing on undefined.
+ */
+const EMPTY_KPIS: AnalyticsKpis = {
+  received: 0,
+  receivedDelta: null,
+  underReview: 0,
+  evidenceCompletion: 0,
+  humanReviewPending: 0,
+}
+
+/**
  * Four KPIs read straight off the shared selection. Percentages are floored
  * from the demo counts (never rounded up), and the comparison line only
  * appears when the dataset actually holds a previous period to compare with —
  * there is no baseline here, there is no arrow, no colour, no implied trend.
  */
-export function AnalyticsKPIs({ kpis }: { kpis: AnalyticsKpis }) {
+export function AnalyticsKPIs({ kpis = EMPTY_KPIS }: { kpis?: AnalyticsKpis }) {
   const valueFor = (key: CardKey): string => {
     switch (key) {
       case 'received':

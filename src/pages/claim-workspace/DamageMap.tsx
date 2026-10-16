@@ -35,9 +35,10 @@ export function DamageMap({
   showDamageBoxes,
   showBadges,
 }: DamageMapProps) {
-  const selected = damage.find((zone) => zone.id === selectedId) ?? damage[0]
-  const evidenceLabel =
-    evidence.find((item) => item.id === selected.evidenceId)?.label ?? selected.photo
+  const selected = damage.find((zone) => zone.id === selectedId) ?? damage[0] ?? null
+  const evidenceLabel = selected
+    ? (evidence.find((item) => item.id === selected.evidenceId)?.label ?? selected.photo)
+    : ''
 
   return (
     <section className="cw-card cw-section" aria-labelledby="cw-damage-title">
@@ -71,13 +72,19 @@ export function DamageMap({
             selectedId={selectedId}
             onSelect={onSelect}
           />
-          <DamageDetail
-            zone={selected}
-            status={statusMap[selected.id]}
-            evidenceLabel={evidenceLabel}
-            onConfirm={onConfirm}
-            onDismiss={onDismiss}
-          />
+          {selected ? (
+            <DamageDetail
+              zone={selected}
+              status={statusMap[selected.id]}
+              evidenceLabel={evidenceLabel}
+              onConfirm={onConfirm}
+              onDismiss={onDismiss}
+            />
+          ) : (
+            <p className="cw-muted">
+              No damage areas were reported for this claim. Run the AI analysis to look for damage.
+            </p>
+          )}
         </div>
       </div>
     </section>

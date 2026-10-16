@@ -100,6 +100,8 @@ export function AnalyticsPage() {
   const openAffected = () => gotoClaims({ evidence: 'Incomplete' })
   const openClaim = (claim: Claim) => navigate({ name: 'claim', id: claim.id })
 
+  const claimCount = selection?.claims?.length ?? 0
+
   return (
     <div className="dashboard-shell">
       <AppSidebar open={menuOpen} active="analytics" />
@@ -119,12 +121,11 @@ export function AnalyticsPage() {
             title="Claims Analytics"
             subtitle="Understand claims trends, workflow performance, and evidence review activity."
           />
-
           <AnalyticsFilters
             filters={filters}
             onChange={setFilters}
             onReset={() => setFilters(DEFAULT_FILTERS)}
-            count={selection?.claims.length ?? 0}
+            count={claimCount}
             statusText={selection?.statusText ?? 'Loading analytics data…'}
           >
             <AnalyticsHeader />

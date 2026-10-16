@@ -170,9 +170,4 @@
   --t-fast: 110ms;
   --t-base: 160ms;
   --t-slow: 240ms;
-
-  /* ---- Layout ---- */
-  --brand-col: 40%; /* brand panel width on desktop */
-  --auth-max: 440px; /* auth card max width */
-  --auth-pad: 44px; /* auth card padding — scales with the card width */
 }

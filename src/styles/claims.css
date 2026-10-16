@@ -1175,6 +1175,38 @@ textarea.claims-field__control {
   margin-top: 6px;
 }
 
+/* Read-only "Policy on file" line under the policy number field. */
+.claims-policy-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: #475467;
+}
+
+.claims-policy-note__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--teal-600);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.claims-policy-note__link:hover {
+  color: var(--teal-700);
+}
+
+.claims-policy-note__link:focus-visible {
+  outline: 2px solid var(--teal-600);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 /* Info note — used by the workspace settings dialog. */
 .claims-modal__note {
   display: flex;
@@ -1421,7 +1453,7 @@ textarea.claims-field__control {
 
 .claims-docs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -1679,6 +1711,73 @@ textarea.claims-field__control {
   .claims-pagination {
     justify-content: center;
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Policy viewer (read-only dialog for the customer's stored policy)           */
+/* -------------------------------------------------------------------------- */
+
+.policy-viewer {
+  max-width: 480px;
+}
+
+.policy-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.policy-doc__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.policy-doc__label {
+  font-size: 13.5px;
+  color: var(--text-secondary-strong);
+}
+
+.policy-doc__value {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: end;
+}
+
+.policy-doc__value--ok {
+  color: var(--teal-600);
+}
+
+/* Placeholder "document" preview — stand-in for the stored PDF. */
+.policy-doc__page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+}
+
+.policy-doc__page-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-secondary-strong);
+}
+
+.policy-doc__line {
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--border);
+}
+
+.policy-doc__line--short {
+  width: 60%;
 }
 
 @media (max-width: 768px) {

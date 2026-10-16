@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
 import { mockNotifications } from '../../mocks/notifications'
 import type { Notification } from '../../mocks/notifications'
+import { listNotifications, markAllNotificationsRead } from '../../api/notifications'
 import { AlertTriangleIcon, BellIcon, CheckCircleIcon, ClockIcon, InboxIcon, ShieldIcon } from './icons'
 
 /**
@@ -45,6 +46,22 @@ export function NotificationsMenu() {
 
   const unread = items.reduce((count, item) => (item.read ? count : count + 1), 0)
 
+  /* Load the real inbox; the mock seed stays visible if the request fails
+     (e.g. the server is cold-starting) so the bell is never blank. */
+  useEffect(() => {
+    let active = true
+    listNotifications()
+      .then((rows) => {
+        if (active) setItems(rows)
+      })
+      .catch(() => {
+        /* Keep the mock seed. */
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
   useEffect(() => {
     if (!open) return
     const onDown = (event: MouseEvent) => {
@@ -66,6 +83,9 @@ export function NotificationsMenu() {
 
   const markAllRead = () => {
     setItems((previous) => previous.map((item) => ({ ...item, read: true })))
+    markAllNotificationsRead().catch(() => {
+      /* Optimistic: the local read state is already applied. */
+    })
   }
 
   return (

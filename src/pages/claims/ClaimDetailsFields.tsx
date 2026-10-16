@@ -22,6 +22,8 @@ type Props = {
   firstFieldRef: Ref<HTMLInputElement>
   onChange: (key: ClaimField, value: string) => void
   onBlurField: (key: ClaimRequiredField) => void
+  /** Opens the customer's stored policy document (read-only). */
+  onViewPolicy: () => void
 }
 
 /**
@@ -36,6 +38,7 @@ export function ClaimDetailsFields({
   firstFieldRef,
   onChange,
   onBlurField,
+  onViewPolicy,
 }: Props) {
   return (
     <div className="claims-form__grid">
@@ -154,6 +157,13 @@ export function ClaimDetailsFields({
           onChange={(e) => onChange('policyRef', e.target.value)}
         />
         <p className="claims-field__help">Optional — assign later if not yet known.</p>
+        {/* The policy itself lives on the customer's contract, not this claim. */}
+        <p className="claims-policy-note">
+          <span className="claims-policy-note__text">Policy on file</span>
+          <button type="button" className="claims-policy-note__link" onClick={onViewPolicy}>
+            View policy
+          </button>
+        </p>
       </div>
 
       <div className="claims-field">

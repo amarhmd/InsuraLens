@@ -11,8 +11,8 @@ export type DemoButtonProps = {
 
 /**
  * The secondary "get in without an account" path. It stays clearly below the
- * primary Sign in — outlined, not filled — but earns its place with an icon,
- * a one-line explanation, and the app's own Demo environment marker.
+ * primary Sign in — outlined, not filled — and sits above the amber demo marker
+ * and the one-line reminder that a human keeps the final call.
  */
 export function DemoButton({ onClick, disabled, className, loading }: DemoButtonProps) {
   return (
@@ -37,17 +37,17 @@ export function DemoButton({ onClick, disabled, className, loading }: DemoButton
         )}
       </button>
 
-      <p className="demo__help">Explore with sample data, no account needed</p>
-
       {/* Labelled as what it is: an alternative entry that runs on fictional
           sample data, not real insurance claims. */}
-      <span
-        className="demo-pill"
-        title="All data, identities, and permissions are simulated for this frontend demo"
-      >
-        <span className="demo-pill__dot" aria-hidden="true" />
-        Demo environment
-      </span>
+      <div className="auth__demo">
+        <span
+          className="auth__demo-badge"
+          title="All data, identities, and permissions are simulated for this frontend demo"
+        >
+          Demo environment
+        </span>
+        <p className="auth__demo-note">Final claim decisions remain with a human reviewer.</p>
+      </div>
     </div>
   )
 }

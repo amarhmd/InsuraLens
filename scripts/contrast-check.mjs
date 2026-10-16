@@ -32,13 +32,12 @@ const ratio = (a, b) => {
 /** Pairs the page actually ships. Each must clear its minimum. */
 const GATED = [
   ['Primary text / white', '#172B3A', '#FFFFFF', 4.5, 'heading, labels, input text'],
-  ['Primary text / page', '#172B3A', '#F7F9FB', 4.5, 'heading on the auth column'],
-  ['Secondary text / white', '#64748B', '#FFFFFF', 4.5, 'placeholder, leading icon'],
-  ['Secondary text / page', '#64748B', '#F7F9FB', 4.5, 'hints on the auth column'],
+  ['Primary text / auth column', '#172B3A', '#EAF0F3', 4.5, 'any heading that meets the column'],
+  ['Secondary text / white', '#64748B', '#FFFFFF', 4.5, 'placeholder, leading icon (all inside the card)'],
   ['Strong secondary / white', '#475569', '#FFFFFF', 4.5, 'subtitle, divider label, checkbox'],
-  ['Strong secondary / page', '#475569', '#F7F9FB', 4.5, 'footer copyright'],
-  ['Deep secondary / white', '#334155', '#FFFFFF', 4.5, 'demo helper, trust line'],
-  ['Deep secondary / page', '#334155', '#F7F9FB', 4.5, 'demo helper, trust line on page'],
+  ['Strong secondary / auth column', '#475569', '#EAF0F3', 4.5, 'footer copyright'],
+  ['Deep secondary / white', '#334155', '#FFFFFF', 4.5, 'disclaimer line'],
+  ['Deep secondary / auth column', '#334155', '#EAF0F3', 4.5, 'disclaimer where it meets the column'],
 
   ['White / primary button', '#FFFFFF', '#0F7F81', 4.5, 'Sign in, at rest'],
   ['White / primary hover', '#FFFFFF', '#0C6E70', 4.5, 'Sign in, :hover'],
@@ -46,12 +45,12 @@ const GATED = [
   ['Link / white', '#0F7F81', '#FFFFFF', 4.5, 'Forgot password?'],
   ['Link hover / white', '#0C6E70', '#FFFFFF', 4.5, 'Forgot password?, :hover'],
   ['Footer link / white', '#0C6E70', '#FFFFFF', 4.5, 'Privacy, Terms, Help'],
-  ['Footer link / page', '#0C6E70', '#F7F9FB', 4.5, 'Privacy, Terms, Help on page'],
+  ['Footer link / auth column', '#0C6E70', '#EAF0F3', 4.5, 'Privacy, Terms, Help on the column'],
   ['Footer link hover / white', '#0A6264', '#FFFFFF', 4.5, 'footer link, :hover'],
 
   ['White / navy panel', '#FFFFFF', '#12304A', 4.5, 'brand statement, wordmark'],
   ['Muted / navy panel', '#A9BCD0', '#12304A', 4.5, 'brand supporting text'],
-  ['Supporting / navy panel', '#C7D8E6', '#12304A', 4.5, 'brand support + trust points'],
+  ['Supporting / navy panel', '#C7D8E6', '#12304A', 4.5, 'brand support copy'],
   ['Accent gradient light / navy', '#7DE9DB', '#12304A', 4.5, 'headline "into focus", light stop'],
   ['Accent gradient dark / navy', '#16B5A4', '#12304A', 4.5, 'headline "into focus", dark stop'],
   ['White logo tile / navy', '#FFFFFF', '#12304A', 3.0, 'tile edge against the panel'],
@@ -63,10 +62,10 @@ const GATED = [
   ['Demo pill text / pill', '#8A5B00', '#FFF7E6', 4.5, 'DEMO ENVIRONMENT marker'],
 
   // Non-text UI — 3:1
-  ['Focus ring / white', '#159A9C', '#FFFFFF', 3.0, 'input focus indicator'],
-  ['Focus ring / page', '#159A9C', '#F7F9FB', 3.0, 'button focus indicator'],
+  ['Focus ring / white', '#159A9C', '#FFFFFF', 3.0, 'input focus indicator (inside the card)'],
+  ['Focus ring / auth column', '#0F7F81', '#EAF0F3', 3.0, 'footer link outline'],
   ['Error border / white', '#D92D20', '#FFFFFF', 3.0, 'invalid input border'],
-  ['Brand panel / auth column', '#12304A', '#F7F9FB', 3.0, 'layout edge'],
+  ['Brand panel / auth column', '#12304A', '#EAF0F3', 3.0, 'layout edge'],
   ['Teal stroke / navy panel', '#159A9C', '#12304A', 3.0, 'abstract visual, brand teal'],
   ['Slate stroke / navy panel', '#4C6FFF', '#12304A', 3.0, 'abstract visual, slate blue'],
 ];

@@ -18,16 +18,16 @@ type Props = {
 }
 
 /**
- * Document staging for the create-claim form — one slot per document type
- * (accident report, customer statement, policy document), each with its own
+ * Document staging for the create-claim form — one slot per claim-specific
+ * document type (accident report, customer statement), each with its own
  * sr-only file input, filled-chip with progress, and per-slot error message.
  * State and uploads stay in the modal; this component owns the input refs.
+ * The customer's policy is stored once on the contract, not uploaded here.
  */
 export function DocEvidence({ docFiles, docErrors, onAdd, onRemove }: Props) {
   const docInputs = useRef<Record<DocSlotKey, HTMLInputElement | null>>({
     accident: null,
     statement: null,
-    policy: null,
   })
 
   return (

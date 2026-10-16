@@ -5,9 +5,10 @@
    `insights` only (computed from src/mocks/claims.ts, the backend has no
    equivalent yet). */
 
-import { request } from './http'
+import { USE_DEMO, delay, request } from './http'
 import { evidenceCategory } from '../lib/analyticsData'
 import { mockClaims } from '../mocks/claims'
+import { mockRecentActivity } from '../mocks/dashboard'
 
 /** How many recent-activity rows the card shows. */
 const ACTIVITY_LIMIT = 4
@@ -40,6 +41,8 @@ function formatTime(iso) {
  * @returns {Promise<DashboardSummary>}
  */
 export async function getDashboardSummary() {
+  if (USE_DEMO) return demoSummary()
+
   const data = await request('/api/dashboard/summary')
   const totals = data.totals ?? {}
   const byStage = data.byStage ?? []
@@ -92,5 +95,44 @@ export async function getDashboardSummary() {
     },
 
     recentActivity,
+  }
+}
+
+/** Built-in demo payload (VITE_USE_DEMO=true) — computed from src/mocks. */
+async function demoSummary() {
+  await delay(150)
+  const all = mockClaims
+  const stageCount = (status) => all.filter((claim) => claim.status === status).length
+  const priorityCount = (priority) => all.filter((claim) => claim.priority === priority).length
+
+  return {
+    total: all.length,
+    open: all.filter((claim) => claim.status !== 'completed').length,
+    needsReview: all.filter((claim) => claim.priority === 'high' && claim.status !== 'completed')
+      .length,
+    inAnalysis: stageCount('ai_analysis'),
+    awaitingDecision: stageCount('human_review'),
+    stages: {
+      new: stageCount('new'),
+      evidence_collection: stageCount('evidence_collection'),
+      ai_analysis: stageCount('ai_analysis'),
+      human_review: stageCount('human_review'),
+      completed: stageCount('completed'),
+    },
+    priorities: {
+      high: priorityCount('high'),
+      medium: priorityCount('medium'),
+      low: priorityCount('low'),
+    },
+    insights: {
+      damagePattern: all.filter(
+        (claim) => claim.incident === 'rear_end_collision' && claim.priority === 'high',
+      ).length,
+      missingEvidence: all.filter((claim) => evidenceCategory(claim) === 'Missing Documents')
+        .length,
+      policyReview: all.filter((claim) => evidenceCategory(claim) === 'Requires Verification')
+        .length,
+    },
+    recentActivity: mockRecentActivity,
   }
 }

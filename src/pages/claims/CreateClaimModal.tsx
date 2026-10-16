@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { IncidentType, Priority } from '../../lib/constants'
 import { uploadEvidence } from '../../api/evidence'
 import { CloseIcon, Spinner } from '../../components/ui/icons'
+import { PolicyViewer } from '../../components/feedback/PolicyViewer'
 import {
   ClaimDetailsFields,
   type ClaimField,
@@ -80,12 +81,10 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
   const [docFiles, setDocFiles] = useState<Record<DocSlotKey, StagedDoc | null>>({
     accident: null,
     statement: null,
-    policy: null,
   })
   const [docErrors, setDocErrors] = useState<Record<DocSlotKey, string>>({
     accident: '',
     statement: '',
-    policy: '',
   })
   /* One polite live region announces every rejection and every finished
      transfer, so keyboard and screen-reader users hear what the progress
@@ -93,6 +92,7 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
   const [liveMessage, setLiveMessage] = useState('')
   const [dragging, setDragging] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [showPolicy, setShowPolicy] = useState(false)
 
   const dialog = useRef<HTMLDivElement>(null)
   const firstFieldRef = useRef<HTMLInputElement>(null)
@@ -139,6 +139,11 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        /* The policy viewer sits on top of this dialog; Escape closes it first. */
+        if (showPolicy) {
+          setShowPolicy(false)
+          return
+        }
         onClose()
         return
       }
@@ -165,7 +170,7 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, showPolicy])
 
   const set = (key: TextField, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -394,6 +399,7 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
               firstFieldRef={firstFieldRef}
               onChange={set}
               onBlurField={handleBlurField}
+              onViewPolicy={() => setShowPolicy(true)}
             />
 
             {/* ------------------------------------------------ Evidence */}
@@ -450,6 +456,10 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
           </div>
         </form>
       </div>
+
+      {showPolicy && (
+        <PolicyViewer policyRef={values.policyRef} onClose={() => setShowPolicy(false)} />
+      )}
     </div>
   )
 }

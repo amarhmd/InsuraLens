@@ -6,16 +6,33 @@ type EvidenceGridProps = {
   items: EvidenceItem[]
   /** Tile to pulse briefly, when a finding chip points at it. */
   highlightedId: string | null
+  /** When provided, show an "Add evidence" control that uploads the chosen file. */
+  onUpload?: (file: File) => void
 }
 
 /** "Evidence & documents" — photos as gradient tiles, documents as dashed tiles. */
-export function EvidenceGrid({ items, highlightedId }: EvidenceGridProps) {
+export function EvidenceGrid({ items, highlightedId, onUpload }: EvidenceGridProps) {
   return (
     <section className="cw-card cw-section" aria-labelledby="cw-evidence-title">
       <div className="cw-section__head">
         <h2 className="cw-section__title" id="cw-evidence-title">
           Evidence &amp; documents
         </h2>
+        {onUpload && (
+          <label className="cw-btn cw-btn--secondary">
+            Add evidence
+            <input
+              type="file"
+              hidden
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0]
+                if (file) onUpload(file)
+                /* Reset so picking the same file again still fires a change. */
+                event.currentTarget.value = ''
+              }}
+            />
+          </label>
+        )}
       </div>
 
       <ul className="cw-evidence">

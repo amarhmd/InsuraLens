@@ -1,6 +1,22 @@
 import type { AiSnapshot } from '../../lib/analyticsData'
 import { BarList, ColumnChart } from './chartKit'
 
+/** Safe fallback so a partial selection renders empty panels, not a crash. */
+const EMPTY_AI: AiSnapshot = {
+  metrics: [],
+  activity: {
+    granularity: 'day',
+    buckets: [],
+    values: [],
+    peak: 0,
+    yMax: 4,
+    empty: true,
+    description: 'No completed analyses are recorded for this selection.',
+  },
+  outcomes: [],
+  caption: 'No AI-assisted analysis is available for this selection.',
+}
+
 /**
  * What the AI-assisted layer produced, stated as counts of claims and their
  * outcome — never as an accuracy score. Every row of the outcome breakdown is
@@ -9,7 +25,7 @@ import { BarList, ColumnChart } from './chartKit'
  * "Analyses completed" with those rows and with the AI Analysis stage count
  * so the three figures can never be read against each other.
  */
-export function AIAnalysisMetrics({ ai }: { ai: AiSnapshot }) {
+export function AIAnalysisMetrics({ ai = EMPTY_AI }: { ai?: AiSnapshot }) {
   return (
     <section className="panel ax-panel" aria-labelledby="ax-ai-title">
       <div className="ax-panel__head">

@@ -2,8 +2,17 @@ import type { EvidenceSnapshot } from '../../lib/analyticsData'
 import { BarList } from './chartKit'
 
 type Props = {
-  evidence: EvidenceSnapshot
+  evidence?: EvidenceSnapshot
   onViewAffected: () => void
+}
+
+/** Safe fallback for a partial selection — renders an empty, honest panel. */
+const EMPTY_EVIDENCE: EvidenceSnapshot = {
+  rows: [],
+  missing: 0,
+  verification: 0,
+  total: 0,
+  insight: 'No claims in this selection.',
 }
 
 /**
@@ -12,7 +21,7 @@ type Props = {
  * arrived) is a different problem from evidence that is present but not yet
  * conclusive (policy match needs a reviewer).
  */
-export function EvidenceCompletenessChart({ evidence, onViewAffected }: Props) {
+export function EvidenceCompletenessChart({ evidence = EMPTY_EVIDENCE, onViewAffected }: Props) {
   return (
     <section className="panel ax-panel" aria-labelledby="ax-evidence-title">
       <div className="ax-panel__head">

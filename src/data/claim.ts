@@ -97,6 +97,8 @@ export interface Claim {
   id: string
   customer: string
   policy: string
+  /** Name of the customer's stored policy document — contract-level, not claim-specific. */
+  policyDocument: string
   incidentType: string
   reportedDate: string
   priority: ClaimPriority
@@ -130,6 +132,10 @@ export interface ClaimWorkspaceData {
   customer: string
   incident: string
   dateReported: string
+  /** The customer's contract policy reference (shown read-only, never uploaded). */
+  policyRef: string
+  /** Name of the customer's stored policy document, or null when none is on file. */
+  policyDocument: string | null
   badges: Badge[]
   summary: SummaryItem[]
   evidence: EvidenceItem[]
@@ -160,6 +166,7 @@ export const CLAIMS: Claim[] = [
     id: 'CLM-10482',
     customer: 'Sarah Mitchell',
     policy: 'POL-88214',
+    policyDocument: 'Policy declaration',
     incidentType: 'Vehicle Collision',
     reportedDate: 'Oct 5, 2026',
     priority: 'high',
@@ -173,7 +180,6 @@ export const CLAIMS: Claim[] = [
       { id: 'photo-5', label: 'Plate', kind: 'photo' },
       { id: 'doc-report', label: 'Accident report', kind: 'document' },
       { id: 'doc-estimate', label: 'Repair estimate', kind: 'document' },
-      { id: 'doc-policy', label: 'Policy declaration', kind: 'document' },
     ],
     damages: [
       {
@@ -238,6 +244,7 @@ export const CLAIMS: Claim[] = [
     id: 'CLM-10476',
     customer: 'Daniel Carter',
     policy: 'POL-77190',
+    policyDocument: 'Policy declaration',
     incidentType: 'Rear-End Collision',
     reportedDate: 'Oct 5, 2026',
     priority: 'medium',
@@ -297,6 +304,7 @@ export const CLAIMS: Claim[] = [
     id: 'CLM-10461',
     customer: 'Emma Wilson',
     policy: 'POL-64028',
+    policyDocument: 'Policy declaration',
     incidentType: 'Side Collision',
     reportedDate: 'Oct 4, 2026',
     priority: 'medium',
@@ -314,7 +322,6 @@ export const CLAIMS: Claim[] = [
       { id: 'photo-9', label: 'Plate', kind: 'photo' },
       { id: 'doc-report', label: 'Accident report', kind: 'document' },
       { id: 'doc-estimate', label: 'Repair estimate', kind: 'document' },
-      { id: 'doc-policy', label: 'Policy declaration', kind: 'document' },
     ],
     damages: [
       {
@@ -388,6 +395,7 @@ export const CLAIMS: Claim[] = [
     id: 'CLM-10455',
     customer: 'James Anderson',
     policy: 'POL-59377',
+    policyDocument: 'Policy declaration',
     incidentType: 'Vehicle Collision',
     reportedDate: 'Oct 4, 2026',
     priority: 'low',
@@ -470,6 +478,8 @@ function toWorkspace(claim: Claim): ClaimWorkspaceData {
     customer: claim.customer,
     incident: claim.incidentType,
     dateReported: claim.reportedDate,
+    policyRef: claim.policy,
+    policyDocument: claim.policyDocument,
     badges,
     summary: [
       { label: 'Customer', value: claim.customer },

@@ -8,7 +8,8 @@ import { AgentChatPage } from './pages/agent-chat/AgentChatPage'
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
 import { landingRoute } from './lib/landing'
-import { navigate, routeFromHash, type Route } from './lib/router'
+import { hashFromRoute, navigate, routeFromHash, type Route } from './lib/router'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { loginDemo } from './api/auth' 
 import { useDocumentTitle } from './hooks/useDocumentTitle'
 import { useRouteTitle } from './hooks/useRouteTitle'
@@ -79,7 +80,7 @@ export function App() {
         Skip to main content
       </a>
 
-      {body}
+      <ErrorBoundary key={hashFromRoute(route)}>{body}</ErrorBoundary>
     </>
   )
 }

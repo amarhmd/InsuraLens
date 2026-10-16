@@ -1,70 +1,73 @@
-/* Auth API — the sign-in call behind the login form.
+/* Authentication API backed by the deployed InsuraLens server.
 
-   Mock mode: any work email is accepted, the password must be the demo
-   password from src/mocks/auth.ts; a wrong password rejects with a 401
-   ApiError so the form can show "Incorrect email or password", exactly as
-   the prototype behaves today. Nothing is stored — the token helpers in
-   ./http.js stay unused until a real backend issues credentials. */
+   Live mode: login / getCurrentUser / logout / loginDemo call the backend and
+   store the JWT via http.js. Set VITE_USE_DEMO=true to accept the built-in
+   demo credentials in src/mocks/auth.ts instead. */
 
-import { ApiError, delay, request, setToken } from './http'
+import { USE_DEMO, delay, request, setToken, clearToken } from './http'
 import { DEMO_PASSWORD, DEMO_SESSION } from '../mocks/auth'
 
-/** Simulated network latency for mock responses (ms). */
-const MOCK_DELAY_MS = 150
+/** Simulated latency in demo mode (ms). */
+const MOCK_DELAY_MS = 200
 
-/**
- * POST /api/auth/login — exchange credentials for a session.
- *
- * @param {string} email work email (mock accepts any well-formed address)
- * @param {string} password
- * @returns {Promise<import('../mocks/auth').DemoSession>}
- * @throws {ApiError} 401 invalid_credentials when the password is wrong
- */
+function unpackSession(res) {
+  return res?.session ?? res?.data ?? res
+}
+
 export async function login(email, password) {
-  await delay(MOCK_DELAY_MS)
-  /* TODO(backend): return request('/api/auth/login', {
-       method: 'POST', body: { email, password } })
-     — then persist the returned token with setToken() from ./http.js. */
-  void email /* no identity provider behind the demo. */
-  if (password !== DEMO_PASSWORD) {
-    throw new ApiError('Incorrect email or password', {
-      status: 401,
-      code: 'invalid_credentials',
-    })
+  if (USE_DEMO) {
+    await delay(MOCK_DELAY_MS)
+    if (password !== DEMO_PASSWORD) throw new Error('Invalid email or password.')
+    setToken(DEMO_SESSION.token)
+    return { ...DEMO_SESSION, user: { ...DEMO_SESSION.user, email: email || DEMO_SESSION.user.email } }
   }
-  return DEMO_SESSION
+
+  const res = unpackSession(
+    await request('/api/auth/login', {
+      method: 'POST',
+      body: { email, password },
+    }),
+  )
+  const token = res?.token ?? res?.accessToken ?? res?.access_token
+  if (token) setToken(token)
+  return res
 }
 
-/**
- * GET /api/auth/me — the current session's user, for headers and
- * role-gated UI once sessions exist.
- *
- * @returns {Promise<import('../mocks/auth').DemoUser>}
- */
 export async function getCurrentUser() {
-  await delay(MOCK_DELAY_MS)
-  /* TODO(backend): return request('/api/auth/me') with the bearer token */
-  return DEMO_SESSION.user
+  if (USE_DEMO) {
+    await delay(MOCK_DELAY_MS)
+    return DEMO_SESSION.user
+  }
+  const res = await request('/api/auth/me')
+  return res?.user ?? res?.data ?? res
+}
+
+export async function logout() {
+  if (USE_DEMO) {
+    await delay(MOCK_DELAY_MS)
+    clearToken()
+    return
+  }
+  try {
+    await request('/api/auth/logout', { method: 'POST' })
+  } finally {
+    clearToken()
+  }
 }
 
 /**
- * POST /api/auth/logout — end the session and clear the stored token.
- *
- * @returns {Promise<void>}
- */
-export async function logout() {
-  await delay(MOCK_DELAY_MS)
-  /* TODO(backend): await request('/api/auth/logout', { method: 'POST' }) */
-  return undefined
-}
-/**
- * POST /api/auth/demo — start a demo session on the real backend and store
- * its token (no body needed). Used by the "Continue with demo" button.
- *
- * @returns {Promise<{ id: number, email: string, name: string, role: string }>}
+ * POST /auth/demo — open a demo session without credentials. Returns the user;
+ * the JWT is stored by http.js.
  */
 export async function loginDemo() {
-  const res = await request('/api/auth/demo', { method: 'POST' })
-  setToken(res.token)
-  return res.user
+  if (USE_DEMO) {
+    await delay(MOCK_DELAY_MS)
+    setToken(DEMO_SESSION.token)
+    return DEMO_SESSION.user
+  }
+
+  const res = unpackSession(await request('/api/auth/demo', { method: 'POST' }))
+  const token = res?.token ?? res?.accessToken ?? res?.access_token
+  if (token) setToken(token)
+  return res?.user ?? res
 }

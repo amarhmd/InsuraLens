@@ -2,7 +2,7 @@ import type { DistributionRow } from '../../lib/analyticsData'
 import { BarList } from './chartKit'
 
 type Props = {
-  rows: DistributionRow[]
+  rows?: DistributionRow[]
   onSelect: (row: DistributionRow) => void
 }
 
@@ -11,7 +11,7 @@ type Props = {
  * category, count, and share; selecting a row opens the Claims page filtered
  * to that incident type.
  */
-export function IncidentTypeChart({ rows, onSelect }: Props) {
+export function IncidentTypeChart({ rows = [], onSelect }: Props) {
   return (
     <section className="panel ax-panel" aria-labelledby="ax-incident-title">
       <div className="ax-panel__head">

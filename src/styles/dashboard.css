@@ -19,16 +19,16 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  /* Navy→teal brand gradient (shared --brand-* recipe), the same dotted grid as
-     the Settings profile hero, plus a soft teal glow rising from the foot.
-     background-color is the solid fallback beneath the gradient image. */
+  /* Navy→teal brand gradient (shared --brand-* recipe) plus a soft teal glow
+     rising from the foot. background-color is the solid fallback beneath the
+     gradient image. The dotted grid that ships on the Settings hero is
+     deliberately omitted here. */
   background-color: var(--navy);
   background-image:
-    var(--brand-grid-dot),
     radial-gradient(120% 80% at 50% 115%, var(--brand-glow-color), transparent 60%),
     var(--brand-gradient);
-  background-size: var(--brand-grid-size), 100% 100%, 100% 100%;
-  background-repeat: repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
   border-right: 1px solid rgba(255, 255, 255, 0.14);
   position: sticky;
   top: 0;
@@ -343,11 +343,10 @@
      axis (100deg, left→right) with the teal glow moved to the top-right corner. */
   background-color: var(--navy);
   background-image:
-    var(--brand-grid-dot),
     radial-gradient(120% 150% at 100% 0%, var(--brand-glow-color), transparent 62%),
     var(--brand-gradient-bar);
-  background-size: var(--brand-grid-size), 100% 100%, 100% 100%;
-  background-repeat: repeat, no-repeat, no-repeat;
+  background-size: 100% 100%, 100% 100%;
+  background-repeat: no-repeat, no-repeat;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 10px 30px rgba(15, 42, 68, 0.18);

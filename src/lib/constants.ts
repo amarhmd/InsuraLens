@@ -83,7 +83,11 @@ export const CHAT_PAGE_TITLE = 'AI Investigation Assistant'
 /* -------------------------------------------------------------------------- */
 
 export const INCIDENT_TYPES = [
+  'front_end_collision',
   'rear_end_collision',
+  'side_impact',
+  'glass_damage',
+  'theft',
   'side_collision',
   'vehicle_collision',
   'other',
@@ -92,7 +96,11 @@ export const INCIDENT_TYPES = [
 export type IncidentType = (typeof INCIDENT_TYPES)[number]
 
 const INCIDENT_LABELS: Record<IncidentType, string> = {
+  front_end_collision: 'Front-end Collision',
   rear_end_collision: 'Rear-end Collision',
+  side_impact: 'Side Impact',
+  glass_damage: 'Glass Damage',
+  theft: 'Theft',
   side_collision: 'Side Collision',
   vehicle_collision: 'Vehicle Collision',
   other: 'Other',

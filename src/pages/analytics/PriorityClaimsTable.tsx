@@ -12,7 +12,7 @@ const PRIORITY_TONE: Record<Claim['priority'], string> = {
 }
 
 type Props = {
-  rows: AttentionRow[]
+  rows?: AttentionRow[]
   onOpen: (claim: Claim) => void
   onViewAll: () => void
 }
@@ -23,7 +23,7 @@ type Props = {
  * derivation the Claims page would show — and the whole row opens the claim
  * workspace, Enter and Space included.
  */
-export function PriorityClaimsTable({ rows, onOpen, onViewAll }: Props) {
+export function PriorityClaimsTable({ rows = [], onOpen, onViewAll }: Props) {
   const handleRowKeyDown = (claim: Claim) => (event: KeyboardEvent<HTMLTableRowElement>) => {
     /* Let keys pressed on the Review button behave as button keys. */
     if (event.target !== event.currentTarget) return

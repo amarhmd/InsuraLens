@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { cx } from '../../lib/cx'
 import { FieldError } from './FieldError'
-import { Spinner, AlertIcon, MailIcon } from '../../components/ui/icons'
+import { Spinner, AlertIcon } from '../../components/ui/icons'
 import { PasswordField } from './PasswordField'
 import { DemoButton } from './DemoButton'
 import { PasswordRecoveryDialog } from './PasswordRecoveryDialog'
@@ -21,9 +21,9 @@ export type LoginCardProps = {
 
 /**
  * The sign-in card. Behaviour is unchanged from the original form — mock auth,
- * demo entry, validation timing — with presentation tightened: leading icons,
- * a disabled-until-ready submit, a remember-me control, and one labelled
- * divider instead of stray rules.
+ * demo entry, validation timing — presented as the white panel's header, title
+ * and pill form: a disabled-until-ready submit, a remember-me control, and one
+ * labelled divider before the demo entry.
  */
 export function LoginCard({ onDemo }: LoginCardProps) {
   const [email, setEmail] = useState('')
@@ -104,119 +104,130 @@ export function LoginCard({ onDemo }: LoginCardProps) {
 
   return (
     <>
-      <header className="auth__head">
-        <h1 className="auth__title">Welcome back</h1>
-        <p className="auth__subtitle">Sign in to your InsuraLens workspace</p>
-      </header>
+      <div className="auth__top">
+        <span className="auth__brand">
+          <img
+            className="auth__mark"
+            src="/brand/insuralens-icon.png"
+            alt=""
+            width={28}
+            height={28}
+          />
+          <span className="auth__wordmark">InsuraLens</span>
+        </span>
+      </div>
 
-      <form className="form" onSubmit={handleSubmit} noValidate>
-        {submitState === 'wrong' && (
-          <div className="alert" role="alert" aria-live="assertive">
-            <AlertIcon size={15} className="alert__icon" />
-            <div className="alert__text">
-              <p className="alert__title">Incorrect email or password</p>
+      <div className="auth__body">
+        <h1 className="auth__title">Sign In</h1>
+
+        <form className="form auth__form" onSubmit={handleSubmit} noValidate>
+          {submitState === 'wrong' && (
+            <div className="alert" role="alert" aria-live="assertive">
+              <AlertIcon size={15} className="alert__icon" />
+              <div className="alert__text">
+                <p className="alert__title">Incorrect email or password</p>
+              </div>
             </div>
-          </div>
-        )}
-
-        <div className={cx('field', emailError && 'field--invalid')}>
-          <label className="field__label" htmlFor="login-email">
-            Work email
-          </label>
-          <div className="field__control field__control--leading">
-            <MailIcon size={18} className="field__icon" />
-            <input
-              ref={emailRef}
-              id="login-email"
-              name="email"
-              type="email"
-              className="field__input"
-              value={email}
-              placeholder="you@company.com"
-              autoComplete="email"
-              autoCapitalize="off"
-              spellCheck={false}
-              disabled={busy}
-              onChange={(event) => {
-                setEmail(event.target.value)
-                if (submitState === 'wrong') setSubmitState('idle')
-              }}
-              onBlur={() => setEmailBlurred(true)}
-              aria-invalid={emailError ? true : undefined}
-              aria-describedby={emailError ? 'login-email-error' : undefined}
-            />
-          </div>
-          {emailError && <FieldError id="login-email-error">{emailError}</FieldError>}
-        </div>
-
-        <PasswordField
-          value={password}
-          onChange={(value) => {
-            setPassword(value)
-            if (submitState === 'wrong') setSubmitState('idle')
-          }}
-          error={passwordError}
-          disabled={busy}
-          inputRef={passwordRef}
-          forgotPassword={{
-            onClick: () => setRecoveryOpen(true),
-            disabled: busy,
-          }}
-        />
-
-        <div className="form__options">
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(event) => {
-                const next = event.target.checked
-                setRemember(next)
-                writeRememberMe(next)
-              }}
-              disabled={busy}
-            />
-            <span>Remember me</span>
-          </label>
-        </div>
-
-        <button
-          type="submit"
-          className="btn btn--primary"
-          disabled={!canSubmit}
-          aria-busy={busy || undefined}
-        >
-          {busy ? (
-            <>
-              <Spinner size={16} />
-              <span>Signing in…</span>
-            </>
-          ) : (
-            'Sign in'
           )}
-        </button>
 
-        <div className="divider" aria-hidden="true">
-          <span className="divider__label">or</span>
-        </div>
+          <div className={cx('field', emailError && 'field--invalid')}>
+            <label className="sr-only" htmlFor="login-email">
+              Work email
+            </label>
+            <div className="field__control">
+              <input
+                ref={emailRef}
+                id="login-email"
+                name="email"
+                type="email"
+                className="field__input"
+                value={email}
+                placeholder="Work email"
+                autoComplete="email"
+                autoCapitalize="off"
+                spellCheck={false}
+                disabled={busy}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  if (submitState === 'wrong') setSubmitState('idle')
+                }}
+                onBlur={() => setEmailBlurred(true)}
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? 'login-email-error' : undefined}
+              />
+            </div>
+            {emailError && <FieldError id="login-email-error">{emailError}</FieldError>}
+          </div>
 
-        <DemoButton
-          onClick={() => {
-            if (busy) return
-            setDemoLoading(true)
-            setTimeout(() => {
-              setDemoLoading(false)
-              onDemo()
-            }, 100)
-          }}
-          disabled={busy}
-          loading={demoLoading}
-        />
+          <PasswordField
+            value={password}
+            onChange={(value) => {
+              setPassword(value)
+              if (submitState === 'wrong') setSubmitState('idle')
+            }}
+            error={passwordError}
+            disabled={busy}
+            inputRef={passwordRef}
+          />
 
-        <p className="trust">
-          AI connects and explains evidence. Final claim decisions remain with a human reviewer.
-        </p>
-      </form>
+          <div className="auth__options">
+            <button
+              type="button"
+              className="linkbtn"
+              onClick={() => setRecoveryOpen(true)}
+              disabled={busy}
+            >
+              Forgot password?
+            </button>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(event) => {
+                  const next = event.target.checked
+                  setRemember(next)
+                  writeRememberMe(next)
+                }}
+                disabled={busy}
+              />
+              <span>Remember me</span>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn--primary"
+            disabled={!canSubmit}
+            aria-busy={busy || undefined}
+          >
+            {busy ? (
+              <>
+                <Spinner size={16} />
+                <span>Signing in…</span>
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </button>
+
+          <div className="divider" aria-hidden="true">
+            <span className="divider__label">or</span>
+          </div>
+
+          <DemoButton
+            onClick={() => {
+              if (busy) return
+              setDemoLoading(true)
+              setTimeout(() => {
+                setDemoLoading(false)
+                onDemo()
+              }, 100)
+            }}
+            disabled={busy}
+            loading={demoLoading}
+          />
+        </form>
+      </div>
 
       <PasswordRecoveryDialog open={recoveryOpen} onClose={() => setRecoveryOpen(false)} />
     </>

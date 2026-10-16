@@ -1,16 +1,33 @@
 /* ==========================================================================
-   Login page — two-column shell, brand panel, auth column, footer
+   Login page — full-bleed dark brand panel + overlapping white auth panel
 
-   Desktop-first: the split drops to a compact top banner plus a centred form
-   below 900px. Layout uses logical properties (padding-inline, margin-block,
-   inset-inline-*) so a future RTL pass is a direction flip, not a rewrite.
+   Desktop-first: the two panels fill the whole viewport. The left brand panel
+   is flex-1 and flush to the window edges; the white auth panel is a clamped
+   44vw wide, overlaps the brand panel by 40px, and is rounded on its LEFT side
+   only. Below the lg breakpoint the brand panel is dropped and the white panel
+   goes full-bleed. The section titled "Demo workspace placeholder" belongs to
+   the demo landing page but ships here because it shares this file.
    ========================================================================== */
 
 .login {
-  display: grid;
-  grid-template-columns: var(--brand-col) minmax(0, 1fr);
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Login-only refinement of the shared palette: the brief's deeper navy for
+     the light panel's ink. Decorative teals stay as literals below. */
+  --lg-navy: #0a2540;
+
+  display: flex;
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+}
+
+.login__shell {
+  display: flex;
+  flex: 1 1 auto;
+  inline-size: 100%;
+  min-block-size: 100vh;
+  min-block-size: 100dvh;
+  isolation: isolate;
 }
 
 /* --------------------------------------------------------------------------
@@ -19,168 +36,342 @@
 
 .brand {
   position: relative;
-  z-index: 0;
+  flex: 1 1 auto;
+  min-inline-size: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-6);
-  padding-block: var(--s-9);
-  padding-inline: var(--s-8);
-  color: var(--text-on-navy);
-  /* A faint dotted grid over one restrained pass of depth. The illustration
-     (z-index 0, next in tree) sits on top of this; the copy sits on top of it. */
+  color: #ffffff;
+  /* The teal glow lives on the full-size panel itself (never a smaller child)
+     and reaches transparent well inside the box, so the panel never shows a
+     hard edge where the gradient is cut. */
+  background-color: #061a30;
   background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-    radial-gradient(115% 72% at 80% 26%, rgba(22, 181, 164, 0.16), transparent 62%),
-    linear-gradient(155deg, var(--navy) 0%, var(--navy-deep) 100%);
-  background-size: 24px 24px, 100% 100%, 100% 100%;
-  background-repeat: repeat, no-repeat, no-repeat;
+    radial-gradient(
+      75% 66% at 50% 42%,
+      rgba(15, 139, 141, 0.26) 0%,
+      rgba(15, 139, 141, 0.09) 44%,
+      rgba(15, 139, 141, 0) 62%
+    ),
+    linear-gradient(160deg, #061a30 0%, #08283c 60%, #0a3a45 100%);
 }
 
-/* The illustration is a large decorative background behind the copy. It is
-   wider than the panel and bleeds off the right edge, which `overflow: hidden`
-   on .brand clips. */
+/* The lens illustration is large and anchored to the top of the panel, nudged
+   just above the edge (clipping the faint halo there is fine). It is sized by
+   BOTH the viewport width and height (min(44vw, 62vh)) and sits in the free
+   area above the headline, nudged right of centre so it is more evenly placed.
+   On short viewports the vh term takes over and scales it down so the focus
+   brackets never approach the headline. */
 .brand__art {
   position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.brand__visual {
-  position: absolute;
-  inset-block-start: 50%;
-  inset-inline-start: -1%;
-  inline-size: 113%;
-  block-size: auto;
-  /* base.css caps every svg at max-width: 100%; allow this one to bleed. */
-  max-inline-size: none;
-  transform: translateY(-52%);
-}
-
-/* A soft navy veil behind the copy so the headline and trust points stay AA
-   against the illustration, without dimming the illustration itself. Painted
-   above the art (same z-index, later in the tree) and below the copy (z-index 1). */
-.brand::after {
-  content: '';
-  position: absolute;
-  inset-inline: 0;
-  inset-block-end: 0;
-  block-size: 46%;
-  z-index: 0;
-  pointer-events: none;
-  background: linear-gradient(to top, rgba(13, 36, 57, 0.6), rgba(13, 36, 57, 0) 100%);
-}
-
-.brand__logo {
-  position: relative;
   z-index: 1;
-  flex: none;
+  /* Drives the decorative lens pulse below; tune in one place. */
+  --lens-pulse-duration: 30s;
+  inset-block-start: -4vh;
+  inset-inline-start: calc(50% + clamp(40px, 5vw, 80px));
+  transform: translateX(-50%);
+  inline-size: clamp(320px, min(44vw, 62vh), 640px);
+  aspect-ratio: 1;
+  pointer-events: none;
+}
+
+/* The halo is drawn by a radial-gradient inside the SVG; letting the SVG paint
+   outside its viewBox means the glow fades to transparent on its own instead of
+   being clipped into a visible rectangle. */
+.brand__visual {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
 }
 
 .brand__copy {
-  position: relative;
-  z-index: 1;
-  flex: none;
-  margin-block-start: auto;
-  max-inline-size: 440px;
+  position: absolute;
+  z-index: 2;
+  inset-inline-start: clamp(32px, 4vw, 72px);
+  inset-block-end: clamp(32px, 4vw, 72px);
+  max-inline-size: min(640px, 62%);
 }
 
-.brand__statement {
-  font-size: clamp(32px, 3vw, 44px);
-  font-weight: 600;
-  line-height: 1.18;
-  letter-spacing: -0.025em;
-  color: var(--text-on-navy);
-  margin-block-end: var(--s-4);
+.brand__headline {
+  /* Width drives the size normally, but on short viewports the vh term takes
+     over and steps the headline down so it stays clear of the lens. */
+  font-size: clamp(44px, min(5vw, 9vh), 76px);
+  font-weight: 800;
+  line-height: 1.03;
+  letter-spacing: -0.035em;
+  color: #ffffff;
 }
 
-/* The accent gradient only on the payoff words. Large text (>=24px) needs 3:1;
-   both stops clear 4.5:1 on navy, so this is comfortable rather than bare. */
 .brand__accent {
-  background: linear-gradient(115deg, #7de9db 0%, #16b5a4 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-@supports not ((-webkit-background-clip: text) or (background-clip: text)) {
-  .brand__accent {
-    color: #5eead4;
-  }
+  color: #5eead4;
 }
 
 .brand__support {
-  font-size: var(--t-lead);
-  line-height: var(--lh-body);
-  color: var(--text-on-navy-muted);
+  margin-block-start: 18px;
   max-inline-size: 380px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #c3d6df;
 }
 
-.brand__trust {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-3);
-  margin-block-start: var(--s-6);
+/* ---- Illustration motion: one very slow, decorative pulse ----
+   Only the soft teal halo and the faint ring stack breathe; the core, focus
+   brackets, nodes and lines stay perfectly static. Duration is tunable via
+   --lens-pulse-duration (set on .brand__art). transform/opacity only, so it is
+   GPU friendly and never affects layout. Wrapped in no-preference so it is
+   simply absent for anyone who asks for less motion (base.css also collapses
+   any animation that does remain). */
+@media (prefers-reduced-motion: no-preference) {
+  .bv-halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    will-change: transform, opacity;
+    animation: bv-halo-pulse var(--lens-pulse-duration, 30s) ease-in-out infinite;
+  }
+
+  /* Offset from the halo so the two layers drift in and out of phase. */
+  .bv-rings {
+    transform-box: fill-box;
+    transform-origin: center;
+    will-change: opacity;
+    animation: bv-rings-pulse var(--lens-pulse-duration, 30s) ease-in-out -6s infinite;
+  }
 }
 
-.trust-point {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  font-size: var(--t-meta);
-  line-height: var(--lh-snug);
-  color: var(--text-on-navy-muted);
-}
-
-.trust-point__icon {
-  display: grid;
-  place-items: center;
-  flex: none;
-  inline-size: 26px;
-  block-size: 26px;
-  color: #8ff0e3;
-  background: rgba(21, 154, 156, 0.2);
-  border: 1px solid rgba(21, 154, 156, 0.34);
-  border-radius: var(--r-sm);
-}
-
-/* ---- Illustration motion: subtle, decorative, and safe to lose ----
-   The global prefers-reduced-motion rule in base.css collapses these. */
-.bv-pulse {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: bv-pulse 3.6s var(--ease) infinite;
-}
-
-.bv-drift {
-  animation: bv-drift 22s ease-in-out infinite;
-}
-
-@keyframes bv-pulse {
+@keyframes bv-halo-pulse {
   0%,
   100% {
-    opacity: 0.35;
+    opacity: 0.75;
     transform: scale(1);
   }
   50% {
-    opacity: 0.85;
-    transform: scale(1.9);
+    opacity: 1;
+    transform: scale(1.04);
   }
 }
 
-@keyframes bv-drift {
+@keyframes bv-rings-pulse {
   0%,
   100% {
-    transform: translate(0, 0);
+    opacity: 1;
   }
   50% {
-    transform: translate(7px, -9px);
+    opacity: 0.8;
   }
 }
 
 /* --------------------------------------------------------------------------
-   Logo lockup
+   Right: white auth panel — overlaps the brand panel's right edge.
+   -------------------------------------------------------------------------- */
+
+.auth {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  inline-size: clamp(480px, 44vw, 640px);
+  display: flex;
+  flex-direction: column;
+  margin-inline-start: -40px;
+  padding: 40px clamp(24px, 4vw, 48px) 28px;
+  background: var(--surface);
+  /* Large radius on the left edge only; the right edge stays flush with the
+     window, so its corners remain square. */
+  border-start-start-radius: 40px;
+  border-end-start-radius: 40px;
+  box-shadow: -10px 0 40px rgba(8, 32, 58, 0.18);
+}
+
+/* Header, form column and footer share one centred ~440px measure. */
+.auth__top,
+.auth__body,
+.pagefoot {
+  inline-size: 100%;
+  max-inline-size: 440px;
+  margin-inline: auto;
+}
+
+.auth__top {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--s-4);
+}
+
+.auth__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth__mark {
+  inline-size: 28px;
+  block-size: 28px;
+  object-fit: contain;
+}
+
+.auth__wordmark {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--lg-navy);
+}
+
+.auth__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  min-block-size: 0;
+}
+
+.auth__title {
+  margin-block-end: var(--s-6);
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--lg-navy);
+}
+
+/* ---- Form overrides (base rules live in form.css) ----
+   Scoped under .login so the demo page's .btn--secondary is untouched and these
+   win on specificity without depending on stylesheet order. */
+
+.login .field__input {
+  block-size: 50px;
+  padding-inline: 22px;
+  border-radius: 26px;
+  border-color: #d7e0e6;
+}
+
+.login .field__input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.login .field__input:focus {
+  border-color: var(--teal-500);
+  box-shadow: var(--ring);
+}
+
+/* The pill input's trailing toggle sits flush to the rounded edge. */
+.login .field__toggle {
+  inset-inline-end: 6px;
+}
+
+.auth__form .field + .field {
+  margin-block-start: var(--s-4);
+}
+
+.auth__options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-block-start: var(--s-3);
+}
+
+.login .btn--primary {
+  block-size: 52px;
+  margin-block-start: var(--s-5);
+  border-radius: var(--r-pill);
+  font-weight: 700;
+  color: #ffffff;
+  /* Both stops clear 4.5:1 with white; the brief's brighter stop did not. */
+  background: linear-gradient(90deg, var(--teal-800) 0%, var(--teal-600) 100%);
+  box-shadow: 0 10px 24px rgba(15, 139, 141, 0.3);
+}
+
+.login .btn--primary:hover:not(:disabled) {
+  background: linear-gradient(90deg, #085457 0%, var(--teal-700) 100%);
+}
+
+.login .btn--primary:active:not(:disabled) {
+  background: linear-gradient(90deg, #07484b 0%, var(--teal-800) 100%);
+}
+
+/* Muted until the form is ready. */
+.login .btn--primary:disabled {
+  color: var(--text-secondary-strong);
+  background: #cfd9df;
+  box-shadow: none;
+}
+
+.login .btn--secondary {
+  block-size: 52px;
+  border-radius: var(--r-pill);
+  border-color: #d7e0e6;
+  font-weight: 600;
+}
+
+.login .divider {
+  margin-block: var(--s-5);
+}
+
+/* ---- Demo marker: amber badge + one-line human-in-the-loop note ---- */
+
+.auth__demo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+}
+
+.auth__demo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #7a4a00;
+  background: #fdf1d6;
+  border: 1px solid #f1cf8a;
+  border-radius: var(--r-pill);
+}
+
+.auth__demo-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary-strong);
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Footer — pinned to the bottom of the white panel
+   -------------------------------------------------------------------------- */
+
+.pagefoot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-5);
+  margin-block-start: var(--s-5);
+  font-size: 12px;
+  color: var(--lg-navy);
+}
+
+.pagefoot__links {
+  display: flex;
+  gap: var(--s-5);
+}
+
+.pagefoot__links a {
+  font-size: 12px;
+  color: var(--lg-navy);
+  text-decoration: none;
+}
+
+.pagefoot__links a:hover,
+.pagefoot__links a:focus-visible {
+  color: var(--teal-700);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Logo lockup (demo landing page)
    -------------------------------------------------------------------------- */
 
 .logo {
@@ -212,98 +403,6 @@
   font-weight: 600;
   letter-spacing: -0.015em;
   color: inherit;
-}
-
-/* --------------------------------------------------------------------------
-   Right: authentication — a column so the footer can be pinned to the bottom
-   while the card sits centred in the space above it.
-   -------------------------------------------------------------------------- */
-
-.auth {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding-block: var(--s-6) var(--s-5);
-  padding-inline: var(--s-6);
-  background: var(--bg-page);
-}
-
-.auth__center {
-  display: flex;
-  flex: 1 0 auto; /* grow to centre, but never shrink below the card */
-  align-items: center;
-  justify-content: center;
-  inline-size: 100%;
-}
-
-.card {
-  inline-size: 100%;
-  max-inline-size: var(--auth-max);
-  padding: var(--auth-pad);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--shadow-lg);
-}
-
-.auth__head {
-  margin-block-end: var(--s-5);
-}
-
-.auth__title {
-  font-size: 28px;
-  font-weight: 600;
-  line-height: var(--lh-tight);
-  letter-spacing: -0.022em;
-  color: var(--text-primary);
-}
-
-.auth__subtitle {
-  margin-block-start: var(--s-2);
-  font-size: var(--t-lead);
-  line-height: var(--lh-snug);
-  color: var(--text-secondary-strong);
-}
-
-/* --------------------------------------------------------------------------
-   Footer — pinned to the bottom of the column, aligned with the card
-   -------------------------------------------------------------------------- */
-
-.pagefoot {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3) var(--s-5);
-  inline-size: 100%;
-  max-inline-size: var(--auth-max);
-  margin-block-start: var(--s-5);
-  padding-block-start: var(--s-5);
-  border-block-start: 1px solid var(--border);
-  font-size: var(--t-meta);
-  color: var(--text-secondary-strong);
-}
-
-.pagefoot__links {
-  display: flex;
-  gap: var(--s-5);
-}
-
-.pagefoot__links a {
-  color: var(--teal-700);
-  text-decoration: none;
-  font-size: var(--t-meta);
-}
-
-.pagefoot__links a:hover,
-.pagefoot__links a:focus-visible {
-  color: var(--teal-800);
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
 /* --------------------------------------------------------------------------
@@ -379,136 +478,58 @@
    Responsive
    ========================================================================== */
 
-/* Tablet: narrow the brand panel, keep the form at a comfortable width. */
-@media (max-width: 1100px) {
-  .login {
-    grid-template-columns: minmax(300px, 36%) minmax(0, 1fr);
-  }
-
-  .brand {
-    padding-block: var(--s-8);
-    padding-inline: var(--s-7);
-  }
-
-  .brand__statement {
-    font-size: 34px;
-  }
-
-  .brand__copy {
-    max-inline-size: 360px;
-  }
-
-  .brand__support {
-    max-inline-size: 320px;
-  }
-}
-
-/* Short laptops (1280x720 and the like): trim the outer padding and step the
-   card padding down to 32px so the footer still lands on-screen without a
-   scroll. Normal-height desktops keep the full 40px card. */
-@media (min-width: 901px) and (max-height: 740px) {
+/* Short laptops: trim the vertical rhythm so the panel still fits. */
+@media (min-width: 1024px) and (max-height: 740px) {
   .auth {
-    padding-block: var(--s-4) var(--s-3);
+    padding-block: 28px 20px;
   }
 
-  .card {
-    padding: var(--s-7);
+  .auth__title {
+    margin-block-end: var(--s-5);
   }
 
-  .auth__head {
-    margin-block-end: var(--s-4);
-  }
-
-  .pagefoot {
+  .login .btn--primary {
     margin-block-start: var(--s-4);
-    padding-block-start: var(--s-4);
+  }
+
+  .login .divider {
+    margin-block: var(--s-4);
   }
 }
 
-/* Very short viewports: there is no room left for a proportioned illustration,
-   so hide it rather than crop it or squeeze the copy against it. */
-@media (max-height: 699px) {
-  .brand__art {
-    display: none;
-  }
-}
-
-/* Mobile: the brand panel collapses to a compact navy banner (logo only) and
-   the form is centred below it. Rows are `auto 1fr` so the banner keeps its
-   natural height and the form takes the rest — scrolling rather than clipping
-   when a short viewport cannot fit everything. */
-@media (max-width: 900px) {
-  .login {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
+/* Below lg: single column, the brand panel is dropped and the white panel goes
+   full-bleed with 24px padding and square corners. */
+@media (max-width: 1023px) {
+  .login__shell {
+    flex-direction: column;
   }
 
   .brand {
-    min-height: auto;
-    padding-block: var(--s-4);
-    padding-inline: var(--s-5);
-  }
-
-  .brand__art,
-  .brand__copy {
     display: none;
   }
 
   .auth {
-    min-height: 0;
-    padding-block: var(--s-6) var(--s-5);
-    padding-inline: var(--s-5);
-  }
-
-  .auth__center {
-    padding-block: var(--s-4);
-  }
-
-  .pagefoot {
-    justify-content: center;
-    text-align: center;
+    flex: 1 1 auto;
+    inline-size: 100%;
+    margin-inline-start: 0;
+    padding: 24px;
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 
 @media (max-width: 520px) {
-  .card {
-    padding: var(--s-6);
-  }
-
-  .brand {
-    padding-block: var(--s-3);
-    padding-inline: var(--s-4);
-  }
-
   .auth {
-    padding-inline: var(--s-4);
+    padding: 20px;
+  }
+
+  .auth__title {
+    font-size: 32px;
   }
 
   .pagefoot {
     flex-direction: column;
     gap: var(--s-3);
-  }
-}
-
-/* --------------------------------------------------------------------------
-   Logo — navy variant fixes (moved from logo-fix.css)
-   -------------------------------------------------------------------------- */
-
-.login-logo {
-  display: block;
-}
-
-.login-logo--navy {
-  height: 44px !important;
-  width: auto !important;
-  max-width: 190px !important;
-  min-width: auto !important;
-  object-fit: contain;
-  flex: none;
-}
-
-@media (max-width: 900px) {
-  .login-logo--navy {
-    height: 34px !important;
+    text-align: center;
   }
 }

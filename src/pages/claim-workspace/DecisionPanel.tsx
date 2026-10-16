@@ -1,3 +1,12 @@
+type DecisionPanelProps = {
+  /** Every damage area has been confirmed or dismissed. */
+  complete: boolean
+  /** An action is in flight — disable the controls. */
+  busy?: boolean
+  onApprove?: () => void
+  onRequestInfo?: () => void
+}
+
 /**
  * "Reviewer decision" — the dark panel that keeps the human in the loop.
  *
@@ -5,7 +14,12 @@
  * guard, not enforcement. A real system MUST re-validate, server-side, that
  * every damage area is reviewed before it accepts an approval.
  */
-export function DecisionPanel({ complete }: { complete: boolean }) {
+export function DecisionPanel({
+  complete,
+  busy = false,
+  onApprove,
+  onRequestInfo,
+}: DecisionPanelProps) {
   return (
     <section className="cw-decision" aria-labelledby="cw-decision-title">
       <h2 className="cw-decision__title" id="cw-decision-title">
@@ -19,14 +33,24 @@ export function DecisionPanel({ complete }: { complete: boolean }) {
         <button
           type="button"
           className="cw-btn cw-btn--primary cw-btn--block"
-          aria-disabled={!complete}
+          aria-disabled={!complete || busy}
+          disabled={busy}
           onClick={(event) => {
-            if (!complete) event.preventDefault()
+            if (!complete) {
+              event.preventDefault()
+              return
+            }
+            onApprove?.()
           }}
         >
           Approve claim
         </button>
-        <button type="button" className="cw-btn cw-btn--light cw-btn--block">
+        <button
+          type="button"
+          className="cw-btn cw-btn--light cw-btn--block"
+          onClick={onRequestInfo}
+          disabled={busy}
+        >
           Request more information
         </button>
         <button type="button" className="cw-btn cw-btn--ghost cw-btn--block">

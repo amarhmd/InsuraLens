@@ -18,10 +18,11 @@ export const DOC_EXTENSIONS = /\.(pdf|docx)$/i
 export const DOC_ACCEPT = 'application/pdf,.pdf,.docx'
 export const MAX_DOC_MB = 15
 
+/* Only claim-specific documents live here. The policy is a contract-level
+   document stored once against the customer, so it is never uploaded per claim. */
 export const DOC_SLOTS = [
   { key: 'accident', label: 'Accident report' },
   { key: 'statement', label: 'Customer statement' },
-  { key: 'policy', label: 'Policy document' },
 ] as const
 
 export type DocSlotKey = (typeof DOC_SLOTS)[number]['key']

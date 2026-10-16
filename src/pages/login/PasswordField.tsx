@@ -1,6 +1,6 @@
 import { useId, useState, type RefObject } from 'react'
 import { cx } from '../../lib/cx'
-import { EyeIcon, EyeOffIcon, LockIcon } from '../../components/ui/icons'
+import { EyeIcon, EyeOffIcon } from '../../components/ui/icons'
 import { FieldError } from './FieldError'
 
 export type PasswordFieldProps = {
@@ -20,16 +20,12 @@ export type PasswordFieldProps = {
   placeholder?: string
   /** Lets the parent move focus here when a submitted form is invalid. */
   inputRef?: RefObject<HTMLInputElement>
-  /** Render the "Forgot password?" action at the end of the label row. */
-  forgotPassword?: {
-    onClick: () => void
-    disabled?: boolean
-  }
 }
 
 /**
- * The password control: a lock at the start, a show/hide toggle at the end, and
- * a label row that keeps the field label and the recovery link apart.
+ * The password control: a pill input with a show/hide toggle at the end. The
+ * label is visually hidden — the placeholder carries it — but stays in the
+ * accessibility tree.
  */
 export function PasswordField({
   label = 'Password',
@@ -40,9 +36,8 @@ export function PasswordField({
   onBlur,
   autoComplete = 'current-password',
   disabled = false,
-  placeholder = 'Enter your password',
+  placeholder = 'Password',
   inputRef,
-  forgotPassword,
 }: PasswordFieldProps) {
   const uid = useId()
   const inputId = `pw-${uid}`
@@ -51,25 +46,11 @@ export function PasswordField({
 
   return (
     <div className={cx('field', error && 'field--invalid')}>
-      <div className="field__label-row">
-        <label className="field__label" htmlFor={inputId}>
-          {label}
-        </label>
-        {forgotPassword && (
-          <button
-            type="button"
-            className="linkbtn"
-            onClick={forgotPassword.onClick}
-            disabled={disabled || forgotPassword.disabled}
-          >
-            Forgot password?
-          </button>
-        )}
-      </div>
+      <label className="sr-only" htmlFor={inputId}>
+        {label}
+      </label>
 
-      <div className="field__control field__control--leading field__control--trailing">
-        <LockIcon size={18} className="field__icon" />
-
+      <div className="field__control field__control--trailing">
         <input
           ref={inputRef}
           id={inputId}
