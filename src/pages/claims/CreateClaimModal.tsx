@@ -38,6 +38,8 @@ export interface ClaimDraft {
   photos: Array<{ name: string; url: string; caption: string }>
   /** Display names of the document slots that were filled. */
   documents: string[]
+  /** The staged bytes, uploaded with the claim via POST /api/claims. */
+  files: File[]
 }
 
 type Errors = ClaimFieldErrors
@@ -63,7 +65,7 @@ type Props = {
  * "New Claim" button it was opened from.
  */
 export function CreateClaimModal({ onClose, onCreate }: Props) {
-  const [values, setValues] = useState<ClaimDraft>({
+  const [values, setValues] = useState<Omit<ClaimDraft, 'files'>>({
     customer: '',
     date: '',
     incident: '',
@@ -229,7 +231,7 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
 
     for (const file of incoming) {
       if (!matchesType(file, PHOTO_TYPES, PHOTO_EXTENSIONS)) {
-        problems.push(`"${file.name}" isn't a supported photo — use JPG, PNG, HEIC, or WebP.`)
+        problems.push(`"${file.name}" isn't a supported photo — use JPG, PNG, or WebP.`)
         continue
       }
       if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
@@ -285,7 +287,7 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
     const label = DOC_SLOTS.find((s) => s.key === slot)?.label ?? 'Document'
 
     if (!matchesType(file, DOC_TYPES, DOC_EXTENSIONS)) {
-      const message = `"${file.name}" isn't a PDF or DOCX file.`
+      const message = `"${file.name}" isn't a PDF file.`
       setDocErrors((prev) => ({ ...prev, [slot]: message }))
       setLiveMessage(`${label}: ${message}`)
       return /* any file already in the slot stays put */
@@ -298,7 +300,10 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
     }
 
     setDocErrors((prev) => ({ ...prev, [slot]: '' }))
-    setDocFiles((prev) => ({ ...prev, [slot]: { name: file.name, size: file.size, progress: 0 } }))
+    setDocFiles((prev) => ({
+      ...prev,
+      [slot]: { file, name: file.name, size: file.size, progress: 0 },
+    }))
 
     const promise = uploadEvidence(file, (percent) => {
       if (!alive.current) return
@@ -351,6 +356,15 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
         const staged = docFiles[slot.key]
         return staged ? [staged.name] : []
       }),
+      /* The actual bytes ride along with the create request so the backend has
+         the evidence the moment the claim exists. */
+      files: [
+        ...photos.map((photo) => photo.file),
+        ...DOC_SLOTS.flatMap((slot) => {
+          const staged = docFiles[slot.key]
+          return staged ? [staged.file] : []
+        }),
+      ],
     })
   }
 
@@ -408,7 +422,7 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
                 Evidence (optional)
               </h3>
               <p className="claims-evidence__intro">
-                Files stay in this browser session — nothing is sent to a server.
+                Photos and documents you add here are attached to the claim when you create it.
               </p>
 
               {/* Rejections and completed transfers, announced politely. */}
@@ -438,7 +452,7 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
 
           <div className="claims-modal__foot">
             <p className="claims-modal__demo">
-              Demo only. Saved in this browser session, not sent to any insurer or system.
+              Attachments are stored with the claim and appear in its evidence section.
             </p>
             <div className="claims-modal__actions">
               <button type="button" className="claims-btn" onClick={onClose}>

@@ -185,11 +185,12 @@ export function useClaimsQueue(query?: ClaimsQuery) {
   )
 
   const handleCreate = useCallback(async (draft: ClaimDraft) => {
-    /* Close right away — same visible timing as before the API layer — then
-       persist through the API and refresh the queue from it. */
-    setModalOpen(false)
+    /* Persist through the API first: the modal keeps its "Creating…" state on
+       screen while the claim and any evidence files are stored, then we close
+       it and refresh the queue from the server. */
     try {
       const created = await createClaim(draft)
+      setModalOpen(false)
       const rows = await listClaims()
       setClaims(rows)
 
@@ -202,11 +203,12 @@ export function useClaimsQueue(query?: ClaimsQuery) {
       setToast({
         message:
           created.evidenceItems > 0
-            ? `${created.id} created with ${created.evidenceItems} evidence item${created.evidenceItems === 1 ? '' : 's'} — saved in this browser session.`
-            : `${created.id} created — saved in this browser session.`,
+            ? `${created.id} created with ${created.evidenceItems} evidence item${created.evidenceItems === 1 ? '' : 's'}.`
+            : `${created.id} created.`,
         action: { label: 'Open claim', onClick: () => navigate({ name: 'claim', id: created.id }) },
       })
     } catch (cause) {
+      setModalOpen(false)
       setToast({
         message:
           cause instanceof Error

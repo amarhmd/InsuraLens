@@ -51,7 +51,7 @@ export function PhotoEvidence({
         className={cx('claims-dropzone', dragging && 'claims-dropzone--over')}
         role="button"
         tabIndex={0}
-        aria-label={`Add photos — ${photos.length} of ${MAX_PHOTOS} chosen. JPG, PNG, HEIC or WebP, up to ${MAX_PHOTO_MB} MB each.`}
+        aria-label={`Add photos — ${photos.length} of ${MAX_PHOTOS} chosen. JPG, PNG or WebP, up to ${MAX_PHOTO_MB} MB each.`}
         onClick={() => photoInput.current?.click()}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -92,7 +92,7 @@ export function PhotoEvidence({
           Browse files
         </span>
         <p className="claims-dropzone__hint">
-          JPG, PNG, HEIC or WebP · up to {MAX_PHOTO_MB} MB each
+          JPG, PNG or WebP · up to {MAX_PHOTO_MB} MB each
         </p>
         <input
           ref={photoInput}

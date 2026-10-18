@@ -9,7 +9,7 @@ const DESCRIPTION_MAX = 2000
 /** Latest pickable incident date — the demo anchor (Oct 6 2026). */
 const INCIDENT_DATE_MAX = '2026-10-06'
 
-export type ClaimField = Exclude<keyof ClaimDraft, 'photos' | 'documents'>
+export type ClaimField = Exclude<keyof ClaimDraft, 'photos' | 'documents' | 'files'>
 export type ClaimRequiredField = 'customer' | 'date' | 'incident'
 export type ClaimFieldErrors = Partial<Record<keyof ClaimDraft, string>>
 

@@ -9,9 +9,9 @@
 
    Upload rules (enforced client-side today, must be enforced server-side
    too — see docs/API_CONTRACT.md):
-     photos  image/jpeg, image/png, image/heic, image/webp — max 10 MB each,
+     photos  image/jpeg, image/png, image/webp — max 10 MB each,
              max 20 per claim
-     documents  application/pdf, docx — max 15 MB each
+     documents  application/pdf — max 15 MB each
 */
 
 import { ApiError, API_BASE_URL, USE_DEMO, delay, getToken } from './http'
@@ -124,7 +124,7 @@ export function uploadClaimEvidence(claimId, file, onProgress) {
 }
 
 /** Pick the EvidenceForm part a file belongs in: images | report. */
-function evidenceField(file) {
+export function evidenceField(file) {
   const type = (file.type || '').toLowerCase()
   return type.startsWith('image/') ? 'images' : 'report'
 }

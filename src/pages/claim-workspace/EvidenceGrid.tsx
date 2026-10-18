@@ -1,5 +1,6 @@
 import { cx } from '../../lib/cx'
 import type { EvidenceItem } from '../../data/claim'
+import { EVIDENCE_ACCEPT } from '../claims/claimAttachments'
 import { DocGlyph, PhotoGlyph } from './glyphs'
 
 type EvidenceGridProps = {
@@ -24,6 +25,7 @@ export function EvidenceGrid({ items, highlightedId, onUpload }: EvidenceGridPro
             <input
               type="file"
               hidden
+              accept={EVIDENCE_ACCEPT}
               onChange={(event) => {
                 const file = event.currentTarget.files?.[0]
                 if (file) onUpload(file)

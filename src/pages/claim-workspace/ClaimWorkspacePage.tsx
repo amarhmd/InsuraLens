@@ -8,6 +8,7 @@ import { fetchClaimWorkspace } from '../../api/claimWorkspace'
 import { analyzeClaim, openAnalysisStream, reviewClaim } from '../../api/claims'
 import { uploadClaimEvidence } from '../../api/evidence'
 import { USE_DEMO } from '../../api/http'
+import { validateEvidenceFile } from '../claims/claimAttachments'
 import { PolicyViewer } from '../../components/feedback/PolicyViewer'
 import { AIFindings } from './AIFindings'
 import { ClaimHeader } from './ClaimHeader'
@@ -202,6 +203,14 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
 
   const uploadEvidence = useCallback(
     async (file: File) => {
+      /* Reject unsupported types and oversized files before a request is made,
+         so the user gets an immediate message instead of a server error. */
+      const problem = validateEvidenceFile(file)
+      if (problem) {
+        setStatus(null)
+        setActionError(problem)
+        return
+      }
       setBusy(true)
       setActionError(null)
       setStatus('Uploading evidence…')

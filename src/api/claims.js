@@ -9,6 +9,7 @@
    Set VITE_USE_DEMO=true to keep serving src/mocks/claims.ts instead. */
 
 import { ApiError, API_BASE_URL, USE_DEMO, delay, request, withToken } from './http'
+import { evidenceField } from './evidence'
 import { formatAgo, formatDate, mockClaims } from '../lib/claimsData'
 
 /** The backend caps a page at 100 claims; the queue reads client-side filters. */
@@ -192,10 +193,10 @@ export async function createClaim(draft) {
   form.append('incidentType', draft.incident || 'other')
   if (draft.policyRef) form.append('policyId', draft.policyRef)
 
-  /* The modal hands back object URLs rather than File objects, so photos
-     normally reach the server through POST /api/claims/:id/evidence after the
-     claim exists. Files supplied by a caller are forwarded here. */
-  for (const file of draft.files ?? []) form.append('images', file)
+  /* Staged evidence rides along with the create request, routed to the part
+     the backend's EvidenceForm expects (`images` for photos, `report` for
+     documents), so the claim has its files the moment it exists. */
+  for (const file of draft.files ?? []) form.append(evidenceField(file), file, file.name)
 
   const res = await request('/api/claims', { method: 'POST', body: form })
   const claim = res?.claim ?? res?.data ?? res

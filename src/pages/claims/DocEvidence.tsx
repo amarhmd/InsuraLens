@@ -34,7 +34,7 @@ export function DocEvidence({ docFiles, docErrors, onAdd, onRemove }: Props) {
     <div className="claims-evidence__group">
       <div className="claims-evidence__row">
         <span className="claims-evidence__label">Documents</span>
-        <span className="claims-evidence__count">PDF or DOCX · up to {MAX_DOC_MB} MB each</span>
+        <span className="claims-evidence__count">PDF · up to {MAX_DOC_MB} MB each</span>
       </div>
 
       <div className="claims-docs">
