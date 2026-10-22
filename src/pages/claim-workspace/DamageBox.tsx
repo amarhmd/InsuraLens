@@ -1,5 +1,5 @@
 import { cx } from '../../lib/cx'
-import { DAMAGE_STATUS_LABEL, type DamageZone, type DamageStatus } from '../../data/claim'
+import { DAMAGE_STATUS_LABEL, type DamageZone, type DamageStatus } from '../../lib/claimWorkspace'
 
 type DamageBoxProps = {
   zone: DamageZone

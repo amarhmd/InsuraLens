@@ -8,9 +8,9 @@ export function AIInsights({
   policyReview: number
 }) {
   /* Counts arrive from getDashboardSummary() (src/api/dashboard.js), which
-     derives them from the same shared demo dataset the Dashboard KPIs and
-     the Analytics page read — no card here can quote a number those pages
-     disagree with. Each predicate is stated in the card's description. */
+     derives them from the live claim queue the Dashboard KPIs and the Analytics
+     page read — no card here can quote a number those pages disagree with.
+     Each predicate is stated in the card's description. */
   const insights = [
     {
       key: 'damage',

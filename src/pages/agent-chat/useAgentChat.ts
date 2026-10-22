@@ -1,9 +1,47 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Claim } from '../../lib/claimsData'
 import { incidentLabel } from '../../lib/constants'
-import { clockNow, nextId, type ChatMessage, type Conversation } from '../../lib/chatData'
-import { listClaims } from '../../api/claims'
+import {
+  clockNow,
+  nextId,
+  toEvidenceFile,
+  type ChatEvidenceFile,
+  type ChatMessage,
+  type Conversation,
+} from '../../lib/chatData'
+import { getClaim, listClaims } from '../../api/claims'
 import { listConversations, sendChatMessage } from '../../api/chat'
+
+/* -------------------------------------------------------------------------- */
+/* Hidden conversations — the backend has no DELETE route, so "Remove from     */
+/* view" is a device-local hide, not a deletion. Hidden ids live in            */
+/* localStorage and are re-applied whenever the list loads.                    */
+/* -------------------------------------------------------------------------- */
+
+const HIDDEN_KEY = 'chat.hiddenConversations'
+
+/** Hidden conversation ids; a blocked or hand-edited store means "none". */
+function readHiddenIds(): string[] {
+  try {
+    if (typeof localStorage === 'undefined') return []
+    const raw = localStorage.getItem(HIDDEN_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/** Persisting an empty list removes the key rather than storing "off". */
+function writeHiddenIds(ids: string[]): void {
+  try {
+    if (typeof localStorage === 'undefined') return
+    if (ids.length > 0) localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids))
+    else localStorage.removeItem(HIDDEN_KEY)
+  } catch {
+    /* Storage unavailable (private mode, quota) — the hide won't survive reload. */
+  }
+}
 
 export type ConfirmState = { kind: 'clear' } | { kind: 'delete'; id: string } | null
 export type RightMode = { kind: 'context' } | { kind: 'preview'; sourceId: string }
@@ -33,7 +71,9 @@ export function useAgentChat() {
   const [showPanelToggles, setShowPanelToggles] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmState>(null)
   const [toast, setToast] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [evidenceFiles, setEvidenceFiles] = useState<ChatEvidenceFile[]>([])
+  const [evidenceLoading, setEvidenceLoading] = useState(false)
+  const [evidenceError, setEvidenceError] = useState<string | null>(null)
 
   /* Load conversations + claims through the API. Retry re-runs the call. */
   const load = useCallback(() => {
@@ -41,7 +81,9 @@ export function useAgentChat() {
     setLoadError(null)
     Promise.all([listConversations(), listClaims()])
       .then(([seeded, rows]) => {
-        setConversations(seeded)
+        /* Re-apply the device-local hide (see HIDDEN_KEY) to fresh list data. */
+        const hidden = new Set(readHiddenIds())
+        setConversations(seeded.filter((c) => !hidden.has(c.id)))
         setClaims(rows)
         setLoading(false)
       })
@@ -85,6 +127,40 @@ export function useAgentChat() {
     [claims, active?.claimId],
   )
 
+  /* Load the pinned claim's real evidence files for the drawer/preview. */
+  useEffect(() => {
+    const claimId = active?.claimId
+    if (!claimId) {
+      setEvidenceFiles([])
+      setEvidenceError(null)
+      setEvidenceLoading(false)
+      return
+    }
+    let cancelled = false
+    setEvidenceLoading(true)
+    setEvidenceError(null)
+    getClaim(claimId)
+      .then((detail) => {
+        if (cancelled) return
+        const files = (detail?.files ?? [])
+          .map(toEvidenceFile)
+          .filter((file): file is ChatEvidenceFile => file !== null)
+        setEvidenceFiles(files)
+        setEvidenceLoading(false)
+      })
+      .catch((cause: unknown) => {
+        if (cancelled) return
+        setEvidenceError(
+          cause instanceof Error ? cause.message : 'Could not load this claim’s evidence.',
+        )
+        setEvidenceFiles([])
+        setEvidenceLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [active?.claimId])
+
   /* Claim switcher options: recent claims plus the active one if rare. */
   const claimOptions = useMemo(() => {
     const opts = claims.slice(0, 8).map((c) => ({
@@ -120,14 +196,19 @@ export function useAgentChat() {
     setLeftOpen(false)
   }, [])
 
+  /* "Remove from view": hides the conversation on this device only. The
+     backend has no delete route, so nothing is deleted server-side — the id is
+     persisted (HIDDEN_KEY) and filtered out on every subsequent load. */
   const deleteConversation = useCallback((id: string) => {
+    const hidden = readHiddenIds()
+    if (!hidden.includes(id)) writeHiddenIds([...hidden, id])
     setConversations((prev) => prev.filter((c) => c.id !== id))
     setActiveId((current) => {
       if (current !== id) return current
       const remaining = conversations.filter((c) => c.id !== id)
       return remaining[0]?.id ?? null
     })
-    setToast('Conversation deleted.')
+    setToast('Removed from this view.')
   }, [conversations])
 
   const clearConversation = useCallback(() => {
@@ -235,7 +316,7 @@ export function useAgentChat() {
     const lastUser = [...conv.messages].reverse().find((m) => m.role === 'user')
     if (!lastUser?.text) return
 
-    /* Drop the error bubble, then re-run the demo reply for that question. */
+    /* Drop the error bubble, then re-send the question to the backend. */
     setConversations((prev) =>
       prev.map((c) =>
         c.id === conv.id
@@ -273,8 +354,8 @@ export function useAgentChat() {
   /* Regenerate                                                             */
   /* ---------------------------------------------------------------------- */
 
-  /* Drops the trailing assistant reply for the last question and re-runs the
-     demo response through the same API call. */
+  /* Drops the trailing assistant reply for the last question and re-sends it
+     through the same API call. */
   const regenerateLast = useCallback(() => {
     const conv = active
     if (!conv || sending) return
@@ -322,17 +403,6 @@ export function useAgentChat() {
     setRightOpen(true)
   }, [])
 
-  const pickSuggestion = useCallback(
-    (text: string) => {
-      send(text)
-    },
-    [send],
-  )
-
-  const attachDemo = useCallback(() => {
-    fileRef.current?.click()
-  }, [])
-
   /* Close both drawers when the viewport grows back to three panels. */
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1200px)')
@@ -373,10 +443,12 @@ export function useAgentChat() {
     setConfirm,
     toast,
     setToast,
-    fileRef,
     active,
     claim,
     claimOptions,
+    evidenceFiles,
+    evidenceLoading,
+    evidenceError,
     updateConv,
     startNewConversation,
     deleteConversation,
@@ -386,7 +458,5 @@ export function useAgentChat() {
     retryLastUserMessage,
     regenerateLast,
     openSource,
-    pickSuggestion,
-    attachDemo,
   }
 }

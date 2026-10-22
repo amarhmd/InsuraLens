@@ -1,35 +1,63 @@
-import { getSource } from '../../lib/chatData'
 import type { Claim } from '../../lib/claimsData'
+import type { ChatEvidenceFile } from '../../lib/chatData'
+import { fileUrl } from '../../api/http'
 
 type Props = {
-  sourceId: string
+  fileId: string
+  files: ChatEvidenceFile[]
   claim: Claim | undefined
   onBack: () => void
 }
 
-/**
- * Metadata-only evidence preview. The prototype stores no file contents,
- * so the panel says so plainly instead of faking a document viewer.
- */
-export function EvidencePreviewPanel({ sourceId, claim, onBack }: Props) {
-  const source = getSource(sourceId, claim)
+/** 51200 -> "50 KB". */
+function formatSize(bytes?: number): string {
+  if (typeof bytes !== 'number' || bytes <= 0) return 'Unknown'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
-  if (!source) {
+/** Prefer the CDN URL; fall back to the authenticated backend path. */
+function openUrl(file: ChatEvidenceFile): string | null {
+  if (file.publicUrl) return file.publicUrl
+  if (file.url) return fileUrl(file.url)
+  return null
+}
+
+/**
+ * Evidence preview for one real backend file. The file's metadata is always
+ * shown; when the backend publishes a URL (public or token-authenticated) the
+ * panel links to the original file. When no URL is available it says so instead
+ * of faking a viewer.
+ */
+export function EvidencePreviewPanel({ fileId, files, claim, onBack }: Props) {
+  const file = files.find((f) => f.id === fileId)
+
+  if (!file) {
     return (
       <div className="chat-ctx">
         <div className="chat-ctx__head">
           <h2 className="chat-ctx__title">Evidence preview</h2>
         </div>
         <div className="chat-ctx__empty">
-          <p className="chat-ctx__empty-title">Source not found</p>
-          <p className="chat-ctx__empty-text">This source is not part of the mock evidence set.</p>
+          <p className="chat-ctx__empty-title">File not found</p>
+          <p className="chat-ctx__empty-text">This file is not part of the claim's evidence.</p>
           <button type="button" className="chat-preview__back" onClick={onBack}>
-            Back to Claim Context
+            Back to Evidence
           </button>
         </div>
       </div>
     )
   }
+
+  const href = openUrl(file)
+  const added = file.createdAt
+    ? new Date(file.createdAt).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : 'Unknown'
 
   return (
     <div className="chat-preview">
@@ -52,66 +80,61 @@ export function EvidencePreviewPanel({ sourceId, claim, onBack }: Props) {
             <path d="M13.75 3.7V8h4.1" />
           </svg>
         </span>
-        <h3 className="chat-preview__name">{source.name}</h3>
+        <h3 className="chat-preview__name">{file.name}</h3>
 
         <dl className="chat-preview__fields">
           <div className="chat-preview__field">
             <dt>File</dt>
-            <dd>{source.fileName}</dd>
+            <dd>{file.name}</dd>
           </div>
           <div className="chat-preview__field">
             <dt>Type</dt>
-            <dd>{source.type}</dd>
+            <dd>{file.mimeType || file.kind || 'Unknown'}</dd>
+          </div>
+          <div className="chat-preview__field">
+            <dt>Size</dt>
+            <dd>{formatSize(file.sizeBytes)}</dd>
           </div>
           <div className="chat-preview__field">
             <dt>Date added</dt>
-            <dd>{source.dateAdded}</dd>
-          </div>
-          <div className="chat-preview__field">
-            <dt>Status</dt>
-            <dd>
-              <span className="chat-preview__status">{source.status}</span>
-            </dd>
+            <dd>{added}</dd>
           </div>
         </dl>
 
-        <section className="chat-preview__section">
-          <h4 className="chat-preview__label">Summary</h4>
-          <p className="chat-preview__text">{source.summary}</p>
-        </section>
-
-        {source.sectionLabel && (
-          <section className="chat-preview__section">
-            <h4 className="chat-preview__label">Referenced section</h4>
-            <p className="chat-preview__text">{source.sectionLabel}</p>
-          </section>
-        )}
-
-        {source.related.length > 0 && (
-          <section className="chat-preview__section">
-            <h4 className="chat-preview__label">Related evidence</h4>
-            <p className="chat-preview__text">{source.related.join(' · ')}</p>
-          </section>
-        )}
-
-        <p className="chat-preview__notice">
-          Metadata only — this prototype does not store file contents, so no document preview is
-          available.
-        </p>
-
-        <div className="chat-preview__actions">
-          <button type="button" className="chat-preview__back" onClick={onBack}>
-            Back to Claim Context
-          </button>
-          {claim && (
-            <a
-              className="chat-preview__workspace"
-              href={`#/claims/${encodeURIComponent(claim.id)}`}
-            >
-              View in Claim Workspace
+        {href ? (
+          <div className="chat-preview__actions">
+            <a className="chat-preview__back" href={href} target="_blank" rel="noreferrer">
+              Open original file
             </a>
-          )}
-        </div>
+            {claim && (
+              <a
+                className="chat-preview__workspace"
+                href={`#/claims/${encodeURIComponent(claim.id)}`}
+              >
+                View in Claim Workspace
+              </a>
+            )}
+          </div>
+        ) : (
+          <>
+            <p className="chat-preview__notice">
+              Metadata only — the backend returned no fetchable URL for this file.
+            </p>
+            <div className="chat-preview__actions">
+              <button type="button" className="chat-preview__back" onClick={onBack}>
+                Back to Evidence
+              </button>
+              {claim && (
+                <a
+                  className="chat-preview__workspace"
+                  href={`#/claims/${encodeURIComponent(claim.id)}`}
+                >
+                  View in Claim Workspace
+                </a>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

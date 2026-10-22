@@ -1,25 +1,16 @@
 import { cx } from '../../lib/cx'
-import {
-  CheckIcon,
-  CopyIcon,
-  NoteIcon,
-  RefreshIcon,
-  ThumbDownIcon,
-  ThumbUpIcon,
-} from './chatIcons'
+import { CheckIcon, CopyIcon, RefreshIcon, ThumbDownIcon, ThumbUpIcon } from './chatIcons'
 
 export type Feedback = 'up' | 'down' | null
 
 type Props = {
   copied: boolean
   feedback: Feedback
-  saved: boolean
   /** Regenerate is only meaningful for the newest assistant reply. */
   canRegenerate?: boolean
   onCopy: () => void
   onRegenerate: () => void
   onFeedback: (value: 'up' | 'down') => void
-  onSave: () => void
 }
 
 /**
@@ -30,12 +21,10 @@ type Props = {
 export function MessageActions({
   copied,
   feedback,
-  saved,
   canRegenerate = true,
   onCopy,
   onRegenerate,
   onFeedback,
-  onSave,
 }: Props) {
   const up = feedback === 'up'
   const down = feedback === 'down'
@@ -86,19 +75,6 @@ export function MessageActions({
         title="Not helpful"
       >
         <ThumbDownIcon size={14} />
-      </button>
-
-      <span className="chat-actions__sep" aria-hidden="true" />
-
-      <button
-        type="button"
-        className={cx('chat-actions__btn', saved && 'chat-actions__btn--on')}
-        onClick={onSave}
-        aria-label={saved ? 'Saved as claim note' : 'Save as claim note'}
-        title="Save as claim note"
-      >
-        {saved ? <CheckIcon size={14} /> : <NoteIcon size={14} />}
-        <span className="chat-actions__label">{saved ? 'Saved' : 'Save as claim note'}</span>
       </button>
     </div>
   )

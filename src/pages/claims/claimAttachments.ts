@@ -39,14 +39,12 @@ export interface StagedPhoto {
   size: number
   url: string
   caption: string
-  progress: number
 }
 
 export interface StagedDoc {
   file: File
   name: string
   size: number
-  progress: number
 }
 
 export function formatBytes(bytes: number): string {

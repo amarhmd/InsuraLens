@@ -37,7 +37,7 @@ const cases = [
   ['success-dark on white (investigation status)', '#116946', WHITE, 4.5],
   ['warning-dark on 8% warning tint (oversight flags)', '#8A5A00', blend('rgba(201,130,0,0.08)', WHITE), 4.5],
   ['warning-dark on white (policy-review value)', '#8A5A00', WHITE, 4.5],
-  ['info-dark on 6% info tint (prototype notice)', '#2A5F94', blend('rgba(53,120,184,0.06)', PAGE), 4.5],
+  ['info-dark on 6% info tint (AI-results notice)', '#2A5F94', blend('rgba(53,120,184,0.06)', PAGE), 4.5],
   ['info-dark on 6% info tint (reviewer reminder)', '#2A5F94', blend('rgba(53,120,184,0.06)', WHITE), 4.5],
   ['info-dark on 8% info tint (preview status pill)', '#2A5F94', blend('rgba(53,120,184,0.08)', WHITE), 4.5],
   ['critical-dark on 6% critical tint (error message)', '#A13232', blend('rgba(194,65,65,0.06)', PAGE), 4.5],
@@ -54,8 +54,6 @@ const cases = [
   /* Floating top bar — the lightest point is the top-right glow over teal-800. */
   ['top-bar breadcrumb parent/separator on navy (white 65% over navy)', blend('rgba(255,255,255,0.65)', '#12304a'), '#12304a', 4.5],
   ['top-bar breadcrumb current on navy (white on navy)', WHITE, '#12304a', 4.5],
-  ['top-bar demo label on amber wash over glow', '#FFE6B0', blend('rgba(124,74,6,0.34)', blend('rgba(22,181,164,0.34)', '#0a6264')), 4.5],
-  ['top-bar demo dot on amber wash over glow', '#FFCA6B', blend('rgba(124,74,6,0.34)', blend('rgba(22,181,164,0.34)', '#0a6264')), 3.0],
   ['top-bar bell icon on translucent button over glow', WHITE, blend('rgba(255,255,255,0.14)', blend('rgba(22,181,164,0.34)', '#0a6264')), 3.0],
   ['top-bar count badge (white on bright red)', WHITE, '#D92D20', 4.5],
   ['top-bar focus ring on glow (light teal)', '#7DE9DB', blend('rgba(22,181,164,0.34)', '#0a6264'), 3.0],

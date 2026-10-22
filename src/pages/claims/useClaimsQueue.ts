@@ -18,6 +18,8 @@ import {
 } from '../../lib/claimsData'
 import { createClaim, listClaims } from '../../api/claims'
 import { navigate, type ClaimsQuery } from '../../lib/router'
+import { claimCreated } from '../../lib/notifications'
+import { ingestNotifications } from '../../lib/notificationsStore'
 import type { ColumnKey } from './claimsColumns'
 import type { RowAction } from './ClaimRowActions'
 import type { ClaimDraft } from './CreateClaimModal'
@@ -175,7 +177,7 @@ export function useClaimsQueue(query?: ClaimsQuery) {
     (action: RowAction, claim: Claim) => {
       if (action === 'activity') {
         setToast({
-          message: `Activity timeline for ${claim.id} is not part of this prototype yet.`,
+          message: `The activity timeline for ${claim.id} isn't available yet.`,
         })
         return
       }
@@ -191,6 +193,8 @@ export function useClaimsQueue(query?: ClaimsQuery) {
     try {
       const created = await createClaim(draft)
       setModalOpen(false)
+      /* Real event → notification bell, immediately. */
+      ingestNotifications([claimCreated(created.id, created.evidenceItems)])
       const rows = await listClaims()
       setClaims(rows)
 

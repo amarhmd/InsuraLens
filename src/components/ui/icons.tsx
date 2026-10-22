@@ -104,7 +104,7 @@ export function LockIcon({ size = 18, className }: IconProps) {
   )
 }
 
-/* Explore / open-the-demo: a compass needle. */
+/* Explore: a compass needle. */
 export function CompassIcon({ size = 18, className }: IconProps) {
   return (
     <svg {...base} width={size} height={size} className={className}>

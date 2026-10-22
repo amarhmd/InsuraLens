@@ -1,67 +1,66 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
-import { mockNotifications } from '../../mocks/notifications'
-import type { Notification } from '../../mocks/notifications'
-import { listNotifications, markAllNotificationsRead } from '../../api/notifications'
-import { AlertTriangleIcon, BellIcon, CheckCircleIcon, ClockIcon, InboxIcon, ShieldIcon } from './icons'
+import { navigate } from '../../lib/router'
+import { useNotifications } from '../../hooks/useNotifications'
+import { useNotificationFeed } from '../../hooks/useNotificationFeed'
+import { badgeCount, relativeTime } from '../../lib/notifications'
+import type { AppNotification, NotificationType } from '../../lib/notifications'
+import {
+  AlertTriangleIcon,
+  BellIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  CloseIcon,
+  HelpCircleIcon,
+  InboxIcon,
+  PaperclipIcon,
+  ShieldIcon,
+} from './icons'
 
 /**
- * Presentational icon for a notification, chosen from its own title. The mock
- * shape has no explicit category field, so nothing is invented: unknown titles
- * fall back to the bell.
+ * Icon for a notification, chosen from its own `type` (set by the producer —
+ * the server row's type is inferred from its title in lib/notifications). No
+ * category is ever invented.
  */
-function NotificationIcon({ title }: { title: string }) {
-  const text = title.toLowerCase()
-  if (text.includes('complete')) return <CheckCircleIcon size={16} />
-  if (text.includes('incomplete') || text.includes('missing') || text.includes('waiting')) {
-    return <AlertTriangleIcon size={16} />
+function NotificationIcon({ type }: { type: NotificationType }) {
+  switch (type) {
+    case 'claim_created':
+      return <InboxIcon size={16} />
+    case 'evidence_uploaded':
+      return <PaperclipIcon size={16} />
+    case 'analysis_started':
+    case 'status_changed':
+      return <ClockIcon size={16} />
+    case 'analysis_completed':
+      return <CheckCircleIcon size={16} />
+    case 'analysis_failed':
+      return <AlertTriangleIcon size={16} />
+    case 'info_requested':
+      return <HelpCircleIcon size={16} />
+    case 'review_completed':
+      return <ShieldIcon size={16} />
+    default:
+      return <BellIcon size={16} />
   }
-  if (text.includes('policy')) return <ShieldIcon size={16} />
-  return <BellIcon size={16} />
-}
-
-/** Claim id pulled from a deep link like "#/claims/CLM-10482" — never invented. */
-function claimIdFromLink(link?: string): string | null {
-  if (!link) return null
-  const last = link.split('/').filter(Boolean).pop() ?? ''
-  return /^[A-Z]+-\d+$/.test(last) ? last : null
 }
 
 /**
- * Notification bell for the compact top bar: a count badge on the trigger and
- * a dropdown listing the latest mock activity (icon, text, claim id, time),
- * a "Mark all as read" action, and an empty state.
- *
- * Read state is kept locally — the prototype never persists an inbox, and the
- * shared mock array is copied on mount so marking items read cannot leak into
- * other surfaces.
+ * Notification bell for the compact top bar. The badge, the list, and the read
+ * state all come from the shared notification store (fed by real backend events
+ * and the user's own actions — see src/hooks/useNotificationFeed.ts); nothing
+ * here is invented.
  */
 export function NotificationsMenu() {
   const [open, setOpen] = useState(false)
-  const [items, setItems] = useState<Notification[]>(() =>
-    mockNotifications.map((item) => ({ ...item })),
-  )
+  const { items, unread, unreadIds, markRead, markAllRead, dismiss } = useNotifications()
+  const { loading, error, refresh } = useNotificationFeed()
   const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
-  const unread = items.reduce((count, item) => (item.read ? count : count + 1), 0)
+  const unreadSet = useMemo(() => new Set(unreadIds), [unreadIds])
+  const badge = badgeCount(unread)
 
-  /* Load the real inbox; the mock seed stays visible if the request fails
-     (e.g. the server is cold-starting) so the bell is never blank. */
-  useEffect(() => {
-    let active = true
-    listNotifications()
-      .then((rows) => {
-        if (active) setItems(rows)
-      })
-      .catch(() => {
-        /* Keep the mock seed. */
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
+  /* Close on Escape (returning focus to the bell) or a click outside. */
   useEffect(() => {
     if (!open) return
     const onDown = (event: MouseEvent) => {
@@ -81,10 +80,16 @@ export function NotificationsMenu() {
     }
   }, [open])
 
-  const markAllRead = () => {
-    setItems((previous) => previous.map((item) => ({ ...item, read: true })))
-    markAllNotificationsRead().catch(() => {
-      /* Optimistic: the local read state is already applied. */
+  const select = (item: AppNotification) => {
+    markRead(item.id)
+    setOpen(false)
+    if (item.claimId) navigate({ name: 'claim', id: item.claimId })
+  }
+
+  const toggle = () => {
+    setOpen((was) => {
+      if (!was) refresh()
+      return !was
     })
   }
 
@@ -94,16 +99,16 @@ export function NotificationsMenu() {
         type="button"
         ref={triggerRef}
         className="notif__trigger"
-        aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+        aria-label={badge ? `Notifications, ${unread} unread` : 'Notifications'}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls="notifications-menu"
-        onClick={() => setOpen((was) => !was)}
+        onClick={toggle}
       >
         <BellIcon />
-        {unread > 0 && (
+        {badge && (
           <span className="notif__count" aria-hidden="true">
-            {unread}
+            {badge}
           </span>
         )}
       </button>
@@ -125,37 +130,64 @@ export function NotificationsMenu() {
             )}
           </div>
 
+          {error && items.length > 0 && (
+            <p className="notif__state notif__state--error">{error}</p>
+          )}
+
           {items.length === 0 ? (
-            <p className="notif__empty">
-              <InboxIcon size={22} />
-              You&rsquo;re all caught up.
-            </p>
+            loading ? (
+              <p className="notif__state">Loading notifications…</p>
+            ) : error ? (
+              <p className="notif__state notif__state--error">{error}</p>
+            ) : (
+              <p className="notif__empty">
+                <InboxIcon size={22} />
+                You&rsquo;re all caught up.
+              </p>
+            )
           ) : (
             <ul className="notif__list">
               {items.map((item) => {
-                const claimId = claimIdFromLink(item.link)
+                const isUnread = unreadSet.has(item.id)
                 return (
                   <li className="notif__item" key={item.id}>
-                    <span
-                      className={cx('notif__icon', !item.read && 'notif__icon--unread')}
-                      aria-hidden="true"
+                    <button
+                      type="button"
+                      className="notif__main"
+                      onClick={() => select(item)}
+                      aria-label={`${item.title}. ${item.message}${
+                        item.claimId ? ` Open ${item.claimId}.` : ''
+                      }`}
                     >
-                      <NotificationIcon title={item.title} />
-                    </span>
-                    <span className="notif__body">
-                      <span className="notif__item-title">
-                        {item.title}
-                        {!item.read && <span className="notif__dot" aria-hidden="true" />}
+                      <span
+                        className={cx('notif__icon', isUnread && 'notif__icon--unread')}
+                        aria-hidden="true"
+                      >
+                        <NotificationIcon type={item.type} />
                       </span>
-                      <span className="notif__item-text">{item.body}</span>
-                      <span className="notif__meta">
-                        {claimId && <span className="notif__claim">{claimId}</span>}
-                        <span className="notif__time">
-                          <ClockIcon size={12} />
-                          {item.time}
+                      <span className="notif__body">
+                        <span className="notif__item-title">
+                          {item.title}
+                          {isUnread && <span className="notif__dot" aria-hidden="true" />}
+                        </span>
+                        <span className="notif__item-text">{item.message}</span>
+                        <span className="notif__meta">
+                          {item.claimId && <span className="notif__claim">{item.claimId}</span>}
+                          <span className="notif__time">
+                            <ClockIcon size={12} />
+                            {relativeTime(item.timestamp)}
+                          </span>
                         </span>
                       </span>
-                    </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="notif__dismiss"
+                      onClick={() => dismiss(item.id)}
+                      aria-label={`Dismiss notification: ${item.title}`}
+                    >
+                      <CloseIcon size={14} />
+                    </button>
                   </li>
                 )
               })}

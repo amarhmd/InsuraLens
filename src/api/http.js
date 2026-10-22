@@ -4,7 +4,7 @@
    back to the older VITE_API_BASE_URL (origin only). The trailing `/api` is
    stripped so every call site can keep its `/api/…` path unchanged.
 
-   Auth is automatic: with no stored token the first request opens a demo
+   Auth is automatic: with no stored token the first request opens a backend
    session (POST /auth/demo) and stores the JWT, and a 401 clears it and
    re-authenticates once. Server-sent events, <img> tags, and PDF viewers
    cannot set an Authorization header, so withToken()/fileUrl() append
@@ -27,10 +27,7 @@ export const API_BASE_URL = String(RAW_BASE)
   .replace(/\/+$/, '')
   .replace(/\/api$/, '')
 
-/** VITE_USE_DEMO=true makes every api/* function return its built-in demo data. */
-export const USE_DEMO = import.meta.env.VITE_USE_DEMO === 'true'
-
-/* Token storage — the demo sign-in issues it, request() attaches it. Guarded
+/* Token storage — the backend session issues it, request() attaches it. Guarded
    so importing api modules in non-browser contexts can never throw. */
 export function getToken() {
   try {
@@ -90,12 +87,14 @@ export class ApiError extends Error {
 }
 
 /**
- * POST /auth/demo outside of request(): this is how a token is obtained, so it
- * must not itself demand a token or retry on 401 (that would recurse).
+ * POST /auth/demo outside of request(): this is how a session token is
+ * obtained when none is stored, so it must not itself demand a token or retry
+ * on 401 (that would recurse). The endpoint is a real backend route that
+ * issues a browser session without credentials.
  *
- * @returns {Promise<string>} the demo JWT
+ * @returns {Promise<string>} the session JWT
  */
-async function fetchDemoToken() {
+async function fetchSessionToken() {
   let response
   try {
     response = await fetch(`${API_BASE_URL}/api/auth/demo`, { method: 'POST' })
@@ -107,7 +106,7 @@ async function fetchDemoToken() {
   }
 
   if (!response.ok) {
-    throw new ApiError('The server rejected the demo sign-in. Please try again.', {
+    throw new ApiError('The server could not start a session. Please try again.', {
       status: response.status,
       code: `http_${response.status}`,
     })
@@ -119,23 +118,23 @@ async function fetchDemoToken() {
   return token ?? null
 }
 
-/** Shared promise so concurrent first requests open only one demo session. */
-let demoAuthInFlight = null
+/** Shared promise so concurrent first requests open only one session. */
+let sessionAuthInFlight = null
 
 /**
- * Make sure a token is available, opening the demo session on demand.
+ * Make sure a token is available, opening a backend session on demand.
  *
  * @returns {Promise<string | null>} the current token
  */
 export function ensureToken() {
   const existing = getToken()
   if (existing) return Promise.resolve(existing)
-  if (!demoAuthInFlight) {
-    demoAuthInFlight = fetchDemoToken().finally(() => {
-      demoAuthInFlight = null
+  if (!sessionAuthInFlight) {
+    sessionAuthInFlight = fetchSessionToken().finally(() => {
+      sessionAuthInFlight = null
     })
   }
-  return demoAuthInFlight
+  return sessionAuthInFlight
 }
 
 /** One network round-trip with a timeout; maps failures to ApiError. */
@@ -190,7 +189,7 @@ function buildUrl(path, query) {
  * non-2xx responses converted to ApiError using the server's error envelope
  * (`{ error: { code, message, details } }`, falling back to status text).
  *
- * Auth handling: a request with no stored token opens the demo session first,
+ * Auth handling: a request with no stored token opens a backend session first,
  * and a 401 clears the token, re-authenticates, and retries once.
  *
  * @param {string} path e.g. '/api/claims'
@@ -222,7 +221,7 @@ export async function request(
 
   const response = await send(buildUrl(path, query), method, requestHeaders, payload, signal)
 
-  /* 401 → the stored token expired or was revoked. Drop it, open a fresh demo
+  /* 401 → the stored token expired or was revoked. Drop it, open a fresh
      session, and retry the same request exactly once. */
   if (response.status === 401 && !isAuthPath && retries > 0) {
     clearToken()
@@ -248,9 +247,4 @@ export async function request(
   const contentType = response.headers.get('content-type') ?? ''
   if (!contentType.includes('application/json')) return response.text()
   return response.json()
-}
-
-/** Small pause used by the mock-backed api functions (simulated latency). */
-export function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }

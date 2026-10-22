@@ -590,11 +590,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px 8px 14px;
+  padding: 4px 8px 4px 12px;
   border: 1px solid rgba(53, 120, 184, 0.3);
   border-radius: 10px;
   background: rgba(53, 120, 184, 0.06);
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.5;
   color: #2A5F94; /* info-dark — AA on tint */
 }
@@ -1058,19 +1058,7 @@
   color: var(--text-secondary);
 }
 
-/* Demo tag + error + loading */
-
-.chat-demo-tag {
-  padding: 1px 7px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg-page);
-  font-size: 10.5px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-}
+/* Error + loading */
 
 .chat-msg__error {
   display: flex;
@@ -3959,19 +3947,25 @@
 .composer__ctx {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   max-width: 210px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 4px 10px;
-  border: 1px solid var(--accent-line);
+  border: 1px solid #5EC8B5;
   border-radius: 999px;
   background: var(--accent-soft);
   font-family: inherit;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent-strong);
+  color: #0F766E;
   cursor: pointer;
+}
+
+/* The leading context icon keeps its size when the label truncates. */
+.composer__ctx > svg {
+  flex: none;
 }
 
 .composer__ctx:hover,
@@ -3982,10 +3976,10 @@
 }
 
 .composer__ctx--muted {
-  border-color: var(--border);
+  border-color: #5EC8B5;
   background: var(--surface-inset);
-  color: var(--text-secondary);
-  font-weight: 500;
+  color: #0F766E;
+  font-weight: 600;
 }
 
 .composer__ctx--muted:hover,
@@ -4245,5 +4239,47 @@
   .chat-msg__time {
     transition: none;
   }
+}
+
+/* Composer emphasis tweaks ------------------------------------------------ */
+
+/* Send button: teal fill once there is text to send; the disabled state
+   (empty input / reply pending) keeps its existing muted look. */
+.composer__send.is-ready {
+  background: #0D9488;
+  color: #FFFFFF;
+  transition: background-color 150ms ease;
+}
+
+.composer__send.is-ready:hover:not(:disabled) {
+  background: #0F766E;
+}
+
+/* The chat's own dark theme re-tints the chip, so keep its label on the
+   dark-theme accent tokens (AA on the dark surfaces). */
+[data-theme='dark'] .composer__ctx,
+[data-theme='dark'] .composer__ctx--muted {
+  border-color: var(--accent-line);
+  color: var(--accent-strong);
+}
+
+/* Message textarea: the outer .composer__row :focus-within ring is the focus
+   cue, so the field itself never draws one (beats the page-wide
+   .chat-layout textarea:focus-visible rule above). The bar only appears once
+   the auto-grown height (capped at 160px) is exceeded, and its Windows
+   up/down arrow buttons are hidden. */
+.chat-layout .composer__input:focus,
+.chat-layout .composer__input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: none;
+}
+
+.composer__input {
+  overflow-y: auto;
+}
+
+.composer__input::-webkit-scrollbar-button {
+  display: none;
 }
 

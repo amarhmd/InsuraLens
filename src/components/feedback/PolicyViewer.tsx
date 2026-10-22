@@ -11,9 +11,9 @@ type Props = {
  * Read-only viewer for the customer's stored policy document.
  *
  * The policy belongs to the customer/contract and is stored once on the
- * backend, so it is never uploaded per claim — this dialog is the single
- * place the demo "opens" it. The body is placeholder copy for the prototype;
- * a real build would stream the stored PDF here.
+ * backend, so it is never uploaded per claim. No policy-document endpoint
+ * exists yet, so this dialog states that plainly rather than rendering a
+ * fabricated document.
  */
 export function PolicyViewer({ policyRef, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -62,28 +62,16 @@ export function PolicyViewer({ policyRef, onClose }: Props) {
               <dt className="policy-doc__label">Policy number</dt>
               <dd className="policy-doc__value">{policyRef.trim() || 'Not assigned'}</dd>
             </div>
-            <div className="policy-doc__row">
-              <dt className="policy-doc__label">Document</dt>
-              <dd className="policy-doc__value">Policy declaration</dd>
-            </div>
-            <div className="policy-doc__row">
-              <dt className="policy-doc__label">Status</dt>
-              <dd className="policy-doc__value policy-doc__value--ok">Active</dd>
-            </div>
           </dl>
 
-          <div className="policy-doc__page" aria-hidden="true">
-            <span className="policy-doc__page-title">Motor insurance policy schedule</span>
-            <span className="policy-doc__line" />
-            <span className="policy-doc__line" />
-            <span className="policy-doc__line policy-doc__line--short" />
-            <span className="policy-doc__line" />
-            <span className="policy-doc__line policy-doc__line--short" />
-          </div>
+          <p className="policy-doc__notice">
+            The policy document isn&rsquo;t available yet — no endpoint serves it. Once the
+            backend exposes the stored file, it will open here.
+          </p>
         </div>
 
         <div className="claims-modal__foot">
-          <p className="claims-modal__demo">Demo only. Placeholder policy document.</p>
+          <p className="claims-modal__note">Read-only view.</p>
           <div className="claims-modal__actions">
             <button
               ref={closeRef}

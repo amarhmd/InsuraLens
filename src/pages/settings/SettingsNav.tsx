@@ -38,21 +38,29 @@ export function SettingsNav({ sections }: { sections: ReadonlyArray<NavSection> 
     /* Offsets clear the floating top bar (bottom edge 92px desktop / 72px
        compact) and, on the compact layout, the horizontal section tabs — see
        .st-panel scroll-margin-top in settings.css. Must stay above the settle
-       line so the jumped-to section reads as current. */
-    const OFFSET = window.innerWidth <= 900 ? 168 : 128
+       line so the jumped-to section reads as current. Read live, not once at
+       mount, so resizing across the 900px breakpoint is honoured. */
+    const settleLine = () => (window.innerWidth <= 900 ? 168 : 128)
 
     /* Recompute from live geometry rather than an observer's partial entries:
        the section whose top has passed the offset line is the current one, and
-       the last section wins once the page is scrolled to the bottom. */
+       the last section wins once the page is scrolled to the bottom. The
+       bottom rule only applies to a page that can actually scroll — otherwise
+       a viewport tall enough to fit every card would light up the last
+       section while the first one is what's on screen. */
     const pick = () => {
       const doc = document.documentElement
-      if (window.innerHeight + window.scrollY >= doc.scrollHeight - 2) {
+      const atBottom =
+        doc.scrollHeight > window.innerHeight &&
+        window.innerHeight + window.scrollY >= doc.scrollHeight - 2
+      if (atBottom) {
         setActive(nodes[nodes.length - 1].id)
         return
       }
+      const line = settleLine()
       let current = nodes[0].id
       for (const node of nodes) {
-        if (node.getBoundingClientRect().top - OFFSET <= 0) current = node.id
+        if (node.getBoundingClientRect().top - line <= 0) current = node.id
         else break
       }
       setActive(current)
@@ -74,7 +82,7 @@ export function SettingsNav({ sections }: { sections: ReadonlyArray<NavSection> 
       typeof IntersectionObserver === 'undefined'
         ? null
         : new IntersectionObserver(pick, {
-            rootMargin: `-${OFFSET}px 0px -55% 0px`,
+            rootMargin: `-${settleLine()}px 0px -55% 0px`,
             threshold: [0, 0.25, 0.5, 1],
           })
     if (observer) nodes.forEach((node) => observer.observe(node))

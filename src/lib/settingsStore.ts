@@ -5,10 +5,10 @@
    Rules this module exists to enforce:
 
    * Frontend only. Nothing here talks to a server. Saving updates in-memory
-     state (mirrored to localStorage so a reload keeps your demo choices) and
+     state (mirrored to localStorage so a reload keeps your choices) and
      returns control to the page, which shows a confirmation toast only after
      the update has been applied locally.
-   * Honest presentation. Preferences only change how this prototype presents
+   * Honest presentation. Preferences only change how this workspace presents
      information. No setting here configures an AI model, grants a permission,
      approves or rejects a claim, or changes account security.
    * One default set. DEFAULT_SETTINGS is the reference the data gate asserts
@@ -98,11 +98,14 @@ export const DEFAULT_NOTIFICATIONS: Notifications = {
 
 export const DEFAULT_SETTINGS: Settings = {
   profile: {
-    fullName: 'Alex Morgan',
+    /* No fabricated identity. The signed-in user comes from GET /api/auth/me
+       (src/lib/identity.ts) and fills these fields in the Settings UI; a saved
+       edit persists in this browser only. */
+    fullName: '',
     displayName: '',
-    jobTitle: 'Claims Reviewer',
-    email: 'alex.morgan@example.com',
-    role: 'Claims Reviewer',
+    jobTitle: '',
+    email: '',
+    role: '',
     workspace: 'Claims Operations',
   },
   preferences: {
@@ -145,7 +148,7 @@ export function validateProfile(profile: Profile): ProfileErrors {
   return errors
 }
 
-/** Initials for the profile avatar: "Alex Morgan" → "AM". */
+/** Initials for an avatar: "Dana Ellery" → "DE". */
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
@@ -183,6 +186,20 @@ function bool(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
 
+/* The build that shipped before session identity existed had a fabricated
+   default profile ("Alex Morgan / alex.morgan@example.com"). A browser that
+   still has those exact values persisted must not shadow the signed-in user,
+   so the sanitizer treats them as empty. */
+const LEGACY_PROFILE_VALUES: Partial<Record<keyof Profile, string>> = {
+  fullName: 'Alex Morgan',
+  email: 'alex.morgan@example.com',
+}
+
+function legacyAwareStr(key: keyof Profile, value: unknown, fallback: string): string {
+  const next = str(value, fallback)
+  return next === LEGACY_PROFILE_VALUES[key] ? fallback : next
+}
+
 /**
  * Coerces whatever comes out of localStorage into a valid Settings object.
  * Unknown enum values fall back to defaults, so a stale or hand-edited value
@@ -205,10 +222,10 @@ export function sanitizeSettings(raw: unknown): Settings {
 
   return {
     profile: {
-      fullName: str(prof.fullName, base.profile.fullName),
+      fullName: legacyAwareStr('fullName', prof.fullName, base.profile.fullName),
       displayName: str(prof.displayName, base.profile.displayName),
       jobTitle: str(prof.jobTitle, base.profile.jobTitle),
-      email: str(prof.email, base.profile.email),
+      email: legacyAwareStr('email', prof.email, base.profile.email),
       role: str(prof.role, base.profile.role),
       workspace: str(prof.workspace, base.profile.workspace),
     },

@@ -20,9 +20,10 @@ type Props = {
 /**
  * Document staging for the create-claim form — one slot per claim-specific
  * document type (accident report, customer statement), each with its own
- * sr-only file input, filled-chip with progress, and per-slot error message.
- * State and uploads stay in the modal; this component owns the input refs.
- * The customer's policy is stored once on the contract, not uploaded here.
+ * sr-only file input, filled chip, and per-slot error message. The files are
+ * not transferred yet; they upload with the claim. State stays in the modal;
+ * this component owns the input refs. The customer's policy is stored once on
+ * the contract, not uploaded here.
  */
 export function DocEvidence({ docFiles, docErrors, onAdd, onRemove }: Props) {
   const docInputs = useRef<Record<DocSlotKey, HTMLInputElement | null>>({
@@ -96,19 +97,6 @@ export function DocEvidence({ docFiles, docErrors, onAdd, onRemove }: Props) {
                     >
                       <CloseIcon size={13} />
                     </button>
-                  </div>
-                  <div
-                    className="claims-upload__progress"
-                    role="progressbar"
-                    aria-label={`Uploading ${staged.name}`}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={staged.progress}
-                  >
-                    <span
-                      className="claims-upload__bar"
-                      style={{ width: `${staged.progress}%` }}
-                    />
                   </div>
                 </>
               ) : (

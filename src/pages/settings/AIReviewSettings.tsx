@@ -30,6 +30,7 @@ export function AIReviewSettings() {
       <SettingsGroup
         title="Claim workspace display"
         hint="These switches only change what the Claim workspace shows you. They do not change any AI analysis or any claim decision."
+        note="Stored in this browser only. Nothing is sent to a server."
       >
         <ToggleRow
           id="ai-damage-boxes"

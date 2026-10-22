@@ -1,17 +1,11 @@
 /* ==========================================================================
    Agent Chat domain library — message/conversation types, ID + clock
-   helpers, the evidence breakdown, and the claim lookup.
+   helpers, and the evidence model.
 
-   The mock content itself (conversation seeds, evidence source metadata,
-   suggestions, and the canned demonstration response builder) lives in
-   src/mocks/chat.ts and is re-exported here, so components and the data
-   gate keep importing from one module.
+   Conversations and replies are real: src/api/chat.js talks to the backend and
+   maps its payloads into these types. Evidence comes from the claim's own file
+   list (GET /api/claims/:id).
    ========================================================================== */
-
-import { mockClaims } from './claimsData'
-import type { Claim } from './claimsData'
-
-export { buildDemoReply, getSource, seedConversations, SUGGESTIONS } from '../mocks/chat'
 
 /* -------------------------------------------------------------------------- */
 /* Message model                                                               */
@@ -58,10 +52,8 @@ export interface ChatMessage {
   text?: string
   /** Structured report body — used by assistant responses. */
   sections?: Section[]
-  /** Illustrative tool activity (user-facing summaries only). */
+  /** Tool activity (user-facing summaries only). */
   activity?: ActivityStep[]
-  /** Marks canned demo content as such. */
-  demo?: boolean
   /** Failed-response state with a retry option. */
   error?: boolean
 }
@@ -77,26 +69,66 @@ export interface Conversation {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Evidence source metadata shape (values assembled in src/mocks/chat.ts)      */
+/* Evidence model                                                              */
 /* -------------------------------------------------------------------------- */
 
-export interface EvidenceSource {
+/** One backend evidence file (GET /api/claims/:id → files[]), normalised. */
+export interface ChatEvidenceFile {
   id: string
   name: string
-  chipLabel: string
-  type: string
-  fileName: string
-  dateAdded: string
-  status: string
-  summary: string
-  sectionLabel?: string
-  related: string[]
+  /** Backend kind token, e.g. 'image' | 'report' | 'policy'. */
+  kind: string
+  mimeType?: string
+  sizeBytes?: number
+  /** Authenticated backend path (needs a token). */
+  url?: string
+  /** CDN URL, when the backend publishes one. */
+  publicUrl?: string
+  createdAt?: string
 }
 
-/** What a (canned or real) agent reply consists of. */
-export interface DemoReply {
-  sections: Section[]
-  activity: ActivityStep[]
+export type EvidenceGroupKey = 'photos' | 'documents'
+
+export interface EvidenceGroup {
+  key: EvidenceGroupKey
+  label: string
+  files: ChatEvidenceFile[]
+}
+
+const PHOTO_KINDS = new Set(['image', 'photo', 'picture'])
+
+export function evidenceGroupKey(file: ChatEvidenceFile): EvidenceGroupKey {
+  return PHOTO_KINDS.has(String(file.kind).toLowerCase()) ? 'photos' : 'documents'
+}
+
+/** Group a claim's real files into the two buckets the drawer renders. */
+export function groupEvidence(files: ChatEvidenceFile[]): EvidenceGroup[] {
+  const photos = files.filter((file) => evidenceGroupKey(file) === 'photos')
+  const documents = files.filter((file) => evidenceGroupKey(file) === 'documents')
+  const groups: EvidenceGroup[] = [
+    { key: 'photos', label: 'Photos', files: photos },
+    { key: 'documents', label: 'Documents', files: documents },
+  ]
+  return groups.filter((group) => group.files.length > 0)
+}
+
+/** Normalise a raw backend file row into the chat evidence shape. */
+export function toEvidenceFile(raw: unknown): ChatEvidenceFile | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  if (!r.id) return null
+  const num = (a: unknown, b: unknown) =>
+    typeof a === 'number' ? a : typeof b === 'number' ? b : undefined
+  return {
+    id: String(r.id),
+    name: String(r.name ?? r.fileName ?? 'Evidence file'),
+    kind: String(r.kind ?? 'document'),
+    mimeType: (r.mimeType ?? r.mime_type) as string | undefined,
+    sizeBytes: num(r.sizeBytes, r.size_bytes),
+    url: (r.url as string | undefined) ?? undefined,
+    publicUrl: ((r.publicUrl ?? r.public_url) as string | undefined) ?? undefined,
+    createdAt: ((r.createdAt ?? r.created_at) as string | undefined) ?? undefined,
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -112,47 +144,4 @@ export function nextId(prefix: string): string {
 
 export function clockNow(): string {
   return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-}
-
-/* -------------------------------------------------------------------------- */
-/* Evidence breakdown                                                          */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Splits a claim's evidence count into source groups. The parts always add
- * back up to `claim.evidenceItems`, so the right panel totals stay honest:
- * CLM-10482 (8 items) → 1 report + 4 photos + 1 statement + 2 policy files.
- */
-export interface EvidenceRow {
-  sourceId: string
-  count: number
-}
-
-export function evidenceBreakdown(claim?: Claim): EvidenceRow[] {
-  if (!claim || claim.evidenceItems <= 0) return []
-  const items = claim.evidenceItems
-  let rows: EvidenceRow[]
-  if (items >= 4) {
-    rows = [
-      { sourceId: 'accident-report', count: 1 },
-      { sourceId: 'vehicle-photos', count: items - 4 },
-      { sourceId: 'customer-statement', count: 1 },
-      { sourceId: 'policy-documents', count: 2 },
-    ]
-  } else {
-    rows = [{ sourceId: 'accident-report', count: 1 }]
-    let left = items - 1
-    if (left > 0) {
-      rows.push({ sourceId: 'customer-statement', count: 1 })
-      left -= 1
-    }
-    if (left > 0) rows.push({ sourceId: 'vehicle-photos', count: left })
-  }
-  return rows.filter((r) => r.count > 0)
-}
-
-/** Claim lookup over the shared mock dataset. */
-export function claimById(id?: string): Claim | undefined {
-  if (!id) return undefined
-  return mockClaims.find((c) => c.id === id)
 }

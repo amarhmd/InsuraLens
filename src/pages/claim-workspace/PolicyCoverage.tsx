@@ -1,5 +1,5 @@
 import { cx } from '../../lib/cx'
-import type { PolicyRow } from '../../data/claim'
+import type { PolicyRow } from '../../lib/claimWorkspace'
 
 type Props = {
   rows: PolicyRow[]

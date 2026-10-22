@@ -1,14 +1,16 @@
 /* Dashboard API — the organization-wide overview behind #/dashboard.
 
-   Live mode: card totals, stage counts, priority counts and the recent
-   activity feed come from GET /api/dashboard/summary. Still demo data:
-   `insights` only (computed from src/mocks/claims.ts, the backend has no
-   equivalent yet). */
+   Card totals, stage counts, priority counts and the recent activity feed come
+   from GET /api/dashboard/summary.
 
-import { USE_DEMO, delay, request } from './http'
+   `insights` is the one card the backend does not aggregate, so it is derived
+   from the live claim queue (GET /api/claims). The queue fetch is best-effort:
+   if it fails the summary cards still render and the insight counts fall back
+   to zero rather than inventing numbers. */
+
+import { request } from './http'
+import { listClaims } from './claims'
 import { evidenceCategory } from '../lib/analyticsData'
-import { mockClaims } from '../mocks/claims'
-import { mockRecentActivity } from '../mocks/dashboard'
 
 /** How many recent-activity rows the card shows. */
 const ACTIVITY_LIMIT = 4
@@ -21,29 +23,18 @@ function formatTime(iso) {
 }
 
 /**
- * Everything the Dashboard cards read in one payload.
+ * GET /api/dashboard/summary (+ GET /api/claims for the insight counts) —
+ * everything the Dashboard cards read in one payload.
  *
- * @typedef {Object} DashboardSummary
- * @property {number} total all claims in the dataset
- * @property {number} open claims not yet completed
- * @property {number} needsReview high-priority claims
- * @property {number} inAnalysis claims in the AI-analysis stage
- * @property {number} awaitingDecision claims in human review
- * @property {Record<string, number>} stages counts keyed by stage token
- * @property {Record<string, number>} priorities counts keyed by priority token
- * @property {{ damagePattern: number, missingEvidence: number, policyReview: number }} insights
- * @property {Array<import('../mocks/dashboard').ActivityItem>} recentActivity
- */
-
-/**
- * GET /api/dashboard/summary — all Dashboard cards in one payload.
- *
- * @returns {Promise<DashboardSummary>}
+ * @returns {Promise<import('../lib/dashboard').DashboardSummary>}
  */
 export async function getDashboardSummary() {
-  if (USE_DEMO) return demoSummary()
+  const [data, claims] = await Promise.all([
+    request('/api/dashboard/summary'),
+    /* Best-effort: insight counts must never take the summary cards down. */
+    listClaims().catch(() => []),
+  ])
 
-  const data = await request('/api/dashboard/summary')
   const totals = data.totals ?? {}
   const byStage = data.byStage ?? []
   const byPriority = data.byPriority ?? []
@@ -63,7 +54,6 @@ export async function getDashboardSummary() {
       claim: item.claimId ?? '',
     }))
 
-  const all = mockClaims
   return {
     total: totals.claims ?? 0,
     open: totals.open ?? 0,
@@ -85,54 +75,16 @@ export async function getDashboardSummary() {
       low: priorityCount('low'),
     },
 
-    /* TODO(backend): demo data until the backend exposes insights. */
+    /* Derived from the live queue — the same evidence rules the Analytics
+       evidence panel uses, so the two pages cannot disagree. */
     insights: {
-      damagePattern: all.filter(
+      damagePattern: claims.filter(
         (c) => c.incident === 'rear_end_collision' && c.priority === 'high',
       ).length,
-      missingEvidence: all.filter((c) => evidenceCategory(c) === 'Missing Documents').length,
-      policyReview: all.filter((c) => evidenceCategory(c) === 'Requires Verification').length,
+      missingEvidence: claims.filter((c) => evidenceCategory(c) === 'Missing Documents').length,
+      policyReview: claims.filter((c) => evidenceCategory(c) === 'Requires Verification').length,
     },
 
     recentActivity,
-  }
-}
-
-/** Built-in demo payload (VITE_USE_DEMO=true) — computed from src/mocks. */
-async function demoSummary() {
-  await delay(150)
-  const all = mockClaims
-  const stageCount = (status) => all.filter((claim) => claim.status === status).length
-  const priorityCount = (priority) => all.filter((claim) => claim.priority === priority).length
-
-  return {
-    total: all.length,
-    open: all.filter((claim) => claim.status !== 'completed').length,
-    needsReview: all.filter((claim) => claim.priority === 'high' && claim.status !== 'completed')
-      .length,
-    inAnalysis: stageCount('ai_analysis'),
-    awaitingDecision: stageCount('human_review'),
-    stages: {
-      new: stageCount('new'),
-      evidence_collection: stageCount('evidence_collection'),
-      ai_analysis: stageCount('ai_analysis'),
-      human_review: stageCount('human_review'),
-      completed: stageCount('completed'),
-    },
-    priorities: {
-      high: priorityCount('high'),
-      medium: priorityCount('medium'),
-      low: priorityCount('low'),
-    },
-    insights: {
-      damagePattern: all.filter(
-        (claim) => claim.incident === 'rear_end_collision' && claim.priority === 'high',
-      ).length,
-      missingEvidence: all.filter((claim) => evidenceCategory(claim) === 'Missing Documents')
-        .length,
-      policyReview: all.filter((claim) => evidenceCategory(claim) === 'Requires Verification')
-        .length,
-    },
-    recentActivity: mockRecentActivity,
   }
 }

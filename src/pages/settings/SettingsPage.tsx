@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
 import { TopBar } from '../../components/layout/TopBar'
 import { PageHeader } from '../../components/layout/PageHeader'
@@ -7,6 +7,7 @@ import { BellIcon } from '../../components/layout/icons'
 import { SparkleIcon, UserIcon } from '../../components/ui/icons'
 import { useSettingsValue } from '../../hooks/useSettingsValue'
 import { saveSettings, type Settings } from '../../lib/settingsStore'
+import { useIdentity } from '../../lib/identity'
 import { SettingsNav, type NavSection } from './SettingsNav'
 import { ProfileSettings } from './ProfileSettings'
 import { NotificationSettings } from './NotificationSettings'
@@ -31,6 +32,21 @@ export function SettingsPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const settings = useSettingsValue()
+  const identity = useIdentity()
+
+  /* The session user (GET /api/auth/me), already carrying any locally saved
+     Edit Profile override, is the base; the stored profile only fills the
+     fields while the identity is still loading — so the card, the sidebar and
+     the profile menu can never drift apart, and no fabricated identity shows. */
+  const profileValue = useMemo(
+    () => ({
+      ...settings.profile,
+      fullName: identity?.name || settings.profile.fullName || '',
+      email: identity?.email || settings.profile.email || '',
+      role: identity?.role || settings.profile.role || '',
+    }),
+    [settings.profile, identity],
+  )
 
   /* Settings used to live behind a sub-menu. Anything still pointing at a
      sub-route — a deep link, or a same-document hash change — lands on the
@@ -74,7 +90,7 @@ export function SettingsPage() {
               <div className="st-stack">
                 <section id="settings-profile" className="st-panel" aria-label="My Profile">
                   <ProfileSettings
-                    value={settings.profile}
+                    value={profileValue}
                     onSave={(next, message) => persist({ profile: next }, message)}
                   />
                 </section>

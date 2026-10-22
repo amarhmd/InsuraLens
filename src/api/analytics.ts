@@ -14,22 +14,17 @@
        evidence completeness, AI metrics, KPI deltas, the attention list, and
        every field the components read — so nothing is ever undefined.
 
-   The selectors are the same ones the demo uses, so live and demo mode share
-   one definition of "consistent". Their date window is anchored at the demo's
-   Oct 6 2026, which also scopes the /analytics request, so the two sources
-   describe the same slice of claims.
+   Date windows are anchored to the real current date, and the same window
+   scopes the /analytics request, so both sources describe the same slice.
 
    The backend has no `workflow` filter and its byStage/claimsPerDay aggregates
    are not workflow-scoped, so when a workflow filter is active the client
    selection is left untouched (mapping it would make the charts disagree with
    the KPIs).
-
-   Set VITE_USE_DEMO=true to serve src/mocks/claims.ts through the same
-   selectors, as before.
    ========================================================================== */
 
 import { listClaims } from './claims'
-import { USE_DEMO, request } from './http'
+import { request } from './http'
 import {
   dateWindow,
   selectAnalytics,
@@ -40,7 +35,6 @@ import {
   type IncidentFilterKey,
   type VolumeSeries,
 } from '../lib/analyticsData'
-import { mockClaims } from '../mocks/claims'
 import {
   INCIDENT_TYPES,
   STAGES,
@@ -131,6 +125,11 @@ function bucketIndex(buckets: ChartBucket[], ms: number): number {
   return buckets.findIndex((bucket) => ms >= bucket.start && ms < bucket.end)
 }
 
+/** CountRow.key is the bucket label; claimsPerDay labels it `date`. */
+function rowLabel(row: CountRow & { date?: string }): string {
+  return row.key ?? row.date ?? ''
+}
+
 /** claimsPerDay -> the volume chart's two series, aligned to its buckets. */
 function mapVolume(
   base: VolumeSeries,
@@ -139,7 +138,9 @@ function mapVolume(
 ): VolumeSeries {
   const received = base.buckets.map(() => 0)
   for (const row of perDay) {
-    const ms = Date.parse(`${row.key}T00:00:00Z`)
+    const label = rowLabel(row)
+    if (!label) continue
+    const ms = Date.parse(`${label}T00:00:00Z`)
     if (Number.isNaN(ms)) continue
     const index = bucketIndex(base.buckets, ms)
     if (index >= 0) received[index] += isNum(row.count) ? row.count : 0
@@ -238,8 +239,6 @@ function overlay(
  * @returns {Promise<AnalyticsSelection>}
  */
 export async function getAnalytics(filters: AnalyticsFilters): Promise<AnalyticsSelection> {
-  if (USE_DEMO) return selectAnalytics(filters, mockClaims)
-
   const claims = await listClaims()
 
   /* The aggregates are a bonus: if /analytics is unavailable the page still

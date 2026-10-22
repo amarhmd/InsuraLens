@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { getSettings, initials } from '../../lib/settingsStore'
+import { initials } from '../../lib/settingsStore'
+import { clearIdentity, useIdentityState } from '../../lib/identity'
+import { logout } from '../../api/auth'
 import { navigate } from '../../lib/router'
 
 type Props = {
@@ -7,14 +9,13 @@ type Props = {
 }
 
 /**
- * The inline profile panel under the sidebar user card. It states the demo
- * identity from the shared settings store (name, role, email), marks the
- * session as DEMO MODE, and returns the reviewer to the sign-in screen.
- * Nothing here is real authentication — no credentials are read or stored.
+ * The inline profile panel under the sidebar user card. It shows the signed-in
+ * identity read from GET /api/auth/me (name, role, email) and signs the user
+ * out through the real backend session.
  */
 export function ProfileMenu({ onClose }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const profile = getSettings().profile
+  const { identity, status } = useIdentityState()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -32,8 +33,14 @@ export function ProfileMenu({ onClose }: Props) {
     }
   }, [onClose])
 
-  const signOut = () => {
+  const signOut = async () => {
     onClose()
+    try {
+      await logout()
+    } catch {
+      /* The local token is still cleared by logout(); just return to sign-in. */
+    }
+    clearIdentity()
     navigate({ name: 'login' })
   }
 
@@ -42,33 +49,34 @@ export function ProfileMenu({ onClose }: Props) {
     navigate({ name: 'settings' })
   }
 
+  const name = identity?.name ?? ''
+  const nameLabel =
+    name ||
+    (status === 'loading'
+      ? 'Loading account…'
+      : status === 'error'
+        ? 'Account unavailable'
+        : 'Not signed in')
+
   return (
     <div className="pfm" ref={panelRef}>
       <div className="pfm__identity">
         <span className="pfm__avatar" aria-hidden="true">
-          {initials(profile.fullName)}
+          {name ? initials(name) : '·'}
         </span>
         <div className="pfm__id">
-          <p className="pfm__name">{profile.fullName}</p>
-          <p className="pfm__role">{profile.role}</p>
-          <p className="pfm__email">{profile.email}</p>
+          <p className="pfm__name">{nameLabel}</p>
+          {identity?.role && <p className="pfm__role">{identity.role}</p>}
+          {identity?.email && <p className="pfm__email">{identity.email}</p>}
         </div>
-        <span className="pfm__badge" title="All identity and preference changes are demo-only">
-          DEMO MODE
-        </span>
       </div>
-
-      <p className="pfm__note">
-        Frontend demo — no sign-in service. Identity and preference changes exist only in your
-        browser and reset on refresh.
-      </p>
 
       <div className="pfm__footer">
         <button type="button" className="pfm__link" onClick={goSettings}>
           Settings
         </button>
         <button type="button" className="pfm__link" onClick={signOut}>
-          Back to sign in
+          Sign out
         </button>
       </div>
     </div>

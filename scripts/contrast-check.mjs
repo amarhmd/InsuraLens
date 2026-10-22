@@ -58,8 +58,6 @@ const GATED = [
   ['Error text / white', '#B42318', '#FFFFFF', 4.5, 'field error message'],
   ['Error text / error tint', '#B42318', '#FEF3F2', 4.5, 'form-level notice'],
   ['Disabled label / disabled fill', '#475569', '#E2E8F0', 4.5, 'Sign in, empty form'],
-  ['Secondary disabled label / fill', '#475569', '#F2F5F8', 4.5, 'demo button, while busy'],
-  ['Demo pill text / pill', '#8A5B00', '#FFF7E6', 4.5, 'DEMO ENVIRONMENT marker'],
 
   // Non-text UI — 3:1
   ['Focus ring / white', '#159A9C', '#FFFFFF', 3.0, 'input focus indicator (inside the card)'],

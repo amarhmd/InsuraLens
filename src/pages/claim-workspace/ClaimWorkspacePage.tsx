@@ -3,14 +3,23 @@ import type { ReactNode } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
 import { TopBar } from '../../components/layout/TopBar'
 import { useAiPrefs } from '../../hooks/useAiPrefs'
-import type { ClaimWorkspaceData, DamageStatus } from '../../data/claim'
+import type { ClaimWorkspaceData, DamageStatus } from '../../lib/claimWorkspace'
+import { PROPOSED_DECISION_LABEL } from '../../lib/analysisResult'
 import { fetchClaimWorkspace } from '../../api/claimWorkspace'
 import { analyzeClaim, openAnalysisStream, reviewClaim } from '../../api/claims'
 import { uploadClaimEvidence } from '../../api/evidence'
-import { USE_DEMO } from '../../api/http'
 import { validateEvidenceFile } from '../claims/claimAttachments'
+import {
+  analysisCompleted,
+  analysisFailed,
+  analysisStarted,
+  evidenceUploaded,
+  infoRequested,
+  reviewCompleted,
+} from '../../lib/notifications'
+import { ingestNotifications } from '../../lib/notificationsStore'
 import { PolicyViewer } from '../../components/feedback/PolicyViewer'
-import { AIFindings } from './AIFindings'
+import { AIAnalysisCard } from './AIAnalysisCard'
 import { ClaimHeader } from './ClaimHeader'
 import { DamageMap } from './DamageMap'
 import { DecisionPanel } from './DecisionPanel'
@@ -36,8 +45,7 @@ const STREAM_TIMEOUT_MS = 3 * 60 * 1000
  * Actions talk to the real routes: Analyze starts POST …/analyze and follows
  * GET …/stream (SSE) for live progress; Approve / Request information POST
  * …/review; evidence upload POSTs multipart …/evidence. Every action refreshes
- * the claim afterwards. Demo mode (VITE_USE_DEMO=true) reads the local dataset
- * and simulates the actions, so the prototype keeps working offline.
+ * the claim afterwards.
  */
 export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -53,6 +61,14 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
   const [analyzing, setAnalyzing] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  /* The analysis run narrates itself inside the AI analysis card — its
+     progress line and failures never appear under the page title. */
+  const [runStatus, setRunStatus] = useState<string | null>(null)
+  const [runError, setRunError] = useState<string | null>(null)
+  /* True from the moment Run is clicked until the card settles: the view
+     scrolls the AI analysis card into view when results (or a failure)
+     arrive. */
+  const [revealAnalysis, setRevealAnalysis] = useState(false)
 
   const streamRef = useRef<EventSource | null>(null)
   const streamTimer = useRef<number | null>(null)
@@ -107,20 +123,25 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
   /* Close any open stream / timer when the page unmounts or the id changes. */
   useEffect(() => () => stopStream(), [claimId, stopStream])
 
+  /* A settled result replaces any transient run failure: once the refreshed
+     claim carries a successful analysis, that is the story the card tells. */
+  useEffect(() => {
+    if (data?.analysis.status === 'success') {
+      setRunError(null)
+    }
+  }, [data])
+
   const runAnalysis = useCallback(async () => {
     setBusy(true)
     setAnalyzing(true)
     setActionError(null)
-    setStatus('Starting analysis…')
+    setRunError(null)
+    setRunStatus('Starting analysis…')
+    setRevealAnalysis(true)
     try {
-      await analyzeClaim(claimId)
-
-      if (USE_DEMO) {
-        setStatus('Demo mode — analysis simulated. No request left the browser.')
-        setAnalyzing(false)
-        refresh()
-        return
-      }
+      const run = await analyzeClaim(claimId)
+      /* Real event → notification bell, immediately. */
+      ingestNotifications([analysisStarted(claimId, run?.analysis_id ?? Date.now())])
 
       stopStream()
       const stream = openAnalysisStream(claimId)
@@ -132,7 +153,7 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
       const finish = (message: string) => {
         if (settled) return
         settled = true
-        setStatus(message)
+        setRunStatus(message)
         stopStream()
         setAnalyzing(false)
         refresh()
@@ -149,16 +170,22 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
 
         switch (event.type) {
           case 'analysis_started':
-            setStatus('Analysis started…')
+            setRunStatus('Analysis started…')
             break
           case 'agent_status':
-            setStatus(`Agent: ${frame.agent ?? 'working'} (${frame.status ?? 'running'})`)
+            setRunStatus(`Agent: ${frame.agent ?? 'working'} (${frame.status ?? 'running'})`)
             break
           case 'awaiting_review':
+            ingestNotifications([analysisCompleted(claimId)])
             finish('Analysis complete — awaiting your review.')
             break
           case 'analysis_failed':
-            finish(frame.message ? `Analysis failed: ${frame.message}` : 'Analysis failed.')
+            ingestNotifications([analysisFailed(claimId, frame.message)])
+            /* The card shows a clean sentence; the claim's own (also cleaned)
+               analysis error explains the cause once the refresh lands. Raw
+               backend text (frame.message) never reaches the screen. */
+            setRunError('The analysis did not finish. Check the evidence and run it again.')
+            finish('Analysis failed.')
             break
           default:
             break
@@ -170,14 +197,21 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
       }
       /* A dropped connection (or a silent end) should not leave the buttons
          disabled forever: settle and reload. */
-      stream.onerror = () => finish('Analysis stream ended — reloading the claim.')
-      streamTimer.current = window.setTimeout(
-        () => finish('Analysis is taking longer than expected — reloading the claim.'),
-        STREAM_TIMEOUT_MS,
-      )
-    } catch (cause) {
-      setStatus(null)
-      setActionError(cause instanceof Error ? cause.message : 'Could not start the analysis.')
+      stream.onerror = () => {
+        setRunError(
+          'The connection to the analysis was interrupted. The claim was reloaded — if no result appears, run the analysis again.',
+        )
+        finish('Analysis stream ended — reloading the claim.')
+      }
+      streamTimer.current = window.setTimeout(() => {
+        setRunError(
+          'The analysis is taking longer than expected. The claim was reloaded — if no result appears, run the analysis again.',
+        )
+        finish('Analysis is taking longer than expected — reloading the claim.')
+      }, STREAM_TIMEOUT_MS)
+    } catch {
+      setRunStatus(null)
+      setRunError('Could not start the analysis. Check your connection and try again.')
       setAnalyzing(false)
     } finally {
       setBusy(false)
@@ -190,18 +224,26 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
       setActionError(null)
       try {
         await reviewClaim(claimId, action)
+        /* Real event → notification bell, immediately. */
+        ingestNotifications([action === 'approve' ? reviewCompleted(claimId) : infoRequested(claimId)])
         setStatus(action === 'approve' ? 'Claim approved.' : 'More information requested.')
         refresh()
       } catch (cause) {
-        setActionError(cause instanceof Error ? cause.message : 'Could not record the decision.')
+        /* A review rejection the card already explains (analysis never ran or
+           failed) must not repeat a long backend line under the title — the
+           AI analysis card owns that story. Anything else still surfaces. */
+        const analysisState = data?.analysis.status
+        if (analysisState !== 'failed' && analysisState !== 'empty') {
+          setActionError(cause instanceof Error ? cause.message : 'Could not record the decision.')
+        }
       } finally {
         setBusy(false)
       }
     },
-    [claimId, refresh],
+    [claimId, data, refresh],
   )
 
-  const uploadEvidence = useCallback(
+  const handleEvidenceUpload = useCallback(
     async (file: File) => {
       /* Reject unsupported types and oversized files before a request is made,
          so the user gets an immediate message instead of a server error. */
@@ -215,9 +257,12 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
       setActionError(null)
       setStatus('Uploading evidence…')
       try {
-        await uploadClaimEvidence(claimId, file, (percent) =>
+        const uploaded = await uploadClaimEvidence(claimId, file, (percent) =>
           setStatus(`Uploading evidence… ${percent}%`),
         )
+        /* Real event → notification bell, immediately. */
+        const newFile = uploaded?.files?.at?.(-1)
+        ingestNotifications([evidenceUploaded(claimId, file.name, newFile?.id)])
         setStatus('Evidence uploaded.')
         refresh()
       } catch (cause) {
@@ -275,12 +320,16 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
       onToggleMenu={toggleMenu}
       onCloseMenu={closeMenu}
       busy={busy || analyzing}
+      analyzing={analyzing}
       status={status}
       error={actionError}
+      analysisStatus={runStatus}
+      analysisError={runError}
+      revealAnalysis={revealAnalysis}
       onAnalyze={runAnalysis}
       onApprove={() => submitReview('approve')}
       onRequestInfo={() => submitReview('request_info')}
-      onUploadEvidence={uploadEvidence}
+      onUploadEvidence={handleEvidenceUpload}
     />
   )
 }
@@ -343,8 +392,16 @@ type ClaimWorkspaceViewProps = {
   onToggleMenu: () => void
   onCloseMenu: () => void
   busy: boolean
+  /** An analysis run is in flight (part of `busy`, but the card needs it). */
+  analyzing: boolean
   status: string | null
   error: string | null
+  /** Live status line of the current analysis run (card only). */
+  analysisStatus: string | null
+  /** Cleaned failure text of the current run (card only). */
+  analysisError: string | null
+  /** Scroll the AI analysis card into view once results (or a failure) land. */
+  revealAnalysis: boolean
   onAnalyze: () => void
   onApprove: () => void
   onRequestInfo: () => void
@@ -357,8 +414,12 @@ function ClaimWorkspaceView({
   onToggleMenu,
   onCloseMenu,
   busy,
+  analyzing,
   status,
   error,
+  analysisStatus,
+  analysisError,
+  revealAnalysis,
   onAnalyze,
   onApprove,
   onRequestInfo,
@@ -378,37 +439,43 @@ function ClaimWorkspaceView({
   const [statusMap, setStatusMap] = useState<Record<string, DamageStatus>>(() =>
     Object.fromEntries(data.damage.map((zone) => [zone.id, zone.status] as const)),
   )
-  const [highlightedEvidenceId, setHighlightedEvidenceId] = useState<string | null>(null)
   const [policyOpen, setPolicyOpen] = useState(false)
-  const highlightTimer = useRef<number | null>(null)
 
-  useEffect(
-    () => () => {
-      if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current)
-    },
-    [],
-  )
+  /* A run has settled (or just failed to start): bring the AI analysis card
+     into view — minimally and without motion for users who ask for none. */
+  useEffect(() => {
+    if (!revealAnalysis) return
+    const node = document.getElementById('cw-ai-analysis')
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    node?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
+  }, [revealAnalysis])
 
   const total = data.damage.length
   const confirmed = data.damage.filter((zone) => statusMap[zone.id] === 'confirmed').length
   const dismissed = data.damage.filter((zone) => statusMap[zone.id] === 'dismissed').length
   const complete = confirmed + dismissed === total
 
+  /* The single source of truth for "may this claim be approved right now":
+     every damage area reviewed AND the policy coverage evaluated. Both the
+     panel and the header's Complete review read it, and the AI's suggestion
+     never enters into it — the server re-validates regardless. */
+  const coverage = data.analysis.coverage
+  const approveBlockedReason = !complete
+    ? 'Confirm or dismiss every damage area to enable approval.'
+    : coverage === 'unable_to_evaluate'
+      ? 'Coverage could not be evaluated — request the missing information instead.'
+      : coverage === 'not_covered'
+        ? 'This damage is not covered by the policy — request information or escalate instead.'
+        : null
+  /* The AI's proposed decision is a hint on the reviewer's panel, nothing
+     more — and there is deliberately no "Reject" action to map a denial to;
+     the decision stays with the human. */
+  const suggestion = data.analysis.proposedDecision
+    ? PROPOSED_DECISION_LABEL[data.analysis.proposedDecision]
+    : null
+
   const setStatus = (id: string, next: DamageStatus) =>
     setStatusMap((current) => ({ ...current, [id]: next }))
-
-  /** Point at an evidence tile when a finding chip is activated. */
-  const focusEvidence = (evidenceId: string) => {
-    setHighlightedEvidenceId(evidenceId)
-    const node = document.getElementById(`evidence-${evidenceId}`)
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    node?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' })
-
-    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current)
-    highlightTimer.current = window.setTimeout(() => {
-      setHighlightedEvidenceId((current) => (current === evidenceId ? null : current))
-    }, 1600)
-  }
 
   return (
     <div className="dashboard-shell">
@@ -425,6 +492,7 @@ function ClaimWorkspaceView({
               busy={busy}
               status={status}
               error={error}
+              approveBlockedReason={approveBlockedReason}
               onAnalyze={onAnalyze}
               onApprove={onApprove}
               onRequestInfo={onRequestInfo}
@@ -435,7 +503,7 @@ function ClaimWorkspaceView({
               <div className="cw-grid__main">
                 <EvidenceGrid
                   items={data.evidence}
-                  highlightedId={highlightedEvidenceId}
+                  highlightedId={null}
                   onUpload={onUploadEvidence}
                 />
                 <DamageMap
@@ -449,11 +517,12 @@ function ClaimWorkspaceView({
                   showDamageBoxes={aiPrefs.damageBoxes}
                   showBadges={aiPrefs.aiBadges}
                 />
-                <AIFindings
-                  findings={data.findings}
-                  evidence={data.evidence}
-                  onEvidenceRef={focusEvidence}
-                  showEvidenceLinks={aiPrefs.evidenceLinks}
+                <AIAnalysisCard
+                  result={data.analysis}
+                  running={analyzing}
+                  status={analysisStatus}
+                  runError={analysisError}
+                  onRetry={onAnalyze}
                   showBadges={aiPrefs.aiBadges}
                 />
               </div>
@@ -473,6 +542,8 @@ function ClaimWorkspaceView({
                 <DecisionPanel
                   complete={complete}
                   busy={busy}
+                  suggestion={suggestion}
+                  approveBlockedReason={approveBlockedReason}
                   onApprove={onApprove}
                   onRequestInfo={onRequestInfo}
                 />

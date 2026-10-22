@@ -1,11 +1,10 @@
-/* Hash routing for the prototype. No library. */
+/* Hash routing for the app. No library. */
 
 /** Deep-link parameters the Claims page understands (analytics passes them). */
 export type ClaimsQuery = Partial<Record<'tab' | 'evidence' | 'incident', string>>
 
 export type Route =
   | { name: 'login' }
-  | { name: 'demo' }
   | { name: 'dashboard' }
   | { name: 'claims'; query?: ClaimsQuery }
   | { name: 'claim'; id: string }
@@ -32,7 +31,6 @@ export function routeFromHash(hash: string): Route {
   const path = qIndex === -1 ? cleaned : cleaned.slice(0, qIndex)
   const search = qIndex === -1 ? '' : cleaned.slice(qIndex + 1)
 
-  if (path === 'demo') return { name: 'demo' }
   if (path === 'dashboard') return { name: 'dashboard' }
   if (path === 'claims') return { name: 'claims', query: parseClaimsQuery(search) }
   if (path === 'chat') return { name: 'chat' }
@@ -46,7 +44,6 @@ export function routeFromHash(hash: string): Route {
 }
 
 export function hashFromRoute(route: Route): string {
-  if (route.name === 'demo') return '#/demo'
   if (route.name === 'dashboard') return '#/dashboard'
   if (route.name === 'chat') return '#/chat'
   if (route.name === 'analytics') return '#/analytics'

@@ -32,7 +32,7 @@ const FIELDS: Array<{
     required: true,
     type: 'email',
     autoComplete: 'email',
-    help: 'Displayed in this demo only — editing it does not change any sign-in or account credentials.',
+    help: 'Shown in the workspace. Editing it here does not change your account or sign-in.',
   },
 ]
 
@@ -68,7 +68,7 @@ export function ProfileSettings({ value, onSave }: Props) {
         jobTitle: draft.jobTitle.trim(),
         email: draft.email.trim(),
       },
-      'Profile updated in this demo',
+      'Profile saved to this browser',
     )
     setEditing(false)
   }
@@ -89,7 +89,8 @@ export function ProfileSettings({ value, onSave }: Props) {
         </span>
         <div className="st-profile__id">
           <p className="st-profile__name">{value.fullName}</p>
-          <p className="st-profile__email">{value.email}</p>
+          {/* No email on file renders nothing — never a fabricated address. */}
+          {value.email && <p className="st-profile__email">{value.email}</p>}
           {aka && aka !== value.fullName && (
             <p className="st-profile__aka">Display name: {aka}</p>
           )}
@@ -111,7 +112,7 @@ export function ProfileSettings({ value, onSave }: Props) {
         <>
           <SettingsGroup
             title="Personal information"
-            hint="Changes apply to this demo workspace only. Nothing is sent to a server."
+            hint="Saved in this browser only — nothing is sent to a server."
           >
             <div className="st-form">
               {FIELDS.map((field) => {
@@ -157,7 +158,7 @@ export function ProfileSettings({ value, onSave }: Props) {
         </>
       ) : (
         <p className="st-hint">
-          Use Edit Profile to change how your name and details appear in this demo workspace.
+          Use Edit Profile to change how your name and details appear in this workspace.
           Changes are stored locally in this browser.
         </p>
       )}

@@ -1,9 +1,9 @@
-import type { ActivityItem } from '../../mocks/dashboard'
+import type { ActivityItem } from '../../lib/dashboard'
 
 /**
- * Fixed demo activity feed (an activity stream is not derived from the
- * claims dataset — timestamps like "09:42" are wall-clock demo values).
- * Rows arrive from getDashboardSummary() (src/api/dashboard.js).
+ * The Dashboard's "Recent activity" feed. Rows are real backend activity
+ * (analysis runs, uploads, stage changes), newest first; the card shows the
+ * last few. Arrives from getDashboardSummary() (src/api/dashboard.js).
  */
 export function RecentActivity({ items }: { items: ActivityItem[] }) {
   return (

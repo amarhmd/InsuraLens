@@ -2,9 +2,7 @@
    Claims domain library — types, formatting, and search / filter / sort
    helpers for the work queue.
 
-   The dataset itself lives in src/mocks/claims.ts — the single source of
-   truth every page reads through src/api/. It is re-exported here so
-   library code (and the data-check scripts) can import it from one place.
+   The dataset is the real backend queue, fetched through src/api/claims.js.
 
    Stage, priority, and incident values are the API tokens defined in
    src/lib/constants.ts ('new', 'rear_end_collision', …). Display labels
@@ -14,11 +12,9 @@
 
 import { STAGES, incidentLabel, priorityRank } from './constants'
 import type { ClaimStatus, IncidentType, Priority } from './constants'
-import { mockClaims } from '../mocks/claims'
 
 export type { ClaimStatus, IncidentType, Priority } from './constants'
 export { INCIDENT_TYPES, PRIORITIES, STAGES as CLAIM_STATUSES } from './constants'
-export { mockClaims }
 
 export type EvidenceState = 'Complete' | 'Incomplete'
 
@@ -55,6 +51,8 @@ export interface Claim {
   description?: string
   /** Photo thumbnails staged at intake (session-scoped object URLs). */
   photos?: ClaimPhoto[]
+  /** Raw backend decision ('PENDING' | 'APPROVED' | 'MORE_INFO_REQUIRED'). */
+  decision?: string
 }
 
 /* -------------------------------------------------------------------------- */
@@ -73,23 +71,9 @@ export const POLICY_MATCH_OPTIONS: PolicyMatch[] = ['Matched', 'Partial', 'Requi
 /* Formatting helpers                                                          */
 /* -------------------------------------------------------------------------- */
 
-export function formatAgo(minutes: number): string {
-  if (minutes < 1) return 'Just now'
-  if (minutes < 60) return `${minutes} min ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`
-  const days = Math.floor(hours / 24)
-  return `${days} day${days === 1 ? '' : 's'} ago`
-}
-
-export function formatDate(value: number): string {
-  return new Date(value).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-}
+/* formatAgo / formatDate live in ./format (a leaf module) so the claims
+   domain can format timestamps without importing this module. */
+export { formatAgo, formatDate } from './format'
 
 /** Next frontend-generated ID: CLM-10483, CLM-10484, … */
 export function nextClaimId(claims: Claim[]): string {

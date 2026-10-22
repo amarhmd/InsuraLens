@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { LoginPage } from './pages/login/LoginPage'
-import { DemoWorkspacePage } from './pages/demo/DemoWorkspacePage'
 import { Dashboard } from './pages/dashboard/Dashboard'
 import { ClaimsPage } from './pages/claims/ClaimsPage'
 import { ClaimWorkspacePage } from './pages/claim-workspace/ClaimWorkspacePage'
@@ -10,15 +9,14 @@ import { SettingsPage } from './pages/settings/SettingsPage'
 import { landingRoute } from './lib/landing'
 import { hashFromRoute, navigate, routeFromHash, type Route } from './lib/router'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { loginDemo } from './api/auth' 
+import { refreshIdentity } from './lib/identity'
 import { useDocumentTitle } from './hooks/useDocumentTitle'
 import { useRouteTitle } from './hooks/useRouteTitle'
 
 /**
- * Hash routes keep deep links working on a static host. "Continue with demo"
- * now asks the backend for a demo session token (POST /auth/demo), stores it,
- * and then lands on the settings-chosen landing page. Direct links to any
- * surface still work on their own.
+ * Hash routes keep deep links working on a static host. Sign-in posts to
+ * POST /api/auth/login; a successful session then lands on the settings-chosen
+ * landing page. Direct links to any surface still work on their own.
  */
 export function App() {
   const [route, setRoute] = useState<Route>(() => routeFromHash(window.location.hash))
@@ -31,14 +29,20 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
 
-  async function handleDemo() {
-    try {
-      await loginDemo()
-      navigate(landingRoute())
-    } catch (e) {
-      console.error(e)
-      alert('Could not reach the server. Please try again in a moment.')
-    }
+  /* Read the signed-in identity once so the sidebar and profile menu show the
+     real account rather than a placeholder. */
+  useEffect(() => {
+    void refreshIdentity()
+  }, [])
+
+  async function handleSignedIn() {
+    await refreshIdentity()
+    navigate(landingRoute())
+  }
+
+  async function handleGuestSignedIn() {
+    await refreshIdentity()
+    navigate({ name: 'dashboard' })
   }
 
   let body: React.ReactNode
@@ -54,10 +58,8 @@ export function App() {
     body = <AnalyticsPage />
   } else if (route.name === 'settings') {
     body = <SettingsPage />
-  } else if (route.name === 'demo') {
-    body = <DemoWorkspacePage onExit={() => navigate({ name: 'login' })} />
   } else {
-    body = <LoginPage onDemo={handleDemo} />
+    body = <LoginPage onSuccess={handleSignedIn} onGuest={handleGuestSignedIn} />
   }
 
   return (

@@ -1,6 +1,6 @@
 # InsuraLens
 
-A frontend-only claims-review prototype for insurance teams: sign-in, dashboard, claims work queue, claim workspace, analytics, agent chat, and settings. Built with Vite, React, and TypeScript. There is no backend — every screen reads from a mock API layer that the backend engineer swaps for real endpoints.
+A claims-review frontend for insurance teams: sign-in, dashboard, claims work queue, claim workspace, analytics, agent chat, and settings. Built with Vite, React, and TypeScript. Every screen reads live data from the InsuraLens backend API — there is no mock or demo dataset in this repo.
 
 ## Requirements
 
@@ -15,108 +15,93 @@ npm.cmd install
 npm.cmd run dev
 ```
 
-Open http://127.0.0.1:5173. The login form accepts **any work email** with the demo password `demo123` (anything else shows "Incorrect email or password"), or use **Continue with demo**.
+Create `.env.local` (or `.env`) with the backend base URL:
+
+```env
+VITE_API_URL=https://insurance-ai-1.onrender.com/api
+```
+
+Open http://127.0.0.1:5173 and sign in with the credentials the backend issued you. The deployed dev backend currently accepts `demo@insuralens.app` / `demo123`; any other credentials are rejected with "Incorrect email or password". (The dev server must be reached at `http://localhost:5173` or `http://127.0.0.1:5173` — those are the origins the backend allows.) In production the app is served behind a same-origin `/api` rewrite, so no CORS configuration is needed.
+
+## Judges
+
+Opening the app needs no credentials and no setup:
+
+1. **Open the app** — visit the deployed URL, or run it locally (see [Quick Start](#quick-start)).
+2. **Click "Continue as guest reviewer"** on the sign-in screen. This opens a real session on the live backend (`POST /api/auth/demo`) and lands on the dashboard — there is no mock data behind it.
+3. **Open a claim and run AI analysis** — go to **Claims**, open any claim, and use **Run AI analysis** in the claim workspace to see the agent pipeline (policy lookup, damage findings, and the reviewer decision controls).
+
+> The AI analysis step depends on the backend's MCP policy tools. If they are unreachable, the workspace shows the real error and a Retry — it never falls back to placeholder output.
+
+If the backend has been idle, the first request can take up to a minute while Render's free instance wakes; the sign-in screen says so and offers Retry.
 
 ## Scripts
 
 | Script | What it does |
 | --- | --- |
-| `npm.cmd run dev` | Start the dev server (port 5173, hash routing). |
-| `npm.cmd run build` | Type-check (`tsc -b`) and build for production into `dist/`. |
-| `npm.cmd run preview` | Serve the production build locally. |
-| `npm.cmd run typecheck` | Strict TypeScript check (`tsc -b --force`) only. |
-| `npm.cmd run contrast` | Contrast gates: palette, chat, analytics, settings. |
-| `npm.cmd run check:chat` | Chat data invariants + chat CSS/token gate. |
-| `npm.cmd run check:analytics` | Analytics data invariants + analytics CSS/token gate. |
-| `npm.cmd run check:settings` | Settings CSS/token gate + SSR smoke test. |
+| `npm.cmd run dev` | Start the Vite dev server. |
+| `npm.cmd run build` | `tsc -b` then `vite build`. |
+| `npm.cmd run preview` | Preview the production build. |
+| `npm.cmd run typecheck` | `tsc -b --force`. |
+| `npm.cmd run contrast` | Contrast gates (shared palette, chat, analytics, settings). |
+| `npm.cmd run check:chat` | Chat stylesheet gate. |
+| `npm.cmd run check:analytics` | Analytics stylesheet gate. |
+| `npm.cmd run check:settings` | Settings store + AI-preference + stylesheet + SSR checks. |
+| `npm.cmd run check:notifications` | Notification store checks. |
 
-Individual gates also live in `scripts/*.mjs` and run directly with `node scripts\<name>.mjs`.
+There is no unit-test framework; the `scripts/*.mjs` files are the verification gates.
 
 ## Project Structure
 
 ```
 src/
-  api/                  Mock-backed API layer — the ONLY place pages get data
-    http.js             Base URL, bearer token helpers, ApiError, request(),
-                        delay(). request() is the seam for the real backend.
-    auth.js             login / getCurrentUser / logout        → /api/auth/*
+  api/                  The ONLY place pages get data — all real requests
+    http.js             Base URL, bearer token, ApiError, request(), session bootstrap
+    auth.js             login / continueAsGuest / getCurrentUser / logout → /api/auth/*
     claims.js           listClaims / getClaim / createClaim    → /api/claims*
-    evidence.js         uploadEvidence (progress callback)     → upload endpoint
+    evidence.js         uploadClaimEvidence (XHR progress)     → /api/claims/:id/evidence
     dashboard.js        getDashboardSummary                    → /api/dashboard/summary
     analytics.js        getAnalytics(filters)                  → /api/analytics
     chat.js             listConversations / sendChatMessage    → /api/chat/*
     notifications.js    listNotifications / markNotificationRead
-  mocks/                Single source of truth for demo data
-    claims.ts           128-claim dataset (seeds + deterministic generator)
-    chat.ts             Conversation seeds, canned replies, source registry
-    analytics.ts        Sample workflow-duration metrics
-    auth.ts             Demo session/user, demo password
-    dashboard.ts        Fixed recent-activity feed
-    notifications.ts    Bell-inbox items
   lib/
-    constants.ts        Shared vocabulary: stage/priority/incident tokens,
-                        label maps, label helpers, option lists, priorityRank()
+    constants.ts        Shared vocabulary: stage/priority/incident tokens + labels
     claimsData.ts       Claim types + queue helpers (filter/sort/count)
-    analyticsData.ts    Analytics selectors (re-exports mock metrics)
-    chatData.ts         Chat message types + helpers (re-exports mock content)
+    claimWorkspace.ts   Claim-workspace view model types
+    analyticsData.ts    Analytics selectors (real claim rows only)
+    chatData.ts         Chat message types + mapping from the backend
+    identity.ts         Signed-in user from GET /api/auth/me
+    dashboard.ts        Dashboard view-model types
     router.ts           Hash router: #/, #/dashboard, #/claims, #/claims/:id,
                         #/analytics, #/chat, #/settings
-    cx.ts, landing.ts, settingsStore.ts
-  components/           Only truly shared pieces
-    layout/             App shell, top header, sidebar
-    ui/                 StatusBadge, icons
-    feedback/           ToastNotification, ConfirmDialog
-  pages/                One folder per route; page-specific components and
-    login/              hooks colocate next to the page (CustomSelect,
-    demo/               SettingsKit, chartKit/, useClaimsQueue, useAgentChat)
-    dashboard/
-    claims/
-    claim-workspace/
-    agent-chat/
-    analytics/
-    settings/
+    cx.ts, landing.ts, settingsStore.ts, format.ts
+  components/           Shared pieces (layout, ui, feedback)
+  pages/                One folder per route; page components and hooks colocate
   styles/               tokens.css + per-area stylesheets
   main.tsx              App entry — CSS import order matters
-scripts/                Verification gates (data invariants, CSS, contrast, SSR)
+scripts/                Verification gates (stores, stylesheets, contrast, SSR)
 docs/                   API_CONTRACT.md, openapi.yaml
-public/brand/           Logo and brand assets (unmodified)
+public/brand/           Logo and brand assets
 ```
 
 ## How Data Flows
 
 ```
-pages/*.tsx  →  src/api/*.js  →  src/mocks/* + src/lib selectors
-                     │
-                     └── delay(150–750 ms) simulates the network
+pages/*.tsx  →  src/api/*.js  →  the InsuraLens backend (/api/…)
 ```
 
-- **Pages never import `src/mocks/` data directly** — they call `src/api/` functions and handle loading/error states (`.page-state` panels, retry buttons, the analytics skeleton).
-- All counts are computed from the one claims dataset in `src/mocks/claims.ts`, so Dashboard, Claims, and Analytics totals always agree, and a claim created on `#/claims` appears in every page's numbers.
-- Stage, priority, and incident values are **tokens** (`evidence_collection`, `high`, `rear_end_collision`, …) defined once in `src/lib/constants.ts`; display text goes through `stageLabel()` / `priorityLabel()` / `incidentLabel()` so the UI wording is unchanged.
+- **Pages never hold or invent data.** They call `src/api/` functions and render loading / empty / error states (with a Retry where a request can fail). A failed request shows the real error — the app never falls back to placeholder data.
+- Dashboard, Claims, and Analytics all derive their numbers from the same live claim queue, so their totals agree and a claim created on `#/claims` shows up everywhere.
+- The signed-in user comes from `GET /api/auth/me`; the sidebar and profile menu render that identity, not a hardcoded name.
+- Stage, priority, and incident values are **tokens** (`evidence_collection`, `high`, `rear_end_collision`, …) defined once in `src/lib/constants.ts`; display text goes through `stageLabel()` / `priorityLabel()` / `incidentLabel()`.
 
-## Switching from Mocks to the Real API
+## Connecting to the Backend
 
-1. Copy `.env.example` to `.env.local` and set `VITE_API_BASE_URL` (origin only, no `/api` suffix).
-2. In each file under `src/api/`, replace the mock body with the already-annotated call:
+1. Set `VITE_API_URL` to the backend base URL including `/api` (see `.env.example`).
+2. `src/api/http.js` attaches the bearer token to every request and opens a backend session when none is stored.
+3. Errors: `request()` converts the server's error envelope (`{ error: { code, message, details } }`) into `ApiError { status, code, message }`, which pages render as their error/retry states.
 
-   ```js
-   // before (mock)
-   export async function listClaims(params) {
-     await delay(MOCK_DELAY_MS)
-     return mockClaims.map((claim) => ({ ...claim }))
-   }
-
-   // after (real)
-   export async function listClaims(params) {
-     return request('/api/claims', { query: params })
-   }
-   ```
-
-   Every function carries a `TODO(backend):` comment naming its exact endpoint and payload shape.
-3. On login success, persist the issued token with `setToken()` from `src/api/http.js` — `request()` then sends `Authorization: Bearer …` automatically.
-4. Errors: `request()` already converts the server's error envelope (`{ error: { code, message, details } }`) into `ApiError { status, code, message }`, which the pages render as their error/retry states.
-
-Contracts, example payloads, pagination, upload rules, and open questions live in **`docs/API_CONTRACT.md`**; the machine-readable version is **`docs/openapi.yaml`**.
+Some screens state that data is "not available yet" because no endpoint serves it yet (policy document viewer, per-stage workflow timings, forgot-password). The exact endpoint contracts needed to make those real are listed in `docs/API_CONTRACT.md`.
 
 ## Design & Accessibility Notes
 
@@ -124,6 +109,7 @@ Contracts, example payloads, pagination, upload rules, and open questions live i
 - Status and priority always pair colour with a text label; motion is decorative and removed under `prefers-reduced-motion`.
 - Hash routing (`#/claims?tab=human_review`) keeps deep links working without server config; query values use the API tokens.
 
-## Out of Scope (by design)
+## Out of Scope
 
-No real authentication, storage, network calls, or AI model. Files chosen in the create-claim modal stay in the browser session. Prototype notices on the chat and login pages say so in-product.
+- AI analysis depends on the backend's MCP policy tools; when they are unreachable the workspace shows the real error.
+- Some backend endpoints used by the design are not implemented yet (policy document, per-stage timings, evidence deletion, analytics export, password reset). Their exact contracts are listed in `docs/API_CONTRACT.md`.

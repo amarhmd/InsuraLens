@@ -1,13 +1,13 @@
 /* ==========================================================================
-   Prototype-notice dismissal — one boolean preference, and nothing else.
+   Chat-notice dismissal — one boolean preference, and nothing else.
 
-   The one-line prototype notice at the top of the chat starts visible so a
+   The one-line AI disclaimer at the top of the chat starts visible so a
    first-time reviewer sees it. Dismissing it is remembered across reloads.
    Reads and writes are guarded so a blocked or hand-edited store falls back
    to the default (shown) instead of breaking the page.
    ========================================================================== */
 
-const STORAGE_KEY = 'insuralens:chat-prototype-notice-dismissed'
+const STORAGE_KEY = 'insuralens:chat-notice-dismissed'
 
 /** Default is false — an absent or unreadable value means "still show it". */
 export function readNoticeDismissed(): boolean {

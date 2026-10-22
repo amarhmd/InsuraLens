@@ -190,12 +190,6 @@
   color: #a12626;
 }
 
-.cw-badge--demo {
-  background: #fff4d6;
-  color: #7a5200;
-  border-color: #f0d58a;
-}
-
 .cw-badge--supported {
   background: #e1f3e8;
   color: #14693a;
@@ -596,80 +590,190 @@
 }
 
 /* -------------------------------------------------------------------------- */
-/* AI findings                                                                 */
+/* AI analysis                                                                 */
 /* -------------------------------------------------------------------------- */
 
-.cw-findings {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* A teal accent border sets this card apart as the page's single AI-output
+   section (it replaces the old "AI findings" list). */
+.cw-ai {
+  border-left: 3px solid var(--cw-teal);
 }
 
-.cw-finding {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--cw-border);
-  border-radius: 10px;
-  background: #fff;
+.cw-ai__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* The "needs review" finding gets the warm background + amber border. */
-.cw-finding--needs {
-  background: #fffaf0;
-  border-color: #ebc98a;
+/* Live line of the current run — hidden when empty so the card keeps its
+   rhythm after the run settles. */
+.cw-ai__status {
+  font-size: 13px;
+  color: var(--cw-muted);
 }
 
-.cw-finding__head {
+.cw-ai__status:empty {
+  display: none;
+}
+
+.cw-ai__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  align-items: start;
+}
+
+.cw-ai__label {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--cw-muted);
+}
+
+.cw-ai__value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--cw-ink);
+}
+
+/* The status badge + AI-GENERATED tag on the card's right. */
+.cw-ai__head-end {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-.cw-finding__title {
+/* Backend prose (damage summary / reasoning), clamped to ~3 lines until
+   the reviewer opens it. */
+.cw-ai__prose {
+  font-size: 13.5px;
+  color: #3e5568;
+}
+
+.cw-ai__prose--clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cw-ai__clamp-toggle {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cw-teal-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The recommendation is the AI's hint, not a decision: a tinted box that
+   still leaves the outcome to the reviewer. A denial is tinted red. */
+.cw-ai__reco {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid rgba(13, 125, 119, 0.3);
+  border-radius: 10px;
+  background: rgba(13, 125, 119, 0.08);
+}
+
+.cw-ai__reco-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--cw-teal-ink);
+}
+
+.cw-ai__reco-value {
   font-size: 15px;
   font-weight: 700;
   color: var(--cw-ink);
 }
 
-.cw-finding__text {
+.cw-ai__reco--deny {
+  border-color: rgba(198, 40, 40, 0.35);
+  background: rgba(198, 40, 40, 0.06);
+}
+
+.cw-ai__reco--deny .cw-ai__reco-label {
+  color: #a71f1f;
+}
+
+/* Failure notice + Retry, rendered inside the card (never in the header). */
+.cw-ai__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #ebc98a;
+  border-radius: 10px;
+  background: #fffaf0;
+}
+
+.cw-ai__alert-icon {
+  flex: none;
+  margin-top: 1px;
+  color: #8a5b00;
+}
+
+.cw-ai__alert-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cw-ai__alert-title {
   font-size: 13.5px;
+  font-weight: 700;
+  color: var(--cw-ink);
+}
+
+.cw-ai__alert-text {
+  font-size: 13px;
   color: #3e5568;
 }
 
-.cw-chips {
+.cw-ai__alert .cw-btn {
+  flex: none;
+}
+
+.cw-ai__empty {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
+}
+
+@keyframes cw-ai-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.cw-ai__skeletons {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.cw-chip {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(13, 125, 119, 0.3);
-  background: rgba(13, 125, 119, 0.1);
-  color: var(--cw-teal-ink);
-  font-size: 12.5px;
-  font-weight: 600;
+.cw-ai__skeleton {
+  height: 14px;
+  border-radius: 6px;
+  background: #e3eaf0;
+  animation: cw-ai-pulse 1.4s ease-in-out infinite;
 }
 
-.cw-chip:hover {
-  background: rgba(13, 125, 119, 0.18);
-}
-
-/* Grow the tap target to 44px without growing the pill. */
-.cw-chip::after {
-  content: '';
-  position: absolute;
-  inset-block: -6px;
-  inset-inline: 0;
+.cw-ai__skeleton--short {
+  width: 60%;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -814,6 +918,22 @@
   margin-top: 4px;
 }
 
+/* A dashed, quiet hint: the AI's suggestion is information, not an action. */
+.cw-decision__hint {
+  align-self: flex-start;
+  padding: 6px 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.4);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: #c7d8e6;
+}
+
+/* Why "Approve claim" is unavailable right now. */
+.cw-decision__helper {
+  font-size: 12.5px;
+  color: #c7d8e6;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Not-found fallback                                                          */
 /* -------------------------------------------------------------------------- */
@@ -852,6 +972,11 @@
 @media (max-width: 639px) {
   .cw-content {
     padding: 20px 16px 48px;
+  }
+
+  /* The AI analysis card's two-column grids fold to one. */
+  .cw-ai__grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .cw-header {

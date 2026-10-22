@@ -37,9 +37,7 @@ const LOADING_MS = 450
  *
  * Rows stretch to equal height, and every row carries a 24px gap above and
  * below: KPIs → volume + stage mix → evidence + incident + workflow
- * performance → AI analysis → attention table → one muted footer line with
- * the demo/AI framing, in place of the disclaimer banners this page used to
- * repeat.
+ * performance → AI analysis → attention table → one muted footer line.
  */
 export function AnalyticsPage() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -62,7 +60,7 @@ export function AnalyticsPage() {
     getAnalytics(filters)
       .then((data) => {
         if (id !== requestSeq.current) return
-        /* First paint holds the skeleton for the full demo loading state;
+        /* First paint holds the skeleton long enough to avoid a flash;
            later refreshes land silently behind the data already on screen. */
         const hold = firstLoad.current
           ? Math.max(0, LOADING_MS - (Date.now() - startedAt))
@@ -176,8 +174,8 @@ export function AnalyticsPage() {
           ) : null}
 
           <p className="ax-footer">
-            Demo data. Durations are illustrative. AI findings support reviewers; final
-            decisions remain with authorized reviewers.
+            Figures reflect the claims currently in this workspace. AI findings support
+            reviewers; final decisions remain with authorized reviewers.
           </p>
         </div>
       </main>

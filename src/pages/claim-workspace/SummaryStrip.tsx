@@ -1,4 +1,4 @@
-import type { SummaryItem } from '../../data/claim'
+import type { SummaryItem } from '../../lib/claimWorkspace'
 
 /** At-a-glance claim facts, derived from the data file. */
 export function SummaryStrip({ items }: { items: SummaryItem[] }) {

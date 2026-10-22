@@ -221,23 +221,6 @@
   gap: 12px 16px;
 }
 
-/* The one "Illustrative" label, on the Workflow performance card title. */
-.ax-tag {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 10px;
-  padding: 2px 9px;
-  vertical-align: middle;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #475467;
-}
-
 .ax-subhead {
   margin: 20px 0 10px;
   font-size: 12px;
@@ -844,8 +827,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Footer — the single muted demo/AI line that replaced the repeated
-   disclaimer banners.
+   Footer — the single muted methodology line below the charts.
    -------------------------------------------------------------------------- */
 
 .ax-footer {

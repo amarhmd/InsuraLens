@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { IncidentType, Priority } from '../../lib/constants'
-import { uploadEvidence } from '../../api/evidence'
 import { CloseIcon, Spinner } from '../../components/ui/icons'
 import { PolicyViewer } from '../../components/feedback/PolicyViewer'
 import {
@@ -53,10 +52,12 @@ type Props = {
 }
 
 /**
- * Create-claim form. Everything — field values, staged photos, document
- * slots, upload progress — lives in this component's local state; files are
- * "uploaded" through the simulated uploadEvidence (src/api/evidence.js), and
- * the finished draft is handed back to the page on submit. Object URLs are
+ * Create-claim form. Field values and staged photos/documents live in this
+ * component's local state; the finished draft (including the staged File
+ * objects) is handed back to the page on submit, which posts it to the
+ * backend via createClaim(). Staged files are not transferred early — the
+ * upload is part of that create request, so the modal shows an indeterminate
+ * "Creating…" indicator rather than inventing a percentage. Object URLs are
  * revoked whenever a file leaves the form, except the thumbnails a created
  * claim takes ownership of.
  *
@@ -103,7 +104,6 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
   const committed = useRef(false)
   /** Membership mirror of `photos` — the source for capacity checks. */
   const photosRef = useRef<StagedPhoto[]>([])
-  const inflight = useRef<Array<Promise<void>>>([])
   const photoSeq = useRef(0)
 
   /* Focus: remember what opened the dialog (the New Claim button), focus the
@@ -211,18 +211,6 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
 
   /* ---------------------------------------------------------------- photos */
 
-  const startPhotoUpload = (photo: StagedPhoto) => {
-    const promise = uploadEvidence(photo.file, (percent) => {
-      if (!alive.current) return
-      setPhotos((prev) => prev.map((p) => (p.id === photo.id ? { ...p, progress: percent } : p)))
-    }).then(() => {
-      if (alive.current && photosRef.current.some((p) => p.id === photo.id)) {
-        setLiveMessage(`${photo.name} upload complete.`)
-      }
-    })
-    inflight.current.push(promise)
-  }
-
   const addPhotoFiles = (fileList: FileList | File[]) => {
     const incoming = Array.from(fileList)
     const problems: string[] = []
@@ -249,7 +237,6 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
         size: file.size,
         url: URL.createObjectURL(file),
         caption: '',
-        progress: 0,
       })
     }
 
@@ -259,12 +246,11 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
     if (problems.length > 0) parts.push(problems.join(' '))
     if (accepted.length > 0) {
       parts.push(
-        `${accepted.length} photo${accepted.length === 1 ? '' : 's'} added, uploading now.`,
+        `${accepted.length} photo${accepted.length === 1 ? '' : 's'} added — they upload when you create the claim.`,
       )
       const next = [...photosRef.current, ...accepted]
       photosRef.current = next
       setPhotos(next)
-      accepted.forEach(startPhotoUpload)
     }
     if (parts.length > 0) setLiveMessage(parts.join(' '))
   }
@@ -302,20 +288,9 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
     setDocErrors((prev) => ({ ...prev, [slot]: '' }))
     setDocFiles((prev) => ({
       ...prev,
-      [slot]: { file, name: file.name, size: file.size, progress: 0 },
+      [slot]: { file, name: file.name, size: file.size },
     }))
-
-    const promise = uploadEvidence(file, (percent) => {
-      if (!alive.current) return
-      setDocFiles((prev) => {
-        const staged = prev[slot]
-        if (!staged || staged.name !== file.name) return prev
-        return { ...prev, [slot]: { ...staged, progress: percent } }
-      })
-    }).then(() => {
-      if (alive.current) setLiveMessage(`${label}: ${file.name} upload complete.`)
-    })
-    inflight.current.push(promise)
+    setLiveMessage(`${label}: ${file.name} ready — uploads when you create the claim.`)
   }
 
   const removeDoc = (slot: DocSlotKey) => {
@@ -336,13 +311,10 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
     if (submitting) return
     setSubmitting(true)
 
-    /* Wait out whatever is still "transferring", then hold the spinner a
-       moment so the loading state is visible even when uploads finished
-       before the user pressed Create. */
-    await Promise.all(inflight.current)
-    await new Promise((resolve) => window.setTimeout(resolve, 650))
     if (!alive.current) return /* dialog closed while uploading */
 
+    /* The page persists the claim and any staged files via POST /api/claims,
+       and closes this dialog when the request settles. */
     committed.current = true
     onCreate({
       customer: values.customer.trim(),
@@ -451,7 +423,16 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
           </div>
 
           <div className="claims-modal__foot">
-            <p className="claims-modal__demo">
+            {submitting && (
+              <div
+                className="claims-upload__progress claims-upload__progress--indeterminate"
+                role="progressbar"
+                aria-label="Creating claim and uploading evidence"
+              >
+                <span className="claims-upload__bar" />
+              </div>
+            )}
+            <p className="claims-modal__note">
               Attachments are stored with the claim and appear in its evidence section.
             </p>
             <div className="claims-modal__actions">

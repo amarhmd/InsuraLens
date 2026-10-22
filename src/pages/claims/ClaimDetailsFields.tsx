@@ -6,8 +6,8 @@ import type { ClaimDraft } from './CreateClaimModal'
 /** Max characters for the incident-description textarea. */
 const DESCRIPTION_MAX = 2000
 
-/** Latest pickable incident date — the demo anchor (Oct 6 2026). */
-const INCIDENT_DATE_MAX = '2026-10-06'
+/** Latest pickable incident date — today (UTC), so the bound never goes stale. */
+const INCIDENT_DATE_MAX = new Date().toISOString().slice(0, 10)
 
 export type ClaimField = Exclude<keyof ClaimDraft, 'photos' | 'documents' | 'files'>
 export type ClaimRequiredField = 'customer' | 'date' | 'incident'

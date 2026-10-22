@@ -23,8 +23,9 @@ type Props = {
 /**
  * Photo staging for the create-claim form: the dropzone (mouse, keyboard,
  * and drag-and-drop paths all funnel into onAddFiles) plus the thumbnails
- * list with per-photo progress, caption, and remove actions. State and
- * uploads stay in the modal; this component owns only its file input.
+ * list with caption and remove actions. The files are not transferred yet —
+ * they upload with the claim — so there is no per-photo progress here. State
+ * stays in the modal; this component owns only its file input.
  */
 export function PhotoEvidence({
   photos,
@@ -127,16 +128,6 @@ export function PhotoEvidence({
                   {photo.name}
                 </span>
                 <span className="claims-photo__size">{formatBytes(photo.size)}</span>
-              </div>
-              <div
-                className="claims-upload__progress"
-                role="progressbar"
-                aria-label={`Uploading ${photo.name}`}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={photo.progress}
-              >
-                <span className="claims-upload__bar" style={{ width: `${photo.progress}%` }} />
               </div>
               <input
                 className="claims-photo__caption"

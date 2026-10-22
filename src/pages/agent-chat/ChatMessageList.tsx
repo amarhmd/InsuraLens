@@ -15,9 +15,7 @@ type Props = {
   onOpenSource: (sourceId: string) => void
   onRetry: () => void
   onRegenerate: () => void
-  onSaveNote: () => void
-  onPickSuggestion: (text: string) => void
-  /** Rendered above the welcome state (e.g. prototype notice). */
+  /** Rendered above the welcome state (e.g. the AI-results notice). */
   notice?: ReactNode
 }
 
@@ -33,8 +31,6 @@ export function ChatMessageList({
   onOpenSource,
   onRetry,
   onRegenerate,
-  onSaveNote,
-  onPickSuggestion,
   notice,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -83,7 +79,7 @@ export function ChatMessageList({
       <div className="chat-scroll">
         <div className="chat-scroll__inner">
           {notice}
-          <SuggestedPrompts onPick={onPickSuggestion} />
+          <SuggestedPrompts />
         </div>
       </div>
     )
@@ -104,7 +100,6 @@ export function ChatMessageList({
                 onOpenSource={onOpenSource}
                 onRetry={onRetry}
                 onRegenerate={onRegenerate}
-                onSaveNote={onSaveNote}
                 canRegenerate={message.id === lastAssistantId && !loading}
                 isLast={message.id === lastAssistantId}
               />

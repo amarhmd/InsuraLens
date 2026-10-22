@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { cx } from '../../lib/cx'
 import type { Conversation } from '../../lib/chatData'
 import { ThemeToggle } from './ThemeToggle'
-import { CloseIcon, MoreIcon, PlusIcon, SearchIcon, TrashIcon, PencilIcon } from './chatIcons'
+import { ClockIcon, CloseIcon, MoreIcon, PlusIcon, SearchIcon, TrashIcon, PencilIcon } from './chatIcons'
 import type { ChatTheme } from './useChatTheme'
 
 type Props = {
@@ -183,6 +183,7 @@ export function ChatTabsBar({
           aria-haspopup="dialog"
           onClick={() => setHistoryOpen((was) => !was)}
         >
+          <ClockIcon size={16} />
           History
         </button>
 

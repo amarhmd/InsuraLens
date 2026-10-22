@@ -3,9 +3,8 @@ import { cx } from '../../lib/cx'
 import { FieldError } from './FieldError'
 import { Spinner, AlertIcon } from '../../components/ui/icons'
 import { PasswordField } from './PasswordField'
-import { DemoButton } from './DemoButton'
 import { PasswordRecoveryDialog } from './PasswordRecoveryDialog'
-import { login } from '../../api/auth'
+import { continueAsGuest, login } from '../../api/auth'
 import { readRememberMe, writeRememberMe } from '../../lib/rememberMe'
 
 /* Deliberately loose: the point is to catch a typo, not to judge an address.
@@ -14,18 +13,27 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type SubmitState = 'idle' | 'submitting' | 'wrong'
 
+/** Guest sessions only ever sit idle, run, or fail — there is no "wrong". */
+type GuestState = 'idle' | 'requesting' | 'error'
+
+/** How long the request may run before we tell the reviewer the server is waking. */
+const GUEST_WAKE_AFTER_MS = 5_000
+
 export type LoginCardProps = {
-  /** Enter the demo workspace. Credentials are never read. */
-  onDemo: () => void
+  /** Called after the backend accepts the credentials. */
+  onSuccess: () => void
+  /** Called after a credential-less guest session starts. */
+  onGuest: () => void
 }
 
 /**
- * The sign-in card. Behaviour is unchanged from the original form — mock auth,
- * demo entry, validation timing — presented as the white panel's header, title
- * and pill form: a disabled-until-ready submit, a remember-me control, and one
- * labelled divider before the demo entry.
+ * The sign-in card. Credentials go to POST /api/auth/login; a rejected sign-in
+ * shows the wrong-credentials state, and the submit button stays disabled until
+ * there is something valid to submit. Below the form, "Continue as guest
+ * reviewer" opens a real session through POST /api/auth/demo for judges who have
+ * no account.
  */
-export function LoginCard({ onDemo }: LoginCardProps) {
+export function LoginCard({ onSuccess, onGuest }: LoginCardProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   /* Unchecked until the reviewer chooses otherwise; the choice is read once
@@ -35,15 +43,18 @@ export function LoginCard({ onDemo }: LoginCardProps) {
   const [submitted, setSubmitted] = useState(false)
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
   const [recoveryOpen, setRecoveryOpen] = useState(false)
-  const [demoLoading, setDemoLoading] = useState(false)
+  const [guestState, setGuestState] = useState<GuestState>('idle')
+  const [guestSlow, setGuestSlow] = useState(false)
+  const [guestError, setGuestError] = useState<string | null>(null)
 
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
+  const guestTimer = useRef<number | undefined>(undefined)
 
   const trimmed = email.trim()
   const emailMissing = trimmed === ''
   const emailMalformed = !emailMissing && !EMAIL_PATTERN.test(trimmed)
-  const busy = submitState === 'submitting' || demoLoading
+  const busy = submitState === 'submitting'
 
   /* The submit button stays disabled until there is something valid to submit.
      An empty or malformed field is still explained in words the moment the
@@ -65,12 +76,51 @@ export function LoginCard({ onDemo }: LoginCardProps) {
         ? 'Please enter your password.'
         : undefined
 
+  /* The guest wake-up timer must not fire after the card unmounts. */
+  useEffect(() => {
+    return () => {
+      if (guestTimer.current !== undefined) {
+        window.clearTimeout(guestTimer.current)
+      }
+    }
+  }, [])
+
   /* Returning focus to the password field after a rejected sign-in has to wait
      for the field to leave its submitting (disabled) state, so it lives in an
      effect rather than next to setSubmitState in the catch. */
   useEffect(() => {
     if (submitState === 'wrong') passwordRef.current?.focus()
   }, [submitState])
+
+  async function startGuest() {
+    if (guestState === 'requesting') return
+    setGuestState('requesting')
+    setGuestSlow(false)
+    setGuestError(null)
+
+    if (guestTimer.current !== undefined) {
+      window.clearTimeout(guestTimer.current)
+    }
+    guestTimer.current = window.setTimeout(() => setGuestSlow(true), GUEST_WAKE_AFTER_MS)
+
+    try {
+      await continueAsGuest()
+      onGuest()
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message.trim()
+          : 'Could not start a guest session. Please try again.'
+      setGuestState('error')
+      setGuestError(message)
+    } finally {
+      if (guestTimer.current !== undefined) {
+        window.clearTimeout(guestTimer.current)
+        guestTimer.current = undefined
+      }
+      setGuestSlow(false)
+    }
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -88,14 +138,13 @@ export function LoginCard({ onDemo }: LoginCardProps) {
       return
     }
 
-    /* Hand the credentials to the auth API (mock-backed today, ~150 ms):
-       any work email with the demo password succeeds; anything else comes
-       back rejected and shows the wrong-credentials state. */
+    /* POST /api/auth/login. A success hands control back to the app; a
+       rejection shows the wrong-credentials state. */
     setSubmitState('submitting')
     login(trimmed, password)
       .then(() => {
         setSubmitState('idle')
-        onDemo()
+        onSuccess()
       })
       .catch(() => {
         setSubmitState('wrong')
@@ -209,24 +258,51 @@ export function LoginCard({ onDemo }: LoginCardProps) {
               'Sign In'
             )}
           </button>
-
-          <div className="divider" aria-hidden="true">
-            <span className="divider__label">or</span>
-          </div>
-
-          <DemoButton
-            onClick={() => {
-              if (busy) return
-              setDemoLoading(true)
-              setTimeout(() => {
-                setDemoLoading(false)
-                onDemo()
-              }, 100)
-            }}
-            disabled={busy}
-            loading={demoLoading}
-          />
         </form>
+
+        <div className="guest">
+          <button
+            type="button"
+            className="btn btn--secondary guest__btn"
+            onClick={startGuest}
+            disabled={guestState === 'requesting' || busy}
+            aria-busy={guestState === 'requesting' || undefined}
+          >
+            {guestState === 'requesting' ? (
+              <>
+                <Spinner size={16} />
+                <span>Opening a guest session…</span>
+              </>
+            ) : (
+              'Continue as guest reviewer'
+            )}
+          </button>
+
+          <p
+            className={cx('guest__note', guestState === 'requesting' && guestSlow && 'guest__note--waking')}
+            aria-live="polite"
+          >
+            {guestState === 'requesting' && guestSlow
+              ? 'Waking up the server, this can take a minute.'
+              : 'No account needed. Opens a real session on the live backend.'}
+          </p>
+
+          {guestState === 'error' && guestError && (
+            <div className="alert guest__alert" role="alert" aria-live="assertive">
+              <AlertIcon size={15} className="alert__icon" />
+              <div className="alert__text">
+                <p className="alert__title">{guestError}</p>
+                <button
+                  type="button"
+                  className="linkbtn guest__retry"
+                  onClick={startGuest}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <PasswordRecoveryDialog open={recoveryOpen} onClose={() => setRecoveryOpen(false)} />

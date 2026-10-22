@@ -1,8 +1,8 @@
 /* Export control for the analytics toolbar. It renders at the right end of
    the filter bar (passed in as AnalyticsFilters' trailing child), so it sits
    on the same line as, and aligned with, the filters that define what would
-   be exported — and it stays disabled with a tooltip, because this prototype
-   has nothing to export to. */
+   be exported — and it stays disabled with a tooltip, because no export
+   endpoint exists yet. */
 
 export function AnalyticsHeader() {
   return (
@@ -11,7 +11,7 @@ export function AnalyticsHeader() {
         type="button"
         className="claims-btn ax-export__btn"
         aria-disabled="true"
-        title="Export is not available in this prototype"
+        title="Export is not available yet"
       >
         <svg
           width="16"

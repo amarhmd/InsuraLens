@@ -42,12 +42,14 @@ export function SectionHeader({
 type GroupProps = {
   title: string
   hint?: string
+  /** Optional second line under the hint (e.g. where the setting is stored). */
+  note?: string
   chip?: string
   action?: ReactNode
   children: ReactNode
 }
 
-export function SettingsGroup({ title, hint, chip, action, children }: GroupProps) {
+export function SettingsGroup({ title, hint, note, chip, action, children }: GroupProps) {
   const id = useId()
   return (
     <section className="st-group" aria-labelledby={id}>
@@ -58,6 +60,7 @@ export function SettingsGroup({ title, hint, chip, action, children }: GroupProp
         {chip && <span className="st-chip st-chip--info">{chip}</span>}
         {action && <span className="st-group__action">{action}</span>}
         {hint && <p className="st-group__hint">{hint}</p>}
+        {note && <p className="st-group__hint">{note}</p>}
       </div>
       <div className="st-group__rows">{children}</div>
     </section>

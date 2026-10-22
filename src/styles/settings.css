@@ -13,10 +13,17 @@
    * Amber flag        #8A5A00 on rgba(201,130,0,.10) over white ≈ 5.3:1
    * Profile hero      white on the teal-800 stop #0A6264 ≈ 7.2:1
    * Callout lock      #0C6E70 on the #F0FAF9 tint ≈ 5.7:1
+   * Hint / helper     #475569 (slate-600) on white and on the #F0FAF9 row
+                       hover tint ≈ 7:1 — the small 13px texts use the darker
+                       secondary so they stay comfortable at normal size.
    ========================================================================== */
 
 .settings-page {
   min-width: 0;
+  /* Settings alone may use more of the main column than the shared 1280px
+     content cap (dashboard.css), so the nav + cards read as one centred block
+     with far less dead space beside the sidebar on wide screens. */
+  max-width: 1360px;
 }
 
 .st-layout {
@@ -24,8 +31,9 @@
   grid-template-columns: 200px minmax(0, 1fr);
   gap: 32px;
   align-items: start;
-  /* The nav + cards read as one centered block; the card column is ~880px. */
-  max-width: 1112px;
+  /* Fills the padded settings-page column (1360 − 64): the section nav sits
+     close to the cards, and the combined block is centred as one unit. */
+  max-width: 1296px;
   margin: 0 auto;
 }
 
@@ -240,7 +248,8 @@
   width: 100%;
   font-size: 13px;
   line-height: 1.45;
-  color: var(--text-secondary);
+  /* slate-600 rather than the lighter secondary grey — AA with margin. */
+  color: var(--text-secondary-strong);
 }
 
 .st-group__rows {
@@ -296,7 +305,8 @@
   margin-top: 4px;
   font-size: 13px;
   line-height: 1.45;
-  color: var(--text-secondary);
+  /* slate-600 rather than the lighter secondary grey — AA with margin. */
+  color: var(--text-secondary-strong);
 }
 
 .st-row__control {
@@ -840,7 +850,8 @@
   margin-top: 16px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--text-secondary);
+  /* slate-600 rather than the lighter secondary grey — AA with margin. */
+  color: var(--text-secondary-strong);
 }
 
 .st-danger {
@@ -909,17 +920,6 @@
 
 .st-note__title + .st-note__body {
   margin-top: 4px;
-}
-
-.st-placeholder {
-  margin: 0;
-  padding: 12px 14px;
-  background: var(--surface-sunken);
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--r-md);
-  font-size: 14px;
-  line-height: 1.55;
-  color: #475467;
 }
 
 /* --------------------------------------------------------------------------

@@ -7,15 +7,10 @@
    listConversations maps GET /api/chat/conversations into the page's
    Conversation shape. The list endpoint returns headers only — the messages
    live in the conversation detail endpoint — so each row starts with an empty
-   `messages` array that sendChatMessage() appends to.
+   `messages` array that sendChatMessage() appends to. */
 
-   Set VITE_USE_DEMO=true to serve src/mocks/chat.ts instead. */
-
-import { USE_DEMO, request } from './http'
-import { clockNow, nextId, seedConversations } from '../lib/chatData'
-
-/** Simulated latency for the mock conversation list (ms). */
-const MOCK_LIST_DELAY_MS = 150
+import { request } from './http'
+import { clockNow, nextId } from '../lib/chatData'
 
 /** Conversations updated within this many hours are grouped as "Recent". */
 const RECENT_HOURS = 48
@@ -56,8 +51,6 @@ function toConversation(row) {
  * @returns {Promise<Array<import('../lib/chatData').Conversation>>}
  */
 export async function listConversations() {
-  if (USE_DEMO) return seedConversations()
-
   const res = await request('/api/chat/conversations')
   const rows = Array.isArray(res) ? res : (res.items ?? res.conversations ?? res.data ?? [])
   return rows.map(toConversation)

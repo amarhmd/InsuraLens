@@ -9,7 +9,6 @@ const routeTitles: Record<Route['name'], string> = {
   chat: 'Agent Chat',
   analytics: 'Analytics',
   settings: 'Settings',
-  demo: 'Demo',
 }
 
 export function useRouteTitle(route: Route): string {

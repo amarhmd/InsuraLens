@@ -10,9 +10,8 @@ export type PasswordRecoveryDialogProps = {
 }
 
 /**
- * Placeholder for password recovery. Nothing is sent anywhere: the dialog
- * exists so the "Forgot password?" link has somewhere honest to go until
- * authentication is implemented.
+ * Password-recovery notice. There is no recovery service, so the dialog states
+ * that plainly instead of pretending to send an email.
  */
 export function PasswordRecoveryDialog({ open, onClose }: PasswordRecoveryDialogProps) {
   const titleId = useId()
@@ -104,7 +103,8 @@ export function PasswordRecoveryDialog({ open, onClose }: PasswordRecoveryDialog
         </div>
 
         <p className="dialog__body" id={bodyId}>
-          Password recovery will be connected when authentication is implemented.
+          Password recovery is not available yet. Contact your administrator to reset your
+          password.
         </p>
       </div>
     </div>

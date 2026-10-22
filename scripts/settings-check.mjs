@@ -1,11 +1,11 @@
 /* Data gate for the Settings page.
 
    Every control on #/settings reads settingsStore.ts, so this script pins the
-   things the UI promises: the illustrative profile facts, the two remaining
-   notification switches, validation messages that appear verbatim in the form,
-   honest defaults (no fabricated preferences), a sanitizer that can never leave
-   the UI in a broken state, and a store whose save → notify flow every toast
-   depends on.
+   things the UI promises: an empty (unfabricated) profile that the real
+   signed-in identity fills in, the two remaining notification switches,
+   validation messages that appear verbatim in the form, honest defaults (no
+   fabricated preferences), a sanitizer that can never leave the UI in a broken
+   state, and a store whose save → notify flow every toast depends on.
 
    The AI display switches live in src/lib/aiPrefs.ts under their own key and
    are covered by scripts/ai-prefs-check.mjs. Run via `npm run check:settings`
@@ -39,11 +39,11 @@ const deep = (label, actual, expected) => {
 /* ---------------------------------------------------------------- defaults */
 
 deep('default profile', DEFAULT_SETTINGS.profile, {
-  fullName: 'Alex Morgan',
+  fullName: '',
   displayName: '',
-  jobTitle: 'Claims Reviewer',
-  email: 'alex.morgan@example.com',
-  role: 'Claims Reviewer',
+  jobTitle: '',
+  email: '',
+  role: '',
   workspace: 'Claims Operations',
 })
 
@@ -104,15 +104,25 @@ eq(
   validateProfile({ ...baseProfile, displayName: 'J' }).displayName,
   'Enter at least 2 characters.',
 )
-deep('valid profile has no errors', validateProfile(baseProfile), {})
+/* A filled-in profile — the shape the Settings form saves once the real
+   identity has populated it (the defaults above are intentionally empty). */
+const validProfile = {
+  fullName: 'Sam Lee',
+  displayName: '',
+  jobTitle: 'Claims Reviewer',
+  email: 'sam.lee@example.com',
+  role: 'Claims Reviewer',
+  workspace: 'Claims Operations',
+}
+deep('valid profile has no errors', validateProfile(validProfile), {})
 deep(
   'valid trimmed variants pass',
-  validateProfile({ ...baseProfile, fullName: 'Sam Lee', email: 'sam.lee@example.com' }),
+  validateProfile({ ...validProfile, fullName: '  Sam Lee  ', email: ' sam.lee@example.com ' }),
   {},
 )
 
-eq('initials two words', initials('Alex Morgan'), 'AM')
-eq('initials lowercase', initials('alex morgan'), 'AM')
+eq('initials two words', initials('Dana Ellery'), 'DE')
+eq('initials lowercase', initials('dana ellery'), 'DE')
 eq('initials one word', initials('Jamie'), 'J')
 eq('initials empty', initials('   '), '?')
 
@@ -138,6 +148,15 @@ eq('partial profile keeps other fields', coerced.profile.email, baseProfile.emai
 eq('non-string role falls back', coerced.profile.role, baseProfile.role)
 eq('valid workspace name survives', coerced.workspace.displayName, 'Night Ops')
 
+/* The pre-identity build's fabricated default profile must not shadow the
+   signed-in user in a browser that still has it persisted. */
+const legacy = sanitizeSettings({
+  profile: { fullName: 'Alex Morgan', email: 'alex.morgan@example.com', jobTitle: 'Claims Reviewer' },
+})
+eq('legacy fabricated name is dropped', legacy.profile.fullName, '')
+eq('legacy fabricated email is dropped', legacy.profile.email, '')
+eq('a real job title is kept', legacy.profile.jobTitle, 'Claims Reviewer')
+
 /* ----------------------------------------------------- store save → notify */
 
 let notified = 0
@@ -148,7 +167,7 @@ const unsubscribe = subscribeSettings(() => {
 saveSettings({ notifications: { ...DEFAULT_NOTIFICATIONS, needsReview: false } })
 eq('save notified subscribers', notified, 1)
 eq('save applied', getSettings().notifications.needsReview, false)
-eq('save keeps untouched sections', getSettings().profile.fullName, 'Alex Morgan')
+eq('save keeps untouched sections', getSettings().profile.fullName, '')
 
 saveSettings({ preferences: { ...DEFAULT_SETTINGS.preferences, density: 'compact' } })
 eq('second save notified', notified, 2)

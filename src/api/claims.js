@@ -1,22 +1,26 @@
 /* Claims API — the work queue behind #/claims and #/claims/:id, plus the
    human-review and agent-pipeline routes.
 
-   Live mode: listClaims, getClaim and createClaim talk to the real backend
-   and map its field names and values to the shape the UI already uses (see
-   Claim in src/lib/claimsData.ts). reviewClaim / analyzeClaim /
-   openAnalysisStream expose the review and agent-run routes.
+   listClaims, getClaim and createClaim talk to the real backend and map its
+   field names and values to the shape the UI already uses (see Claim in
+   src/lib/claimsData.ts). reviewClaim / analyzeClaim / openAnalysisStream
+   expose the review and agent-run routes.
 
-   Set VITE_USE_DEMO=true to keep serving src/mocks/claims.ts instead. */
+   Evidence count: GET /api/claims (the list) omits each claim's `files`, so the
+   per-row "N items" would otherwise read 0 for every claim. Counts are derived
+   by fetching each claim's detail with limited concurrency and are cached for
+   the session; `evidenceCount` / `fileCount` on the row (if the backend adds
+   them) is preferred and skips the extra fetch entirely. */
 
-import { ApiError, API_BASE_URL, USE_DEMO, delay, request, withToken } from './http'
+import { ApiError, API_BASE_URL, request, withToken } from './http'
 import { evidenceField } from './evidence'
-import { formatAgo, formatDate, mockClaims } from '../lib/claimsData'
+import { formatAgo, formatDate } from '../lib/claimsData'
 
 /** The backend caps a page at 100 claims; the queue reads client-side filters. */
 const MAX_PAGE_SIZE = 100
 
-/** Simulated latency in demo mode (ms). */
-const MOCK_DELAY_MS = 150
+/** How many detail fetches run at once while deriving evidence counts. */
+const EVIDENCE_CONCURRENCY = 5
 
 /** Backend stage -> UI status token (same mapping as the Dashboard). */
 const STAGE_TO_STATUS = {
@@ -45,14 +49,63 @@ const COVERAGE_TO_LABEL = {
   unclear: 'Requires Review',
 }
 
+/* ------------------------------------------------------------------ */
+/* Evidence counts (cached, derived)                                   */
+/* ------------------------------------------------------------------ */
+
+/** claim id -> evidence file count (excludes the contract-level policy file). */
+const evidenceCountCache = new Map()
+
+/** A backend file list -> the claim's evidence count. */
+function countEvidenceFiles(files) {
+  if (!Array.isArray(files)) return null
+  return files.filter((file) => file?.kind !== 'policy').length
+}
+
+/** An inline count from the list row, if the backend ever supplies one. */
+function inlineEvidenceCount(row) {
+  if (typeof row.evidenceCount === 'number') return row.evidenceCount
+  if (typeof row.fileCount === 'number') return row.fileCount
+  if (Array.isArray(row.files)) return countEvidenceFiles(row.files)
+  return null
+}
+
+/**
+ * Fetch the detail of each id and cache its evidence count. Runs a small pool
+ * so a full queue never opens a hundred sockets at once. Best-effort: a failed
+ * fetch is skipped (that row keeps whatever count the cache already holds).
+ */
+async function deriveEvidenceCounts(ids) {
+  if (ids.length === 0) return
+  let cursor = 0
+  const workers = Array.from(
+    { length: Math.min(EVIDENCE_CONCURRENCY, ids.length) },
+    async () => {
+      while (cursor < ids.length) {
+        const id = ids[cursor]
+        cursor += 1
+        try {
+          const data = await request(`/api/claims/${encodeURIComponent(id)}`)
+          const claim = data.claim ?? data
+          const files = data.files ?? claim.files
+          const count = countEvidenceFiles(files)
+          if (count !== null) evidenceCountCache.set(id, count)
+        } catch {
+          /* Leave unknown — the row falls back to its cached value. */
+        }
+      }
+    },
+  )
+  await Promise.all(workers)
+}
+
 /** Map one backend claim to the UI's Claim shape. */
-function fromApi(c, files) {
+function fromApi(c, evidenceItems = 0) {
   const dateReportedValue = Date.parse(c.createdAt)
   const updatedMinutes = Math.max(
     0,
     Math.floor((Date.now() - Date.parse(c.updatedAt ?? c.createdAt)) / 60000),
   )
-  const evidenceItems = Array.isArray(files) ? files.length : 0
   return {
     id: c.id,
     customer: c.customerName,
@@ -79,24 +132,31 @@ function fromApi(c, files) {
 
 /**
  * GET /api/claims — the full work-queue list (one page of up to 100; the
- * page filters, sorts and paginates client-side, as it did with the mock).
- *
- * Tab badges are derived on the page from this same list, so no second round
- * trip is needed: the backend reports 26 claims in total, which fits inside a
- * single capped page and therefore makes the client-side counts exact.
+ * page filters, sorts and paginates client-side). The request asks for
+ * page_size=100 so the client-side tab counts and totals are exact.
  *
  * @param {Record<string, string | number | undefined>} [params]
  * @returns {Promise<Array<import('../lib/claimsData').Claim>>}
  */
 export async function listClaims(params) {
-  if (USE_DEMO) {
-    await delay(MOCK_DELAY_MS)
-    return mockClaims
-  }
-
   const res = await request('/api/claims', { query: toQuery(params) })
   const rows = Array.isArray(res) ? res : (res.items ?? res.claims ?? res.data ?? [])
-  return rows.map((claim) => fromApi(claim, claim.files))
+
+  /* Seed what the list already gives us, collect the rows still missing a
+     count, then derive those in one bounded pass. */
+  const missing = []
+  for (const row of rows) {
+    const inline = inlineEvidenceCount(row)
+    if (inline !== null) evidenceCountCache.set(row.id, inline)
+    else if (!evidenceCountCache.has(row.id)) missing.push(row.id)
+  }
+  await deriveEvidenceCounts(missing)
+
+  return rows.map((claim) => {
+    const inline = inlineEvidenceCount(claim)
+    const count = inline ?? evidenceCountCache.get(claim.id) ?? 0
+    return fromApi(claim, count)
+  })
 }
 
 /**
@@ -107,7 +167,9 @@ export async function listClaims(params) {
  */
 function toQuery(params) {
   const { sort, ...rest } = { ...params }
-  const query = { ...rest, pageSize: MAX_PAGE_SIZE }
+  /* The backend reads `page_size` (snake_case) and returns the paged envelope
+     with it, so the client can request every claim in one capped page. */
+  const query = { ...rest, page: 1, page_size: MAX_PAGE_SIZE }
 
   /* The UI sorts by 'date'/'updated'; the API expects its own tokens. */
   const SORT_MAP = { date: 'created_at', updated: 'updated_at', priority: 'priority' }
@@ -125,32 +187,27 @@ function toQuery(params) {
  * The workspace needs more than the queue's view model, so the mapped Claim is
  * returned with the backend's raw `files` and `analysis` attached (the mapper in
  * src/api/claimWorkspace.ts reads analysis.vision/policy/decision from them).
- * In demo mode the mock entry has neither; the mapper supplies safe defaults.
  *
  * @param {string} id
  * @returns {Promise<(import('../lib/claimsData').Claim & { files: any[], analysis: any }) | null>}
  *   null when no claim has this id (404)
  */
 export async function getClaim(id) {
-  if (USE_DEMO) {
-    await delay(MOCK_DELAY_MS)
-    return mockClaims.find((claim) => claim.id === id) ?? null
-  }
-
   try {
     const data = await request(`/api/claims/${encodeURIComponent(id)}`)
     const claim = data.claim ?? data
     const files = data.files ?? claim.files ?? []
     const analysis = data.analysis ?? claim.analysis ?? null
-    return { ...fromApi(claim, files), files: Array.isArray(files) ? files : [], analysis }
+    const safeFiles = Array.isArray(files) ? files : []
+    /* The detail is authoritative — keep the derived count cache warm. */
+    const count = countEvidenceFiles(safeFiles)
+    if (count !== null) evidenceCountCache.set(claim.id, count)
+    return { ...fromApi(claim, count ?? 0), files: safeFiles, analysis }
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null
     throw error
   }
 }
-
-/** Demo-mode id sequence for locally created claims. */
-let demoSeq = 0
 
 /**
  * POST /api/claims — create a claim. The request is multipart/form-data so
@@ -160,30 +217,6 @@ let demoSeq = 0
  * @returns {Promise<import('../lib/claimsData').Claim>}
  */
 export async function createClaim(draft) {
-  if (USE_DEMO) {
-    await delay(MOCK_DELAY_MS)
-    demoSeq += 1
-    const now = Date.now()
-    const items = (draft.photos?.length ?? 0) + (draft.documents?.length ?? 0)
-    return {
-      id: `CLM-${1050 + demoSeq}`,
-      customer: draft.customer,
-      incident: draft.incident || 'other',
-      dateReported: formatDate(now),
-      dateReportedValue: now,
-      policyRef: draft.policyRef || 'Not assigned',
-      evidenceItems: items,
-      evidence: items >= 3 ? 'Complete' : 'Incomplete',
-      aiAnalysis: 'Not started',
-      policyMatch: 'Not Evaluated',
-      priority: draft.priority,
-      status: 'new',
-      updatedLabel: formatAgo(0),
-      updatedMinutes: 0,
-      description: draft.description ?? '',
-    }
-  }
-
   const form = new FormData()
   form.append('customerName', draft.customer)
   /* The backend requires `vehicle`, which the create modal does not collect. */
@@ -200,7 +233,9 @@ export async function createClaim(draft) {
 
   const res = await request('/api/claims', { method: 'POST', body: form })
   const claim = res?.claim ?? res?.data ?? res
-  return fromApi(claim, claim?.files)
+  const count = inlineEvidenceCount(claim) ?? countEvidenceFiles(claim?.files) ?? 0
+  if (typeof count === 'number') evidenceCountCache.set(claim.id, count)
+  return fromApi(claim, count ?? 0)
 }
 
 /**
@@ -212,14 +247,6 @@ export async function createClaim(draft) {
  * @returns {Promise<any>} { claim_id, old_status, new_status, tool_call, … }
  */
 export async function reviewClaim(id, action) {
-  if (USE_DEMO) {
-    await delay(MOCK_DELAY_MS)
-    return {
-      claim_id: id,
-      old_status: 'PENDING',
-      new_status: action === 'approve' ? 'APPROVED' : 'MORE_INFO_REQUIRED',
-    }
-  }
   return request(`/api/claims/${encodeURIComponent(id)}/review`, {
     method: 'POST',
     body: { action },
@@ -234,10 +261,6 @@ export async function reviewClaim(id, action) {
  * @returns {Promise<any>}
  */
 export async function analyzeClaim(id) {
-  if (USE_DEMO) {
-    await delay(MOCK_DELAY_MS)
-    return { claim_id: id, analysis_id: 0, state: 'running' }
-  }
   return request(`/api/claims/${encodeURIComponent(id)}/analyze`, { method: 'POST' })
 }
 

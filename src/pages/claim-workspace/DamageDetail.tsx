@@ -1,4 +1,4 @@
-import { DAMAGE_STATUS_LABEL, type DamageStatus, type DamageZone } from '../../data/claim'
+import { DAMAGE_STATUS_LABEL, type DamageStatus, type DamageZone } from '../../lib/claimWorkspace'
 import { PhotoGlyph } from './glyphs'
 
 type DamageDetailProps = {

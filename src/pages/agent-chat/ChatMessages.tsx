@@ -4,7 +4,6 @@ import type { ChatMessage, FlagLabel, PointLabel, Section } from '../../lib/chat
 import { ChatAvatar } from './ChatAvatar'
 import { EvidenceChip, EvidenceChipRow } from './EvidenceChip'
 import { FindingCard } from './FindingCard'
-import { InvestigationActivity } from './InvestigationActivity'
 import { MessageActions, type Feedback } from './MessageActions'
 import { InfoIcon } from './chatIcons'
 import { buildReport } from './reportModel'
@@ -49,11 +48,9 @@ const BANNER_TEXT =
 
 function AssistantReport({
   sections,
-  activity,
   onOpenSource,
 }: {
   sections: Section[]
-  activity?: ChatMessage['activity']
   onOpenSource: (sourceId: string) => void
 }) {
   const report = buildReport(sections)
@@ -110,8 +107,6 @@ function AssistantReport({
           ))}
         </div>
       )}
-
-      {activity && <InvestigationActivity steps={activity} />}
     </div>
   )
 }
@@ -139,7 +134,6 @@ type Props = {
   onOpenSource: (sourceId: string) => void
   onRetry: () => void
   onRegenerate: () => void
-  onSaveNote: () => void
   /** Only the latest assistant reply can be regenerated. */
   canRegenerate: boolean
   isLast: boolean
@@ -150,26 +144,18 @@ export function AssistantMessage({
   onOpenSource,
   onRetry,
   onRegenerate,
-  onSaveNote,
   canRegenerate,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [feedback, setFeedback] = useState<Feedback>(null)
-  const [saved, setSaved] = useState(false)
 
-  /* The orb, author line and demo tag lead every assistant turn, including the
+  /* The orb, author line and time lead every assistant turn, including the
      failed one, so the message identity never changes between states. */
   const head = (
     <div className="chat-msg__head">
       <span className="chat-msg__author">InsuraLens Assistant</span>
       <span aria-hidden="true">·</span>
       <time>{message.time}</time>
-      <span
-        className="chat-demo-tag"
-        title="Illustrative content generated from mock records — no live AI model processed this conversation."
-      >
-        Demo content
-      </span>
     </div>
   )
 
@@ -216,7 +202,6 @@ export function AssistantMessage({
         {head}
         <AssistantReport
           sections={message.sections ?? []}
-          activity={message.activity}
           onOpenSource={onOpenSource}
         />
 
@@ -224,15 +209,10 @@ export function AssistantMessage({
           <MessageActions
             copied={copied}
             feedback={feedback}
-            saved={saved}
             canRegenerate={canRegenerate}
             onCopy={handleCopy}
             onRegenerate={onRegenerate}
             onFeedback={(value) => setFeedback((current) => (current === value ? null : value))}
-            onSave={() => {
-              onSaveNote()
-              setSaved(true)
-            }}
           />
         </div>
       </div>

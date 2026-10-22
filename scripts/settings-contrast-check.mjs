@@ -45,7 +45,7 @@ const cases = [
   ['primary text on white (section titles, values, defs)', '#172B3A', WHITE, 4.5],
   ['primary text on sunken (profile name, code chip)', '#172B3A', SUNKEN, 4.5],
   ['primary text on page (mobile nav label)', '#172B3A', PAGE, 4.5],
-  ['secondary text on white (descriptions, hints, defs)', '#64748B', WHITE, 4.5],
+  ['secondary text on white (nav labels, save status, defs)', '#64748B', WHITE, 4.5],
   ['secondary-dark on sunken (profile email, danger hint, placeholder)', '#475467', SUNKEN, 4.5],
   ['secondary-dark on white (help text, preview labels, chips)', '#475467', WHITE, 4.5],
   ['secondary-dark on page (principle line)', '#475467', PAGE, 4.5],
@@ -79,6 +79,7 @@ const cases = [
 
   /* ---- redesigned Settings: hero, callout, toggle gradient ---- */
   ['section subtitle slate-600 on white', '#475569', WHITE, 4.5],
+  ['hint text slate-600 on row hover tint (13px helpers)', '#475569', '#f0faf9', 4.5],
   ['profile hero white on teal-800 stop', WHITE, '#0A6264', 4.5],
   ['profile hero white over teal glow', WHITE, '#11707A', 4.5],
   [

@@ -4,7 +4,7 @@
    what the backend API will send and receive; the label maps are the only
    place the human-readable text ("Evidence Collection") lives.
 
-   Everything in the app reads these lists: the mock dataset stores tokens,
+   Everything in the app reads these lists: the API layer maps to these tokens,
    filters and option lists iterate these arrays, and any string rendered on
    screen goes through a label helper — so the data model and the contract
    can never drift apart.

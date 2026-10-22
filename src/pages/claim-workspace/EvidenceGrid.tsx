@@ -1,5 +1,5 @@
 import { cx } from '../../lib/cx'
-import type { EvidenceItem } from '../../data/claim'
+import type { EvidenceItem } from '../../lib/claimWorkspace'
 import { EVIDENCE_ACCEPT } from '../claims/claimAttachments'
 import { DocGlyph, PhotoGlyph } from './glyphs'
 

@@ -1,11 +1,8 @@
 /* Evidence API — file uploads attached to a claim.
 
-   Mock mode: simulated progress for the create-claim modal. Nothing leaves
-   the browser; progress ticks advance on a setTimeout chain and larger
-   files step slower so the bar behaves like a transfer rather than a
-   metronome. This module is the single seam between "staged file" and
-   "stored file": a real transfer replaces the body of uploadEvidence and
-   keeps the (file, onProgress) => Promise<void> shape every caller speaks.
+   This module is the single seam between "staged file" and "stored file".
+   uploadClaimEvidence() posts one file to the backend and reports real
+   transfer progress from XHR.
 
    Upload rules (enforced client-side today, must be enforced server-side
    too — see docs/API_CONTRACT.md):
@@ -14,42 +11,7 @@
      documents  application/pdf — max 15 MB each
 */
 
-import { ApiError, API_BASE_URL, USE_DEMO, delay, getToken } from './http'
-
-/** Simulated round-trip before the first progress tick (ms). */
-const MOCK_DELAY_MS = 150
-
-/**
- * POST /api/claims/:claimId/evidence — upload one evidence file
- * (multipart/form-data, field name "file").
- *
- * @param {File} file the file being transferred
- * @param {(percent: number) => void} onProgress integer 0–100; 100 means done
- * @returns {Promise<void>}
- */
-export async function uploadEvidence(file, onProgress) {
-  /* TODO(backend): POST multipart to `/api/claims/${claimId}/evidence`
-     (e.g. via XMLHttpRequest or fetch streams for real progress events). */
-  await delay(MOCK_DELAY_MS)
-  return new Promise((resolve) => {
-    const tickMs = Math.min(240, 110 + (file.size / (1024 * 1024)) * 14)
-    let percent = 0
-
-    onProgress(0)
-
-    const step = () => {
-      percent = Math.min(100, percent + 14 + Math.floor(Math.random() * 22))
-      onProgress(percent)
-      if (percent >= 100) {
-        resolve(undefined)
-        return
-      }
-      window.setTimeout(step, tickMs)
-    }
-
-    window.setTimeout(step, tickMs)
-  })
-}
+import { ApiError, API_BASE_URL, getToken } from './http'
 
 /**
  * POST /api/claims/:id/evidence — attach one file to an existing claim
@@ -69,9 +31,6 @@ export async function uploadEvidence(file, onProgress) {
  * @returns {Promise<any>} the server's `{ files: ClaimFile[] }` body (or null)
  */
 export function uploadClaimEvidence(claimId, file, onProgress) {
-  /* Demo mode keeps the browser-only progress bar: no request leaves the page. */
-  if (USE_DEMO) return uploadEvidence(file, onProgress)
-
   const form = new FormData()
   form.append(evidenceField(file), file, file.name)
 
@@ -98,29 +57,30 @@ export function uploadClaimEvidence(claimId, file, onProgress) {
         }
         return
       }
-
-      /* The server's error envelope is { error: { code, message } } (e.g. a
-         CLAIM_BUSY 409 while an analysis or review is running). */
-      let message = xhr.statusText || 'Upload failed'
-      try {
-        message = JSON.parse(xhr.responseText)?.error?.message ?? message
-      } catch {
-        /* Non-JSON body — status text is all we have. */
-      }
-      reject(new ApiError(message, { status: xhr.status, code: `http_${xhr.status}` }))
+      reject(new ApiError(httpError(xhr), { status: xhr.status, code: `http_${xhr.status}` }))
     }
 
-    xhr.onerror = () =>
+    xhr.onerror = () => {
       reject(
         new ApiError(
-          'Could not reach the server while uploading. It may be waking up — please try again.',
+          'Could not reach the server. If it has just started, it may still be waking up — please try again in a moment.',
           { status: 0, code: 'network_error' },
         ),
       )
+    }
 
-    onProgress(0)
     xhr.send(form)
   })
+}
+
+/** Best-effort message from an XHR error body, falling back to the status. */
+function httpError(xhr) {
+  try {
+    const body = JSON.parse(xhr.responseText)
+    return body?.error?.message ?? body?.message ?? xhr.statusText
+  } catch {
+    return xhr.statusText || 'Upload failed'
+  }
 }
 
 /** Pick the EvidenceForm part a file belongs in: images | report. */

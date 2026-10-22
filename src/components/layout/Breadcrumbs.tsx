@@ -5,8 +5,8 @@ type Props = {
 
 /**
  * Breadcrumb trail for the compact top bar. Segments are rendered as plain
- * text (the prototype has no separate "Workspace" route, so linking a segment
- * would invent navigation that does not exist). The final segment is marked
+ * text (there is no separate "Workspace" route, so linking a segment would
+ * invent navigation that does not exist). The final segment is marked
  * `aria-current="page"`.
  */
 export function Breadcrumbs({ label }: Props) {

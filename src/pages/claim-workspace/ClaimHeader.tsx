@@ -1,14 +1,18 @@
 import { cx } from '../../lib/cx'
-import type { ClaimWorkspaceData } from '../../data/claim'
+import type { ClaimWorkspaceData } from '../../lib/claimWorkspace'
 
 type ClaimHeaderProps = {
   data: ClaimWorkspaceData
   /** An action (analyze / review / upload) is in flight — disable the controls. */
   busy?: boolean
-  /** Live agent status line (e.g. "Agent: vision (running)"). */
+  /** Short action status (upload / review outcomes). Analysis progress and
+      failures are rendered by the AI analysis card, never here. */
   status?: string | null
-  /** Message from the last failed action. */
+  /** Message from the last failed upload/review action. */
   error?: string | null
+  /** Why "Complete review" is unavailable (null = it is allowed) — the same
+      reason the Reviewer decision panel shows, so the two never disagree. */
+  approveBlockedReason?: string | null
   onAnalyze?: () => void
   onApprove?: () => void
   onRequestInfo?: () => void
@@ -23,6 +27,7 @@ export function ClaimHeader({
   busy = false,
   status = null,
   error = null,
+  approveBlockedReason = null,
   onAnalyze,
   onApprove,
   onRequestInfo,
@@ -75,7 +80,8 @@ export function ClaimHeader({
           type="button"
           className="cw-btn cw-btn--primary"
           onClick={onApprove}
-          disabled={busy}
+          disabled={busy || Boolean(approveBlockedReason)}
+          title={approveBlockedReason ?? undefined}
         >
           Complete review
         </button>

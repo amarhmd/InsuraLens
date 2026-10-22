@@ -7,16 +7,17 @@ import { ClaimStatus } from './ClaimStatus'
 import { RecentActivity } from './RecentActivity'
 import { AIInsights } from './AIInsights'
 import { getDashboardSummary } from '../../api/dashboard'
-import type { DashboardSummary } from '../../api/dashboard'
+import type { DashboardSummary } from '../../lib/dashboard'
 
 /**
  * Landing route — the organization-wide claims overview: metrics, attention
  * items, claim status mix, priority claims and recent activity.
  *
- * All data arrives through getDashboardSummary() (src/api/dashboard.js),
- * which computes every count from the shared mock dataset, so this page can
- * never disagree with Claims or Analytics. Loading and failure states are
- * announced with role="status" and reuse the shared .page-state panel.
+ * All data arrives through getDashboardSummary() (src/api/dashboard.js), which
+ * reads the backend summary and derives the insight counts from the live claim
+ * queue, so this page cannot disagree with Claims or Analytics. Loading and
+ * failure states are announced with role="status" and reuse the shared
+ * .page-state panel.
  */
 export function Dashboard() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -60,8 +61,8 @@ export function Dashboard() {
             subtitle="Monitor your claims workload, review priorities, and recent activity."
           />
 
-          <p className="human-review-note">
-            AI findings support reviewers. Final decisions remain with authorized reviewers.
+          <p className="human-review-badge">
+            <span>AI findings support reviewers. Final decisions remain with authorized reviewers.</span>
           </p>
 
           {loading && (

@@ -5,8 +5,7 @@
    is flex-1 and flush to the window edges; the white auth panel is a clamped
    44vw wide, overlaps the brand panel by 40px, and is rounded on its LEFT side
    only. Below the lg breakpoint the brand panel is dropped and the white panel
-   goes full-bleed. The section titled "Demo workspace placeholder" belongs to
-   the demo landing page but ships here because it shares this file.
+   goes full-bleed.
    ========================================================================== */
 
 .login {
@@ -232,8 +231,8 @@
 }
 
 /* ---- Form overrides (base rules live in form.css) ----
-   Scoped under .login so the demo page's .btn--secondary is untouched and these
-   win on specificity without depending on stylesheet order. */
+   Scoped under .login so these win on specificity without depending on
+   stylesheet order. */
 
 .login .field__input {
   block-size: 50px;
@@ -301,39 +300,53 @@
   font-weight: 600;
 }
 
-.login .divider {
-  margin-block: var(--s-5);
-}
+/* --------------------------------------------------------------------------
+   Guest reviewer — a real, credential-less session for judges
+   -------------------------------------------------------------------------- */
 
-/* ---- Demo marker: amber badge + one-line human-in-the-loop note ---- */
-
-.auth__demo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--s-3);
-}
-
-.auth__demo-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: #7a4a00;
-  background: #fdf1d6;
-  border: 1px solid #f1cf8a;
-  border-radius: var(--r-pill);
-}
-
-.auth__demo-note {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-secondary-strong);
+.guest {
+  margin-block-start: var(--s-5);
+  padding-block-start: var(--s-5);
+  border-block-start: 1px solid var(--border);
   text-align: center;
+}
+
+.guest__btn {
+  inline-size: 100%;
+}
+
+.login .guest__btn {
+  background-color: #E6F7F4;
+  color: #0F766E;
+  border-color: #99E0D3;
+}
+
+.login .guest__btn:hover:not(:disabled) {
+  background-color: #CCF0E9;
+  border-color: #99E0D3;
+}
+
+.guest__note {
+  margin-block-start: var(--s-3);
+  font-size: var(--t-caption);
+  line-height: var(--lh-body);
+  color: var(--text-secondary);
+}
+
+/* While a cold Render instance is waking, the note turns teal so the change
+   is visible without relying on the spinner alone. */
+.guest__note--waking {
+  color: var(--teal-700);
+  font-weight: 600;
+}
+
+.guest__alert {
+  margin-block-start: var(--s-4);
+  text-align: left;
+}
+
+.guest__retry {
+  margin-block-start: var(--s-2);
 }
 
 /* --------------------------------------------------------------------------
@@ -370,110 +383,6 @@
   text-underline-offset: 3px;
 }
 
-/* --------------------------------------------------------------------------
-   Logo lockup (demo landing page)
-   -------------------------------------------------------------------------- */
-
-.logo {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-3);
-}
-
-.logo__mark {
-  display: block;
-  flex: none;
-  object-fit: contain;
-}
-
-/* The mark is 95% #0E544C, which is 1.55:1 against the navy panel. On white it
-   is 8.78:1. The tile is how the shipped asset is presented, not a new asset. */
-.logo__tile {
-  display: grid;
-  place-items: center;
-  flex: none;
-  padding: 8px;
-  background: var(--surface);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-xs);
-}
-
-.logo__word {
-  font-size: var(--t-brand);
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  color: inherit;
-}
-
-/* --------------------------------------------------------------------------
-   Demo workspace placeholder
-
-   Not a dashboard — the brief builds the claims screens later. It exists so
-   "Continue with demo" lands somewhere real instead of doing nothing.
-   -------------------------------------------------------------------------- */
-
-.entered {
-  display: grid;
-  place-items: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: var(--s-8) var(--s-5);
-  background: var(--bg-page);
-}
-
-.entered__card {
-  width: 100%;
-  max-width: 460px;
-  padding: var(--s-8);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-md);
-}
-
-.entered__tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: var(--s-5);
-  padding: 4px 10px;
-  font-size: var(--t-caption);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-secondary);
-  background: var(--bg-page);
-  border: 1px solid var(--border);
-  border-radius: var(--r-pill);
-}
-
-.entered__tag::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--teal-500);
-}
-
-.entered__title {
-  margin-top: var(--s-5);
-  font-size: var(--t-title);
-  font-weight: 600;
-  line-height: var(--lh-tight);
-  letter-spacing: -0.022em;
-  color: var(--text-primary);
-}
-
-.entered__body {
-  margin-top: var(--s-3);
-  font-size: var(--t-lead);
-  line-height: var(--lh-body);
-  color: var(--text-secondary);
-}
-
-.entered__actions {
-  margin-top: var(--s-7);
-}
-
 /* ==========================================================================
    Responsive
    ========================================================================== */
@@ -490,10 +399,6 @@
 
   .login .btn--primary {
     margin-block-start: var(--s-4);
-  }
-
-  .login .divider {
-    margin-block: var(--s-4);
   }
 }
 

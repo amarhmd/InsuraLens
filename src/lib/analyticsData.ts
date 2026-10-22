@@ -1,47 +1,47 @@
 /* ==========================================================================
-   Analytics — one shared mock source for every chart, KPI, table, and
-   observation on #/analytics.
+   Analytics — the selectors behind every chart, KPI, table, and observation
+   on #/analytics.
+
+   The claim list is always supplied by the caller (src/api/analytics.ts feeds
+   it the real backend queue); this module holds no dataset of its own.
 
    Rules this module exists to enforce:
 
-   * Single source. The page calls selectAnalytics(filters) once and hands the
-     result to every component, so a KPI, a chart, and a table row can never
-     disagree about the same selection.
+   * Single source. The page calls selectAnalytics(filters, claims) once and
+     hands the result to every component, so a KPI, a chart, and a table row
+     can never disagree about the same selection.
    * Filters flow through everything. Date range, incident type, and workflow
      status narrow the claim list first; every selector then reads that list.
-   * Honest numbers. KPIs are counts or floored percentages of the demo
-     dataset (src/mocks/claims.ts) — no invented accuracy scores, no
-     fabricated deltas. Comparisons only appear when the demo data actually
-     contains a previous period to compare against (only 7/30/90-day windows
-     have one, and only the 7-day window has claims in it). The claims-volume
-     chart spreads each period's exact total over an illustrative weekday
-     curve, so its totals still match the KPIs — only the within-period shape
-     is drawn.
-   * Illustrative only. Nothing here connects to a live insurance system.
-
-   Fixed demo anchor: DEMO_TODAY = Oct 6 2026. Date windows count backwards
-   from it so the demo is deterministic; the dataset itself spans
-   Sep 10 – Oct 5 2026.
+   * Honest numbers. KPIs are counts or floored percentages of the selection —
+     no invented accuracy scores, no fabricated deltas. Every chart bucket is a
+     count of real claim rows; comparisons only appear when the selection
+     actually contains a previous period to compare against.
    ========================================================================== */
 
 import {
   CLAIM_STATUSES,
   INCIDENT_TYPES,
-  mockClaims,
   type Claim,
   type ClaimStatus,
   type IncidentType,
 } from './claimsData'
 import { incidentLabel, priorityRank, stageLabel } from './constants'
 
-export { SAMPLE_WORKFLOW_METRICS } from '../mocks/analytics'
-
 /* -------------------------------------------------------------------------- */
-/* Demo anchor & date windows                                                 */
+/* Date windows                                                               */
 /* -------------------------------------------------------------------------- */
 
-const DEMO_TODAY = Date.UTC(2026, 9, 6) // Oct 6 2026, 00:00 UTC
 const DAY = 86_400_000
+
+/**
+ * End of the current UTC day, read fresh so a long-lived tab stays current.
+ * Anchoring to the day's end keeps today's claims inside the half-open window
+ * regardless of the viewer's timezone.
+ */
+function nowMs(): number {
+  const now = new Date()
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+}
 
 /** Half-open window [start, end) in epoch ms. */
 interface DateWindow {
@@ -52,16 +52,17 @@ interface DateWindow {
 export type DateRangeKey = '7d' | '30d' | '90d' | 'year'
 
 export function dateWindow(range: DateRangeKey): DateWindow {
-  if (range === 'year') return { start: Date.UTC(2026, 0, 1), end: DEMO_TODAY }
+  const end = nowMs()
+  if (range === 'year') return { start: Date.UTC(new Date().getUTCFullYear(), 0, 1), end }
   const days = range === '7d' ? 7 : range === '30d' ? 30 : 90
-  return { start: DEMO_TODAY - days * DAY, end: DEMO_TODAY }
+  return { start: end - days * DAY, end }
 }
 
 /**
  * Equal-length window immediately before the current one. Returns null for
- * "This year" (there is no comparable prior span in the demo data), and the
- * caller treats an empty previous window as "no comparison supported" rather
- * than reading it as a 100% drop.
+ * "This year" (there is no comparable prior span), and the caller treats an
+ * empty previous window as "no comparison supported" rather than reading it as
+ * a 100% drop.
  */
 export function previousWindow(range: DateRangeKey): DateWindow | null {
   if (range === 'year') return null
@@ -147,7 +148,7 @@ function matchesNonDateFilters(claim: Claim, filters: AnalyticsFilters): boolean
 export function filterClaims(
   filters: AnalyticsFilters,
   window: DateWindow = dateWindow(filters.dateRange),
-  source: ReadonlyArray<Claim> = mockClaims,
+  source: ReadonlyArray<Claim>,
 ): Claim[] {
   return source.filter(
     (claim) =>
@@ -207,7 +208,7 @@ export interface AnalyticsKpis {
   /** Claims reported inside the selection. */
   received: number
   /**
-   * Change vs the previous equal-length window. Null unless the demo data has
+   * Change vs the previous equal-length window. Null unless the selection has
    * claims in that previous window — an absent dataset is not a trend.
    */
   receivedDelta: number | null
@@ -326,58 +327,27 @@ export interface VolumeSeries {
   description: string
 }
 
-/**
- * Intra-period shape for the two demo series. The dataset is generated in
- * flat weekly runs, so bucketing raw intake dates draws a near-straight line;
- * each period total is instead spread over a believable curve — weekday-heavy
- * intake, weekday-shaped review work. Totals still equal the selection
- * exactly (largest-remainder distribution below), so the chart, its tooltip,
- * its table view, and every KPI on the page keep agreeing.
- */
-function intakeShape(bucket: ChartBucket, granularity: BucketGranularity): number {
-  const t = Math.floor(bucket.start / DAY)
-  const wave = 1 + 0.45 * Math.sin(t * 0.9 + 1.3) + 0.3 * Math.sin(t * 0.37 + 0.6)
-  if (granularity !== 'day') return Math.max(0.15, wave)
-  const dow = new Date(bucket.start).getUTCDay()
-  const weekend = dow === 0 || dow === 6 ? 0.4 : 1
-  return Math.max(0.1, weekend * wave)
-}
-
-function reviewShape(bucket: ChartBucket, granularity: BucketGranularity): number {
-  const t = Math.floor(bucket.start / DAY)
-  const wave = 1 + 0.5 * Math.sin(t * 0.73 + 2.4) + 0.28 * Math.sin(t * 0.31 + 3.1)
-  if (granularity !== 'day') return Math.max(0.12, wave)
-  const dow = new Date(bucket.start).getUTCDay()
-  const weekend = dow === 0 || dow === 6 ? 0.3 : 1
-  return Math.max(0.08, weekend * wave)
-}
-
-/** Split an exact total across buckets by weight (largest remainder). */
-function distribute(total: number, weights: number[]): number[] {
-  if (total <= 0 || weights.length === 0) return weights.map(() => 0)
-  const weightSum = weights.reduce((sum, weight) => sum + weight, 0)
-  if (weightSum <= 0) return weights.map(() => 0)
-  const raw = weights.map((weight) => (weight / weightSum) * total)
-  const out = raw.map((value) => Math.floor(value))
-  let remainder = total - out.reduce((sum, value) => sum + value, 0)
-  const order = raw
-    .map((value, index) => ({ index, frac: value - Math.floor(value) }))
-    .sort((a, b) => b.frac - a.frac)
-  for (let k = 0; k < order.length && remainder > 0; k++, remainder--) {
-    out[order[k].index] += 1
+/** Count the timestamps that fall inside each bucket — real rows, no shaping. */
+function bucketCounts(buckets: ChartBucket[], timestamps: number[]): number[] {
+  const out = buckets.map(() => 0)
+  for (const at of timestamps) {
+    const index = buckets.findIndex((bucket) => at >= bucket.start && at < bucket.end)
+    if (index >= 0) out[index] += 1
   }
   return out
 }
 
 export function selectVolume(filters: AnalyticsFilters, claims: Claim[]): VolumeSeries {
   const { granularity, buckets } = selectBuckets(filters)
-  const received = distribute(
-    claims.length,
-    buckets.map((bucket) => intakeShape(bucket, granularity)),
+  const received = bucketCounts(
+    buckets,
+    claims.map((claim) => claim.dateReportedValue),
   )
-  const completed = distribute(
-    claims.filter((claim) => claim.status === 'completed').length,
-    buckets.map((bucket) => reviewShape(bucket, granularity)),
+  const completed = bucketCounts(
+    buckets,
+    claims
+      .filter((claim) => claim.status === 'completed')
+      .map((claim) => claim.dateReportedValue),
   )
 
   const peak = buckets.reduce((max, _bucket, index) => Math.max(max, received[index], completed[index]), 0)
@@ -735,20 +705,6 @@ function selectAi(filters: AnalyticsFilters, claims: Claim[]): AiSnapshot {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Workflow performance (stage durations — fixed demo values)                 */
-/* -------------------------------------------------------------------------- */
-
-export interface SampleMetric {
-  key: string
-  label: string
-  value: string
-  hint: string
-}
-
-/* SAMPLE_WORKFLOW_METRICS (the fixed illustrative durations) lives in
-   src/mocks/analytics.ts and is re-exported at the top of this file. */
-
-/* -------------------------------------------------------------------------- */
 /* Claims requiring attention                                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -823,7 +779,7 @@ export interface AnalyticsSelection {
 
 export function selectAnalytics(
   filters: AnalyticsFilters,
-  source: ReadonlyArray<Claim> = mockClaims,
+  source: ReadonlyArray<Claim>,
 ): AnalyticsSelection {
   const claims = filterClaims(filters, undefined, source)
   const previous = previousWindow(filters.dateRange)

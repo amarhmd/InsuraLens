@@ -1,12 +1,11 @@
-import { SUGGESTIONS } from '../../lib/chatData'
-import { SuggestionCard } from './SuggestionCard'
 import { SparkIcon } from './chatIcons'
 
 /**
- * New-conversation welcome state: greeting, a short description, and the
- * suggested prompts as large cards. Suggestions submit immediately on click.
+ * New-conversation welcome state: a greeting and a short description. There is
+ * no fixed prompt list — the reviewer types their own question, optionally
+ * pinning a claim context from the composer.
  */
-export function SuggestedPrompts({ onPick }: { onPick: (text: string) => void }) {
+export function SuggestedPrompts() {
   return (
     <div className="chat-welcome">
       <div className="chat-welcome__mark" aria-hidden="true">
@@ -15,17 +14,8 @@ export function SuggestedPrompts({ onPick }: { onPick: (text: string) => void })
       <h2 className="chat-welcome__title">How can I help with this investigation?</h2>
       <p className="chat-welcome__text">
         Ask about claim evidence, policy coverage, document inconsistencies, or the next steps in
-        a review. Every answer stays grounded in the selected claim’s demo records.
-      </p>
-
-      <div className="chat-welcome__grid">
-        {SUGGESTIONS.map((s) => (
-          <SuggestionCard key={s.id} id={s.id} text={s.text} onPick={onPick} />
-        ))}
-      </div>
-
-      <p className="chat-welcome__note">
-        Prototype: responses are illustrative mock content, not live AI analysis.
+        a review. Pin a claim from the “Using context” control below to ground the answer in that
+        claim’s records.
       </p>
     </div>
   )

@@ -1,4 +1,4 @@
-import type { DamageStatus, DamageZone, EvidenceItem } from '../../data/claim'
+import type { DamageStatus, DamageZone, EvidenceItem } from '../../lib/claimWorkspace'
 import { DamageBox } from './DamageBox'
 import { DamageDetail } from './DamageDetail'
 import { DamageList } from './DamageList'

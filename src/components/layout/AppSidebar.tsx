@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { cx } from '../../lib/cx'
 import { getSettings, initials } from '../../lib/settingsStore'
+import { useIdentityState } from '../../lib/identity'
 import { ProfileMenu } from './ProfileMenu'
 
 type SidebarKey = 'dashboard' | 'claims' | 'chat' | 'analytics' | 'settings'
@@ -21,7 +22,15 @@ const NAV: Array<{ key: SidebarKey; label: string; href: string }> = [
 
 export function AppSidebar({ open, active = 'dashboard' }: SidebarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const profile = getSettings().profile
+  const { identity, status } = useIdentityState()
+  const name = identity?.name ?? ''
+  const userLabel =
+    name ||
+    (status === 'loading'
+      ? 'Loading account…'
+      : status === 'error'
+        ? 'Account unavailable'
+        : 'Not signed in')
 
   return (
     <aside className={cx('sidebar', open && 'sidebar--open')}>
@@ -53,11 +62,11 @@ export function AppSidebar({ open, active = 'dashboard' }: SidebarProps) {
 
       <div className="sidebar__bottom">
         <span className="sidebar__avatar" aria-hidden="true">
-          {initials(profile.fullName)}
+          {name ? initials(name) : '·'}
         </span>
         <div className="sidebar__user-info">
-          <div className="sidebar__user-name">{profile.fullName}</div>
-          <div className="sidebar__user-role">{profile.role}</div>
+          <div className="sidebar__user-name">{userLabel}</div>
+          <div className="sidebar__user-role">{identity?.role ?? ''}</div>
         </div>
         <button
           className="sidebar__user-menu"

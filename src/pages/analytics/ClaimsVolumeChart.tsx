@@ -116,8 +116,8 @@ export function ClaimsVolumeChart({ series = EMPTY_VOLUME }: { series?: VolumeSe
       )}
 
       <p className="ax-footnote">
-        Reviews Completed counts claims now in the Completed stage; the day-to-day shape is
-        illustrative.
+        Every bar is a count of claims in this workspace, grouped by the date each was
+        reported. Reviews Completed counts claims now in the Completed stage.
       </p>
     </section>
   )

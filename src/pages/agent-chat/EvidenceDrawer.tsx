@@ -1,26 +1,9 @@
 import { useEffect, useState } from 'react'
-import type { ChatMessage } from '../../lib/chatData'
-import { evidenceBreakdown, type EvidenceRow } from '../../lib/chatData'
-import type { Claim } from '../../lib/claimsData'
+import { evidenceGroupKey, type ChatEvidenceFile } from '../../lib/chatData'
 import { cx } from '../../lib/cx'
-import { citedSources } from './reportModel'
-import { ChatIcon, CloseIcon, FileIcon, ShieldIcon } from './chatIcons'
+import { CloseIcon, FileIcon, ShieldIcon } from './chatIcons'
 
 type Filter = 'all' | 'photos' | 'documents'
-
-type Tile = {
-  sourceId: string
-  name: string
-  kind: 'document' | 'photos' | 'statement' | 'policy'
-  unit: [singular: string, plural: string]
-}
-
-const TILES: Record<string, Tile> = {
-  'accident-report': { sourceId: 'accident-report', name: 'Accident Report', kind: 'document', unit: ['file', 'files'] },
-  'vehicle-photos': { sourceId: 'vehicle-photos', name: 'Vehicle Photos', kind: 'photos', unit: ['photo', 'photos'] },
-  'customer-statement': { sourceId: 'customer-statement', name: 'Customer Statement', kind: 'statement', unit: ['item', 'items'] },
-  'policy-documents': { sourceId: 'policy-documents', name: 'Policy Documents', kind: 'policy', unit: ['file', 'files'] },
-}
 
 const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'all', label: 'All' },
@@ -28,46 +11,48 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
   { key: 'documents', label: 'Documents' },
 ]
 
-function matchesFilter(tile: Tile, filter: Filter): boolean {
-  if (filter === 'all') return true
-  if (filter === 'photos') return tile.kind === 'photos'
-  return tile.kind !== 'photos'
+/** 51200 -> "50 KB". */
+function formatSize(bytes?: number): string {
+  if (typeof bytes !== 'number' || bytes <= 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function tileIcon(tile: Tile) {
-  const size = 22
-  if (tile.kind === 'document') return <FileIcon size={size} />
-  if (tile.kind === 'statement') return <ChatIcon size={size} />
-  return <ShieldIcon size={size} />
+function matchesFilter(file: ChatEvidenceFile, filter: Filter): boolean {
+  if (filter === 'all') return true
+  return evidenceGroupKey(file) === filter
 }
 
 type Props = {
-  claim: Claim | undefined
-  messages: ChatMessage[]
-  /** Highlighted after a citation was opened from a message. */
+  /** The pinned claim's real files (GET /api/claims/:id). */
+  files: ChatEvidenceFile[]
+  loading: boolean
+  error: string | null
+  /** File id highlighted after it was opened. */
   highlightedId: string | null
   /** Slide-over open state; closed by default. */
   open: boolean
-  onOpenSource: (sourceId: string) => void
+  onOpenFile: (fileId: string) => void
   onClose: () => void
 }
 
 /**
- * Evidence drawer — a slide-over panel over the chat (see chat.css): a filter, a
- * tile grid of the claim's evidence groups, and the sources cited in the active
- * chat. Hidden off-canvas until opened from the tabs bar.
+ * Evidence drawer — a slide-over panel over the chat (see chat.css): a filter
+ * and the pinned claim's real evidence files. Hidden off-canvas until opened
+ * from the tabs bar or by a citation.
  */
 export function EvidenceDrawer({
-  claim,
-  messages,
+  files,
+  loading,
+  error,
   highlightedId,
   open,
-  onOpenSource,
+  onOpenFile,
   onClose,
 }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
-  const rows: EvidenceRow[] = evidenceBreakdown(claim)
-  const cited = citedSources(messages)
+  const tiles = files.filter((file) => matchesFilter(file, filter))
 
   /* Escape closes the slide-over; the page also listens so the preview branch
      gets the same treatment. */
@@ -80,18 +65,37 @@ export function EvidenceDrawer({
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  const tiles = rows
-    .map((row) => ({ row, tile: TILES[row.sourceId] }))
-    .filter((entry): entry is { row: EvidenceRow; tile: Tile } => Boolean(entry.tile))
-    .filter((entry) => matchesFilter(entry.tile, filter))
-
-  const citedTiles = rows
-    .map((row) => ({ row, tile: TILES[row.sourceId] }))
-    .filter((entry): entry is { row: EvidenceRow; tile: Tile } => Boolean(entry.tile))
-    .filter((entry) => (cited[entry.row.sourceId] ?? 0) > 0)
-
-  const total = rows.reduce((sum, row) => sum + row.count, 0)
-  const unit = (tile: Tile, count: number) => (count === 1 ? tile.unit[0] : tile.unit[1])
+  const body = () => {
+    if (loading) return <p className="chat-evidence__empty">Loading evidence…</p>
+    if (error) return <p className="chat-evidence__empty">{error}</p>
+    if (!files.length) {
+      return <p className="chat-evidence__empty">No evidence has been uploaded for this claim.</p>
+    }
+    if (tiles.length === 0) return <p className="chat-evidence__empty">No evidence in this group.</p>
+    return (
+      <ul className="chat-evidence__grid">
+        {tiles.map((file) => (
+          <li key={file.id}>
+            <button
+              type="button"
+              className={cx('chat-evidence__tile', highlightedId === file.id && 'is-highlighted')}
+              onClick={() => onOpenFile(file.id)}
+              aria-label={`Open ${file.name}`}
+            >
+              <span className="chat-evidence__visual" aria-hidden="true">
+                {evidenceGroupKey(file) === 'photos' ? <FileIcon size={22} /> : <ShieldIcon size={22} />}
+              </span>
+              <span className="chat-evidence__name">{file.name}</span>
+              <span className="chat-evidence__meta">
+                {evidenceGroupKey(file) === 'photos' ? 'Photo' : 'Document'}
+                {formatSize(file.sizeBytes) ? ` · ${formatSize(file.sizeBytes)}` : ''}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
   return (
     <aside
@@ -100,7 +104,7 @@ export function EvidenceDrawer({
     >
       <div className="chat-evidence__head">
         <h2 className="chat-evidence__title">Evidence</h2>
-        <span className="chat-evidence__count">{total}</span>
+        <span className="chat-evidence__count">{files.length}</span>
         <button
           type="button"
           className="chat-evidence__close"
@@ -126,66 +130,7 @@ export function EvidenceDrawer({
         ))}
       </div>
 
-      {tiles.length === 0 ? (
-        <p className="chat-evidence__empty">No evidence in this group.</p>
-      ) : (
-        <ul className="chat-evidence__grid">
-          {tiles.map(({ row, tile }) => (
-            <li key={tile.sourceId}>
-              <button
-                type="button"
-                className={cx(
-                  'chat-evidence__tile',
-                  highlightedId === tile.sourceId && 'is-highlighted',
-                )}
-                onClick={() => onOpenSource(tile.sourceId)}
-                aria-label={`Open ${tile.name} evidence (demo reference)`}
-              >
-                {tile.kind === 'photos' ? (
-                  <span className="chat-evidence__mosaic" aria-hidden="true">
-                    <span className="chat-evidence__thumb" />
-                    <span className="chat-evidence__thumb" />
-                    <span className="chat-evidence__thumb" />
-                    <span className="chat-evidence__thumb" />
-                  </span>
-                ) : (
-                  <span className="chat-evidence__visual" aria-hidden="true">
-                    {tileIcon(tile)}
-                  </span>
-                )}
-                <span className="chat-evidence__name">{tile.name}</span>
-                <span className="chat-evidence__meta">
-                  {row.count} {unit(tile, row.count)}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="chat-evidence__cited">
-        <h3 className="chat-evidence__label">Cited in this chat</h3>
-        {citedTiles.length === 0 ? (
-          <p className="chat-evidence__note">No evidence has been cited in this conversation yet.</p>
-        ) : (
-          <ul className="chat-evidence__cited-list">
-            {citedTiles.map(({ row, tile }) => (
-              <li key={tile.sourceId} className="chat-evidence__cited-row">
-                <button
-                  type="button"
-                  className="chat-evidence__cited-link"
-                  onClick={() => onOpenSource(tile.sourceId)}
-                >
-                  {tile.name}
-                </button>
-                <span className="chat-evidence__cited-count">
-                  {cited[row.sourceId]} finding{cited[row.sourceId] === 1 ? '' : 's'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {body()}
 
       <p className="chat-evidence__callout">
         <strong>Human-in-the-loop.</strong> Final claim decisions remain with an authorized

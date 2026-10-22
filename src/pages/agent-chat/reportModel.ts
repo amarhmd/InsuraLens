@@ -1,11 +1,11 @@
-import type { ChatMessage, PointLabel, SourceRef, Section } from '../../lib/chatData'
+import type { PointLabel, SourceRef, Section } from '../../lib/chatData'
 
 /*
  * Turns a reply's flat Section[] into the view-model the redesigned assistant
  * card renders: a set of finding cards, a row of next-step pills, and the
  * remaining sections as supporting detail. Purely presentational — the
  * underlying sections are never mutated, and nothing here touches the data
- * layer or the canned reply builder.
+ * layer.
  */
 
 export type FindingStatus = 'supported' | 'verify' | 'ai'
@@ -49,27 +49,10 @@ function toneFor(text: string): FindingStatus {
 }
 
 /**
- * Approximate evidence attribution for finding bullets that carry no explicit
- * citation — the seeded bullets reference a source by name, so the earliest
- * named source wins. Ordered by the phrase, not the source.
+ * Approximate evidence attribution was removed: the backend reply is prose and
+ * carried no structured citations, so attributing bullets to a fixed set of
+ * evidence groups would have invented links that do not exist in the claim.
  */
-const EVIDENCE_HINTS: Array<{ pattern: RegExp; id: string; label: string }> = [
-  { pattern: /photograph|photo|image/i, id: 'vehicle-photos', label: 'Vehicle Photos' },
-  { pattern: /accident report|report/i, id: 'accident-report', label: 'Accident Report' },
-  { pattern: /statement/i, id: 'customer-statement', label: 'Customer Statement' },
-  { pattern: /policy|clause|coverage/i, id: 'policy-documents', label: 'Policy Documents' },
-]
-
-function inferEvidence(text: string): SourceRef[] {
-  let best: { index: number; ref: SourceRef } | null = null
-  for (const hint of EVIDENCE_HINTS) {
-    const match = hint.pattern.exec(text)
-    if (match && (!best || match.index < best.index)) {
-      best = { index: match.index, ref: { sourceId: hint.id, label: hint.label } }
-    }
-  }
-  return best ? [best.ref] : []
-}
 
 export function buildReport(sections: Section[]): ReportModel {
   const findings: Finding[] = []
@@ -82,9 +65,12 @@ export function buildReport(sections: Section[]): ReportModel {
      top-level bullet list stands in for one. */
   const bulletsAsFindings = !hasPoints && !hasKeyFindings
 
+  /* Bubble findings carry no citation: the backend reply is prose, and nothing
+     here fabricates a source link. Explicit citations only arrive as `point`
+     sections, which the backend does not currently emit. */
   const addBulletFindings = (items: string[]) => {
     for (const text of items) {
-      findings.push({ text, status: toneFor(text), evidence: inferEvidence(text) })
+      findings.push({ text, status: toneFor(text), evidence: [] })
     }
   }
 
@@ -171,28 +157,4 @@ export function buildReport(sections: Section[]): ReportModel {
   }
 
   return { findings, nextSteps, extras }
-}
-
-/** Counts how often each evidence source is cited across a conversation. */
-export function citedSources(messages: ChatMessage[]): Record<string, number> {
-  const counts: Record<string, number> = {}
-
-  const bump = (id: string | null) => {
-    if (!id) return
-    counts[id] = (counts[id] ?? 0) + 1
-  }
-
-  const walk = (sections: Section[]) => {
-    for (const section of sections) {
-      if (section.kind === 'point') bump(section.source.sourceId)
-      else if (section.kind === 'sources') section.sourceIds.forEach(bump)
-      else if (section.kind === 'expand') walk(section.body)
-    }
-  }
-
-  for (const message of messages) {
-    if (message.role === 'assistant' && message.sections) walk(message.sections)
-  }
-
-  return counts
 }

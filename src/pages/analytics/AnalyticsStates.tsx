@@ -1,6 +1,6 @@
 /* Loading and empty states for #/analytics.
 
-   Both are announced with role="status": the skeleton while the demo data
+   Both are announced with role="status": the skeleton while the live data
    resolves, the empty panel when a filter combination matches no claims.
    Motion inside the skeleton is removed under prefers-reduced-motion. */
 
@@ -53,7 +53,7 @@ export function AnalyticsEmptyState({ onReset }: { onReset: () => void }) {
       </span>
       <h2 className="ax-empty__title">No data for this selection</h2>
       <p className="ax-empty__text">
-        No demo claims match this date range, incident type, and workflow status. Widen the
+        No claims match this date range, incident type, and workflow status. Widen the
         filters to bring the picture back.
       </p>
       <button type="button" className="claims-btn claims-btn--primary" onClick={onReset}>

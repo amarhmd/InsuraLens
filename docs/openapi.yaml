@@ -5,20 +5,19 @@ info:
   description: |
     Backend contract for the InsuraLens claims-review frontend.
 
-    The frontend calls every operation through `src/api/*.js`; in the prototype
-    those functions resolve mock data from `src/mocks/`. Implement the endpoints
-    below and swap the mock bodies for real requests (each carries a
-    `TODO(backend):` comment naming its operation).
+    The frontend calls every endpoint below through `src/api/*.js`; each
+    function is a real `request()` call with no client-side fallback. The mock
+    layer this file was originally written against has been removed.
 
     Conventions:
-    - Base URL comes from `VITE_API_BASE_URL` (origin only; paths below are appended as-is).
+    - Base URL comes from `VITE_API_URL` (includes `/api`; the legacy origin-only `VITE_API_BASE_URL` is read as a fallback). Paths below are appended as-is.
     - All errors use the `Error` envelope; all failures map to `ApiError { status, code, message }` client-side.
     - `status`, `priority`, and `incident` values are tokens (`human_review`, `high`, `rear_end_collision`), never display text — see `docs/API_CONTRACT.md` for the vocabulary tables.
-    - Auth: bearer token (see Open questions in the contract for the session model).
+    - Auth: bearer token in `Authorization: Bearer <token>`.
 
 servers:
   - url: "{baseUrl}"
-    description: Set by VITE_API_BASE_URL (empty in the prototype = mock mode)
+    description: Set by VITE_API_URL (e.g. https://your-service.onrender.com/api)
     variables:
       baseUrl:
         default: ""
@@ -44,9 +43,9 @@ paths:
       operationId: login
       summary: Exchange credentials for a session
       description: |
-        Prototype behavior to preserve: any well-formed email with the demo
-        password succeeds; any other password returns 401 `invalid_credentials`
-        with the message "Incorrect email or password".
+        Exchanges credentials for a session. A known account returns a JWT; any
+        other credentials return 401 `invalid_credentials` with the message
+        "Incorrect email or password".
       requestBody:
         required: true
         content:
@@ -133,9 +132,9 @@ paths:
       operationId: listClaims
       summary: Work-queue list
       description: |
-        Without `page`, returns a bare JSON array (the mode the frontend uses
-        today — it paginates client-side). With `page`, returns the pagination
-        envelope. Other params are honored by the server and ignored by the mock.
+        Returns the pagination envelope `{ items, page, pageSize, total, totalPages,
+        counts }`. The frontend requests `?page_size=100` and filters/sorts
+        client-side. Other params are accepted by the server.
       parameters:
         - { name: status, in: query, schema: { $ref: "#/components/schemas/ClaimStatus" }, description: Comma-separated for multi-select }
         - { name: priority, in: query, schema: { $ref: "#/components/schemas/Priority" } }
@@ -165,7 +164,7 @@ paths:
       operationId: createClaim
       summary: Create a claim from the modal draft
       description: |
-        Server rules the mock applies today and must keep applying:
+        Server behaviour the frontend relies on:
         `status` starts `new`; `evidence` is `Complete` only when at least 3
         document slots were filled; `evidenceItems` counts photos + documents;
         empty `policyRef` becomes "Not assigned"; empty `incident` becomes `other`;
@@ -486,7 +485,7 @@ components:
         name: { type: string }
         url:
           type: string
-          description: Stored-file URL once uploads are real; dead blob URL in the prototype
+          description: Public/stored URL for the file (null until uploaded)
         caption: { type: string }
 
     Claim:
@@ -717,14 +716,14 @@ components:
         sections: { type: array, items: { $ref: "#/components/schemas/Section" } }
         activity:
           type: array
-          description: Illustrative tool-activity summaries shown while thinking
+          description: Tool-activity summary text shown while a reply is being prepared
           items:
             type: object
             properties:
               text: { type: string }
         demo:
           type: boolean
-          description: Marks canned content; drop when a real model is behind the endpoint
+          description: Legacy flag; the frontend no longer reads it
         error: { type: boolean, description: Failed-response state with retry }
 
     Conversation:

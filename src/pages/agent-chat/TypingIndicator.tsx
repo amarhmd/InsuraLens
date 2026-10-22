@@ -1,7 +1,7 @@
 /**
  * "Analyzing evidence…" state shown while a reply is pending. The three dots
  * and the staged step list are decorative motion; the live label carries the
- * meaning for assistive tech. Steps are illustrative UI copy, not data.
+ * meaning for assistive tech. The steps are UI copy, not data.
  */
 const STEPS = ['Reading accident report', 'Comparing vehicle photos', 'Checking policy coverage']
 

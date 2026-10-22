@@ -1,11 +1,18 @@
 # InsuraLens — API Contract
 
-Contract for the backend engineer. The frontend already calls every endpoint below through `src/api/*.js`; in this repo each function resolves mock data from `src/mocks/` after a small delay. Replace the mock bodies with `request()` calls (every function carries a `TODO(backend):` comment with its exact endpoint) and nothing else in the UI changes.
+Contract for the backend engineer. The frontend calls every endpoint below through `src/api/*.js`; each function is a real `request()` call with no client-side fallback. Endpoints marked **missing** are not implemented yet — those are the exact contracts still needed.
 
-- **Base URL**: value of `VITE_API_BASE_URL` (origin only, no trailing slash, no `/api` suffix) — see `.env.example`. Endpoints below are appended as-is.
+- **Base URL**: value of `VITE_API_URL` (including the `/api` suffix; `VITE_API_BASE_URL` origin-only is read as a legacy fallback) — see `.env.example`. Endpoints below are appended as-is.
 - **Content type**: `application/json; charset=utf-8` unless noted (uploads are `multipart/form-data`).
-- **Auth**: bearer token in `Authorization: Bearer <token>` once sessions exist (`src/api/http.js` sends it automatically when a token is stored). See [Open questions](#open-questions-for-backend).
+- **Auth**: bearer token in `Authorization: Bearer <token>` (`src/api/http.js` sends it automatically once a session token is stored). See [Open questions](#open-questions-for-backend).
 - **Vocabulary**: `status`, `priority`, and `incident` values are tokens, not display text — see [Shared vocabulary](#shared-vocabulary).
+
+> **Note on wording.** This document was originally written against the removed
+> mock layer. Every `src/api/*.js` function is now a real `request()`; where the
+> text below says *"the mock does X"* or *"Mock behavior to preserve"*, read it
+> as **"the frontend expects the server to do X"**. The `demo: true` flags and
+> `alex.morgan@insuralens.demo` examples are illustrative payloads, not data the
+> app ships.
 
 ---
 
@@ -79,7 +86,7 @@ Stable `code` strings the frontend already handles: `invalid_credentials`, `netw
 
 When the backend turns on server pagination, the only frontend change is one line in `listClaims()` (`src/api/claims.js`): `return (await request('/api/claims', { query: params })).items`.
 
-Other list params (ignored by the mock today, honored by the server): `status`, `priority`, `incident` (tokens, comma-separated for multi), `q` (search), `sort` (`id|customer|incident|date|evidence|ai|policy|priority|status|updated`), `dir` (`asc|desc`).
+Other list params: `status`, `priority`, `incident` (tokens, comma-separated for multi), `q` (search), `sort` (`id|customer|incident|date|evidence|ai|policy|priority|status|updated`), `dir` (`asc|desc`).
 
 ---
 
@@ -87,12 +94,12 @@ Other list params (ignored by the mock today, honored by the server): `status`, 
 
 ### POST `/api/auth/login`
 
-Sign in. Mock behavior to preserve: any well-formed email + password `demo123` succeeds; any other password → 401 `invalid_credentials`. Nothing is stored client-side today (the form deliberately does not persist credentials).
+Sign in. The server issues a JWT for a known account and returns `401 invalid_credentials` otherwise. The deployed dev backend currently accepts `demo@insuralens.app` / `demo123`. Nothing is stored client-side beyond the token (the form deliberately does not persist credentials).
 
 Request:
 
 ```json
-{ "email": "alex.morgan@insuralens.demo", "password": "demo123" }
+{ "email": "demo@insuralens.app", "password": "demo123" }
 ```
 
 Response `200`:
@@ -100,12 +107,12 @@ Response `200`:
 ```json
 {
   "user": {
-    "id": "usr-demo-001",
-    "name": "Alex Morgan",
-    "email": "alex.morgan@insuralens.demo",
-    "role": "claims_reviewer"
+    "id": 1,
+    "name": "Demo Officer",
+    "email": "demo@insuralens.app",
+    "role": "claims_officer"
   },
-  "token": "demo-token-not-a-real-credential"
+  "token": "<jwt>"
 }
 ```
 
@@ -119,7 +126,7 @@ Afterwards the frontend will call `setToken(token)` from `src/api/http.js` (one 
 
 ### GET `/api/auth/me`
 
-Current session's user. Response `200`: the `user` object above. Error `401` when the token is missing/expired.
+Current session's user. Response `200` wraps the same `user` object as login in a top-level key: `{ "user": { "id": 1, "name": "Demo Officer", "email": "demo@insuralens.app", "role": "claims_officer" } }`. `src/api/auth.js#getCurrentUser` unwraps `res.user ?? res.data ?? res`. Error `401` when the token is missing/expired.
 
 ### POST `/api/auth/logout`
 
@@ -228,7 +235,7 @@ Request (what the modal hands over):
 
 Response `201`: the created Claim with `status: "new"` and `updatedLabel: "Just now"`.
 
-Note: photo/document **bytes** are uploaded first (see the evidence endpoint); the create payload carries references (names/URLs) only. The mock treats `documents` as display names of filled slots.
+Note: photo/document **bytes** are uploaded first (see the evidence endpoint); the create payload carries references (names/URLs) only. `documents` is treated as display names of filled slots.
 
 ### POST `/api/claims/:claimId/evidence`
 
@@ -374,7 +381,7 @@ Response `200`: **one assistant `ChatMessage`** (the frontend appends it to the 
 ```
 
 - `claim_id` is optional (snake_case on the wire; the JS layer maps it from `{ question, claimId }`).
-- `demo: true` marks canned content — keep it `true` only while responses are illustrative; drop it when a real model is behind this endpoint.
+- `demo: true` is a legacy flag the frontend no longer reads; it may be omitted.
 - Failure shape: standard error envelope; the chat UI renders `message` in a retryable error bubble.
 - Streaming: **not simulated today** — see open questions. If streaming is chosen, keep this envelope as the non-streaming fallback (the UI would then consume SSE chunks that assemble into the same `ChatMessage`).
 
@@ -434,6 +441,6 @@ Deep links use the same tokens (`#/claims?tab=human_review&incident=rear_end_col
 
 Additional smaller items:
 
-5. Should the server send `updatedLabel`/`dateReported` display strings (the mock does), or only `updatedMinutes`/`dateReportedValue` with the frontend formatting? Deriving client-side is cleaner but shifts format decisions to the frontend.
+5. Should the server send `updatedLabel`/`dateReported` display strings, or only `updatedMinutes`/`dateReportedValue` with the frontend formatting? Deriving client-side is cleaner but shifts format decisions to the frontend.
 6. Are filters on `GET /api/claims` applied server-side with stable sorting across pages (needed once pagination turns on), and is there a maximum `page_size`?
 7. Timezone policy for `dateReportedValue` (contract assumes UTC midnight) and is the "Today/Yesterday/Just now" relative labeling the server's job or the client's?

@@ -40,7 +40,7 @@ const cases = [
   ['primary text on white (panel titles, KPI values)', '#172B3A', WHITE, 4.5],
   ['primary text on page (empty-state title)', '#172B3A', PAGE, 4.5],
   ['secondary-dark text on white (axis labels, footnotes, hints)', '#475467', WHITE, 4.5],
-  ['secondary-dark text on sunken (chips, disabled reset, metric hints, Illustrative tag, view toggle)', '#475467', SUNKEN, 4.5],
+  ['secondary-dark text on sunken (chips, disabled reset, metric hints, view toggle)', '#475467', SUNKEN, 4.5],
   ['secondary-dark text on page (muted footer line)', '#475467', PAGE, 4.5],
   ['teal-700 on 10% teal tint over white (filters-active chip)', '#0C6E70', blend('rgba(21,154,156,0.10)', WHITE), 4.5],
   ['primary text on 8% teal tint over white (evidence insight title)', '#172B3A', blend('rgba(21,154,156,0.08)', WHITE), 4.5],

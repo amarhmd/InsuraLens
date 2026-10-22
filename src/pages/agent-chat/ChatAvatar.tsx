@@ -1,4 +1,5 @@
-import { getSettings, initials } from '../../lib/settingsStore'
+import { initials } from '../../lib/settingsStore'
+import { useIdentity } from '../../lib/identity'
 import { SparkIcon } from './chatIcons'
 
 type Props = {
@@ -8,10 +9,13 @@ type Props = {
 
 /**
  * Message avatar. The assistant gets the InsuraLens mark on a soft teal
- * gradient; the reviewer gets their demo initials. Decorative only — the
- * speaker is always named in the message meta, so this is aria-hidden.
+ * gradient; the signed-in reviewer gets their own initials (GET /api/auth/me).
+ * Decorative only — the speaker is always named in the message meta, so this
+ * is aria-hidden.
  */
 export function ChatAvatar({ role, size = 'md' }: Props) {
+  const identity = useIdentity()
+
   if (role === 'assistant') {
     return (
       <span className={`chat-avatar chat-avatar--ai chat-avatar--${size}`} aria-hidden="true">
@@ -20,10 +24,9 @@ export function ChatAvatar({ role, size = 'md' }: Props) {
     )
   }
 
-  const profile = getSettings().profile
   return (
     <span className={`chat-avatar chat-avatar--user chat-avatar--${size}`} aria-hidden="true">
-      {initials(profile.fullName)}
+      {initials(identity?.name ?? '') || '?'}
     </span>
   )
 }

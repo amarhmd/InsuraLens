@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { cx } from '../../lib/cx'
-import { PaperclipIcon, SendIcon, SparkIcon } from './chatIcons'
-import { SUGGESTIONS } from '../../lib/chatData'
+import { FileIcon, SendIcon } from './chatIcons'
 
 type ClaimOption = { id: string; label: string }
 
@@ -9,8 +8,6 @@ type Props = {
   value: string
   onChange: (value: string) => void
   onSend: () => void
-  onAttach: () => void
-  onPickSuggestion: (text: string) => void
   sending: boolean
   /** The claim pinned to the active conversation, or null in general mode. */
   claimId: string | null
@@ -20,24 +17,19 @@ type Props = {
 
 /**
  * Bottom composer. Enter sends, Shift + Enter inserts a newline, sending is
- * disabled while the input is empty or a reply is pending. Suggested prompts
- * live behind the sparkle button; the "Using context" chip is a button that
- * opens the claim picker. A one-line AI disclaimer sits underneath.
+ * disabled while the input is empty or a reply is pending. The "Using context"
+ * chip is a button that opens the claim picker. A one-line AI disclaimer sits
+ * underneath.
  */
 export function MessageComposer({
   value,
   onChange,
   onSend,
-  onAttach,
-  onPickSuggestion,
   sending,
   claimId,
   claimOptions,
   onClaimChange,
 }: Props) {
-  const suggestRef = useRef<HTMLDivElement>(null)
-  const [suggestOpen, setSuggestOpen] = useState(false)
-
   const ctxRef = useRef<HTMLDivElement>(null)
   const ctxBtnRef = useRef<HTMLButtonElement>(null)
   const ctxMenuRef = useRef<HTMLDivElement>(null)
@@ -54,23 +46,6 @@ export function MessageComposer({
       if (!sending && value.trim()) onSend()
     }
   }
-
-  /* Close the suggestions popover on Escape or an outside click. */
-  useEffect(() => {
-    if (!suggestOpen) return
-    const onDown = (e: MouseEvent) => {
-      if (!suggestRef.current?.contains(e.target as Node)) setSuggestOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSuggestOpen(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [suggestOpen])
 
   /* Claim picker: close on Escape (returning focus) or an outside click. */
   useEffect(() => {
@@ -133,54 +108,6 @@ export function MessageComposer({
   return (
     <div className="composer">
       <div className="composer__row">
-        <button
-          type="button"
-          className="composer__attach"
-          aria-label="Attach a file (demo only)"
-          title="Attach a file (demo — nothing is uploaded)"
-          onClick={onAttach}
-          disabled={sending}
-        >
-          <PaperclipIcon size={17} />
-        </button>
-
-        <div className="composer__suggest-wrap" ref={suggestRef}>
-          <button
-            type="button"
-            className={cx('composer__spark', suggestOpen && 'is-open')}
-            aria-label="Suggested questions"
-            aria-haspopup="dialog"
-            aria-expanded={suggestOpen}
-            title="Suggested questions"
-            onClick={() => setSuggestOpen((was) => !was)}
-          >
-            <SparkIcon size={17} />
-          </button>
-
-          {suggestOpen && (
-            <div
-              className="composer__suggest"
-              role="dialog"
-              aria-label="Suggested questions"
-            >
-              <span className="composer__suggest-label">Suggested questions</span>
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  className="composer__suggest-item"
-                  onClick={() => {
-                    onPickSuggestion(s.text)
-                    setSuggestOpen(false)
-                  }}
-                >
-                  {s.text}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
         <label className="sr-only" htmlFor="composer-input">
           Message the InsuraLens assistant
         </label>
@@ -211,6 +138,7 @@ export function MessageComposer({
             title="Change claim context"
             onClick={() => setCtxOpen((was) => !was)}
           >
+            <FileIcon size={14} />
             {claimId ? `Using context: ${claimId}` : 'Using context: general assistant'}
           </button>
 

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Auth form — fields, buttons, notices, demo entry, recovery dialog
+   Auth form — fields, buttons, notices, recovery dialog
 
    One rhythm throughout: label → control → message, 8px spacing, 10px radii,
    a 1px border, and shadows soft enough to be felt rather than seen.
@@ -321,93 +321,6 @@
   font-weight: 600;
   line-height: var(--lh-snug);
   color: #a33026;
-}
-
-/* --------------------------------------------------------------------------
-   "or" divider & demo entry
-   -------------------------------------------------------------------------- */
-
-.divider {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  margin-block: var(--s-3);
-  color: var(--text-secondary-strong);
-}
-
-.divider::before,
-.divider::after {
-  content: '';
-  flex: 1;
-  block-size: 1px;
-  background: var(--border);
-}
-
-.divider__label {
-  font-size: var(--t-label);
-  font-weight: 500;
-}
-
-.demo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--s-3);
-}
-
-.demo .btn {
-  margin-block-start: 0;
-}
-
-/* The demo entry reads as a deliberate second path, not a disabled primary:
-   a compass marks it as "explore", and the amber pill echoes the DEMO DATA
-   badge used across the app. */
-.demo__btn {
-  font-weight: 600;
-}
-
-.demo__icon {
-  color: var(--teal-600);
-}
-
-.demo__help {
-  font-size: var(--t-meta);
-  line-height: var(--lh-snug);
-  color: var(--text-secondary-deep);
-  text-align: center;
-}
-
-/* Same recipe as .top-bar__demo, so "Demo environment" reads as the wink it is
-   rather than a status. */
-.demo-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border: 1px solid #f0c36a;
-  border-radius: var(--r-pill);
-  background: #fff7e6;
-  color: #8a5b00;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.demo-pill__dot {
-  flex: none;
-  inline-size: 6px;
-  block-size: 6px;
-  border-radius: 50%;
-  background: #b45309;
-}
-
-.trust {
-  font-size: var(--t-caption);
-  line-height: var(--lh-body);
-  color: var(--text-secondary-deep);
-  text-align: center;
 }
 
 /* --------------------------------------------------------------------------

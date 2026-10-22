@@ -28,7 +28,7 @@ export function EvidenceChip({ source, onOpen }: Props) {
       type="button"
       className="chat-cite"
       onClick={() => onOpen(sourceId)}
-      aria-label={`Open evidence source: ${source.label} (demo reference)`}
+      aria-label={`Open evidence source: ${source.label}`}
     >
       <FileIcon size={12} />
       <span className="chat-cite__label">{source.label}</span>
@@ -54,24 +54,13 @@ export function EvidenceChipRow({
             type="button"
             className="chat-source-chip"
             onClick={() => onOpen(id)}
-            aria-label={`Open evidence source: ${chipLabel(id)} (demo reference)`}
+            aria-label={`Open evidence source: ${id}`}
           >
             <FileIcon size={13} />
-            {chipLabel(id)}
+            {id}
           </button>
         ))}
       </div>
     </div>
   )
-}
-
-const LABELS: Record<string, string> = {
-  'accident-report': 'Accident Report',
-  'vehicle-photos': 'Vehicle Photos',
-  'customer-statement': 'Customer Statement',
-  'policy-documents': 'Policy Document',
-}
-
-function chipLabel(id: string): string {
-  return LABELS[id] ?? id
 }

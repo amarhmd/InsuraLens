@@ -197,7 +197,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Profile panel — the neutral demo-identity menu under the sidebar user card
+   Profile panel — the account menu under the sidebar user card
    -------------------------------------------------------------------------- */
 
 .pfm {
@@ -257,26 +257,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   margin: 0;
-}
-
-.pfm__badge {
-  flex: none;
-  margin-top: 2px;
-  padding: 2px 8px;
-  border: 1px solid #f0c36a;
-  border-radius: var(--r-pill);
-  background: #fff7e6;
-  color: #8a5b00;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.pfm__note {
-  margin: 10px 0 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--text-secondary);
 }
 
 .pfm__footer {
@@ -349,14 +329,19 @@
   background-repeat: no-repeat, no-repeat;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 10px 30px rgba(15, 42, 68, 0.18);
+    0 10px 30px rgba(15, 42, 68, 0.18),
+    /* Page-coloured ring covering the 16px float margin, so scrolling content
+       never shows through the gap around the bar. Last stop = painted behind
+       the drop shadow, which therefore still reads on top of it. */
+    0 0 0 16px var(--bg-page);
   transition: box-shadow var(--t-base) var(--ease);
 }
 
 .top-bar--scrolled {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 14px 38px rgba(15, 42, 68, 0.34);
+    0 14px 38px rgba(15, 42, 68, 0.34),
+    0 0 0 16px var(--bg-page);
 }
 
 .top-bar__start,
@@ -393,32 +378,6 @@
 .notif__trigger:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px #7de9db;
-}
-
-/* Amber DEMO DATA pill, restyled for the dark gradient surface — a translucent
-   amber wash that keeps the light-amber label at AA over the teal end. */
-.top-bar__demo {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border: 1px solid rgba(250, 204, 117, 0.55);
-  border-radius: var(--r-pill);
-  background: rgba(124, 74, 6, 0.34);
-  color: #ffe6b0;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.top-bar__demo-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ffca6b;
-  flex: none;
 }
 
 /* Breadcrumb trail on the dark bar: parents and separators step back to 65%
@@ -563,9 +522,58 @@
 
 .notif__item {
   display: flex;
-  gap: 10px;
-  padding: 12px 14px;
+  align-items: flex-start;
   border-block-end: 1px solid var(--border);
+}
+
+.notif__item:hover {
+  background: var(--surface-soft);
+}
+
+/* The row body is a real button, so it is keyboard reachable; the dismiss
+   control sits beside it rather than nested inside it. */
+.notif__main {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.notif__main:focus-visible,
+.notif__dismiss:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.notif__dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin: 9px 8px 0 0;
+  border-radius: var(--r-xs);
+  color: var(--text-secondary);
+  opacity: 0.55;
+  transition: opacity var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+
+.notif__item:hover .notif__dismiss,
+.notif__dismiss:focus-visible {
+  opacity: 1;
+}
+
+.notif__dismiss:hover {
+  background: var(--surface-soft);
+  color: var(--text-primary);
 }
 
 .notif__item:last-child {
@@ -655,6 +663,21 @@
   color: var(--text-secondary);
 }
 
+/* Loading / fetch-failure notices inside the panel. */
+.notif__state {
+  padding: 22px 16px;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.notif__state--error {
+  padding: 10px 14px;
+  text-align: left;
+  color: var(--error);
+  border-block-end: 1px solid var(--border);
+}
+
 /* --------------------------------------------------------------------------
    Page header — title + optional subtitle live in the content area
    -------------------------------------------------------------------------- */
@@ -684,6 +707,23 @@
   margin-top: 4px;
   font-size: var(--fs-sm);
   color: var(--text-secondary);
+}
+
+/* Human-in-the-loop badge — sits under the Claims Overview subtitle only.
+   .page-head already carries 20px below itself, so the -10px pulls this to a
+   10px gap under the subtitle and leaves 20px before the content below. */
+.human-review-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: -10px;
+  margin-bottom: var(--s-5);
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f766e;
+  background: #e6f7f4;
+  border: 1px solid #99e0d3;
+  border-radius: 999px;
 }
 
 .page-head__actions {
@@ -1292,13 +1332,5 @@
 
   .claim-status__label {
     width: 120px;
-  }
-}
-
-@media (max-width: 480px) {
-  /* Keep the compact bar from crowding: drop the demo marker, keep the
-     controls. (Parent breadcrumb segments already hide at 900px.) */
-  .top-bar__demo {
-    display: none;
   }
 }
