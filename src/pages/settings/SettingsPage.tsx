@@ -7,7 +7,7 @@ import { BellIcon } from '../../components/layout/icons'
 import { SparkleIcon, UserIcon } from '../../components/ui/icons'
 import { useSettingsValue } from '../../hooks/useSettingsValue'
 import { saveSettings, type Settings } from '../../lib/settingsStore'
-import { useIdentity } from '../../lib/identity'
+import { identityFallbackLabel, useIdentityState } from '../../lib/identity'
 import { SettingsNav, type NavSection } from './SettingsNav'
 import { ProfileSettings } from './ProfileSettings'
 import { NotificationSettings } from './NotificationSettings'
@@ -32,7 +32,8 @@ export function SettingsPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const settings = useSettingsValue()
-  const identity = useIdentity()
+  const { identity, status } = useIdentityState()
+  const noSession = !identity && status !== 'loading'
 
   /* The session user (GET /api/auth/me), already carrying any locally saved
      Edit Profile override, is the base; the stored profile only fills the
@@ -63,8 +64,9 @@ export function SettingsPage() {
   }, [])
 
   const persist = useCallback((patch: Partial<Settings>, message: string) => {
-    saveSettings(patch)
+    if (!saveSettings(patch)) return false
     setToast(message)
+    return true
   }, [])
 
   return (
@@ -91,6 +93,8 @@ export function SettingsPage() {
                 <section id="settings-profile" className="st-panel" aria-label="My Profile">
                   <ProfileSettings
                     value={profileValue}
+                    noSession={noSession}
+                    noSessionLabel={identityFallbackLabel(status)}
                     onSave={(next, message) => persist({ profile: next }, message)}
                   />
                 </section>

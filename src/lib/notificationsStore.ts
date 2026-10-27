@@ -16,10 +16,9 @@
    re-polling never re-adds (or re-badges) something already seen.
    ========================================================================== */
 
-import type { AppNotification, NotificationSeed, NotificationType } from './notifications'
+import type { AppNotification, NotificationSeed } from './notifications'
 import { toNotification } from './notifications'
 import { markAllNotificationsRead, markNotificationRead } from '../api/notifications'
-import { getSettings, subscribeSettings } from './settingsStore'
 
 /** Newest-first cap, so the inbox cannot grow without bound. */
 const MAX_ITEMS = 50
@@ -125,38 +124,9 @@ export function ensureHydrated(): void {
 /* Subscription (useSyncExternalStore)                                 */
 /* ------------------------------------------------------------------ */
 
-/**
- * The notification types the Settings switches hide from the bell.
- *
- * Each switch maps onto the types the data can honestly distinguish:
- * - `claimAssigned` ("new claim routed to you") → `claim_created`
- * - `needsReview` ("awaiting your decision") → `analysis_completed`,
- *   `analysis_failed` (the two states whose findings a reviewer must act on)
- *
- * There is no stage/assignee field on a server row, so `status_changed`,
- * `info_requested`, `review_completed`, etc. cannot be split further — they
- * are never hidden rather than guessed at.
- */
-function hiddenTypes(): Set<NotificationType> | null {
-  const settings = getSettings().notifications
-  if (settings.claimAssigned && settings.needsReview) return null
-  const hidden = new Set<NotificationType>()
-  if (!settings.claimAssigned) hidden.add('claim_created')
-  if (!settings.needsReview) {
-    hidden.add('analysis_completed')
-    hidden.add('analysis_failed')
-  }
-  return hidden
-}
-
 function recompute(): void {
-  const hidden = hiddenTypes()
-  /* The snapshot the bell reads is filtered; the underlying `items` array is
-     not, so toggling a switch back on restores those rows with their read
-     state intact. */
-  const visible = hidden ? items.filter((n) => !hidden.has(n.type)) : items
-  const unreadIds = visible.filter((n) => !readIds.has(n.id)).map((n) => n.id)
-  cached = { items: visible, unread: unreadIds.length, unreadIds }
+  const unreadIds = items.filter((n) => !readIds.has(n.id)).map((n) => n.id)
+  cached = { items, unread: unreadIds.length, unreadIds }
 }
 
 function emit(): void {
@@ -308,11 +278,6 @@ export function setLastPollAt(value: number): void {
 /* ------------------------------------------------------------------ */
 
 if (typeof window !== 'undefined') {
-  /* Settings switches filter the snapshot (see hiddenTypes), so a save must
-     re-emit — the bell list and badge update without a reload. */
-  subscribeSettings(() => {
-    if (hydrated) emit()
-  })
   window.addEventListener('storage', (event) => {
     if (!event.key || !event.key.startsWith(STORAGE_PREFIX)) return
     hydrated = false

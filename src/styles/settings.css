@@ -367,6 +367,22 @@
   color: var(--text-secondary-strong);
 }
 
+.st-toggle--disabled .st-toggle__label {
+  cursor: default;
+}
+
+.st-toggle__unavailable {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary-strong);
+}
+
 /* 44px hit target wrapping the smaller visible track. */
 .st-switch {
   position: relative;
@@ -380,6 +396,14 @@
   border: 0;
   background: none;
   cursor: pointer;
+}
+
+.st-switch:disabled {
+  cursor: not-allowed;
+}
+
+.st-switch:disabled .st-switch__track {
+  opacity: 0.55;
 }
 
 .st-switch:focus-visible {
@@ -754,6 +778,29 @@
   box-shadow: 0 18px 40px -26px rgba(15, 42, 68, 0.7);
 }
 
+.st-profile--empty {
+  display: block;
+}
+
+.st-profile__empty {
+  min-width: 0;
+}
+
+.st-profile__empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #ffffff;
+}
+
+.st-profile__empty-note {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+  overflow-wrap: anywhere;
+}
+
 .st-avatar {
   display: grid;
   place-items: center;
@@ -787,6 +834,7 @@
   font-weight: 600;
   line-height: 1.2;
   color: #ffffff;
+  overflow-wrap: anywhere;
 }
 
 .st-profile__email {
@@ -800,6 +848,14 @@
   margin-top: 4px;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.72);
+  overflow-wrap: anywhere;
+}
+
+.st-profile__title {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
+  overflow-wrap: anywhere;
 }
 
 .st-profile__chips {
@@ -1143,6 +1199,17 @@
   font-size: 12.5px;
   font-weight: 600;
   color: var(--teal-700);
+}
+
+.st-save__error {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid #d92d20;
+  border-radius: 8px;
+  background: #fff4f3;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #912018;
 }
 
 /* Highlighted reminder inside the AI Review Preferences card — not a control.

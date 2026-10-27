@@ -121,12 +121,19 @@ function fromApi(c, evidenceItems = 0) {
     status: STAGE_TO_STATUS[c.stage] ?? 'new',
     updatedLabel: formatAgo(updatedMinutes),
     updatedMinutes,
+    updatedAt: c.updatedAt ?? c.updated_at ?? null,
     description: c.description ?? '',
     /* Extra backend fields the UI may use later. */
     vehicle: c.vehicle,
     estimatedAmount: c.estimatedAmount ?? null,
     inconsistencyFlag: Boolean(c.inconsistencyFlag),
     decision: c.status, // PENDING | APPROVED | MORE_INFO_REQUIRED
+    /* Claim-level AI fields used by the workspace mapper/card. */
+    damageSummary: c.damageSummary ?? null,
+    analysisState: c.analysisState ?? null,
+    analysisId: c.analysisId ?? c.analysis_id ?? null,
+    analysisError: c.analysisError ?? c.analysis_error ?? c.errorMessage ?? c.error_message ?? null,
+    coverageStatus: c.coverageStatus ?? null,
   }
 }
 
@@ -262,6 +269,81 @@ export async function reviewClaim(id, action) {
  */
 export async function analyzeClaim(id) {
   return request(`/api/claims/${encodeURIComponent(id)}/analyze`, { method: 'POST' })
+}
+
+/**
+ * Trigger AI analysis via a direct n8n webhook (frontend-initiated).
+ * Reads URL/method from Vite env vars. Never logs the URL.
+ *
+ * @param {string} claimId
+ * @param {{ signal?: AbortSignal }} [options]
+ * @returns {Promise<any>}
+ */
+export async function triggerAnalysisWebhook(claimId, options = {}) {
+  const webhookUrl = import.meta.env.VITE_ANALYSIS_WEBHOOK_URL
+  if (!webhookUrl || String(webhookUrl).trim() === '') {
+    throw new ApiError('Analysis is not configured', { status: 0, code: 'analysis_not_configured' })
+  }
+
+  const method = String(import.meta.env.VITE_ANALYSIS_WEBHOOK_METHOD || 'POST').toUpperCase()
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 120_000)
+  const signal = options.signal || controller.signal
+
+  try {
+    if (method === 'GET') {
+      const url = new URL(webhookUrl)
+      url.searchParams.set('claimId', claimId)
+      const res = await fetch(url.toString(), { method: 'GET', signal })
+      if (!res.ok) {
+        throw new ApiError(`Webhook request failed (${res.status})`, { status: res.status, code: `http_${res.status}` })
+      }
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        try {
+          return await res.json()
+        } catch {
+          return null
+        }
+      }
+      try {
+        return await res.text()
+      } catch {
+        return null
+      }
+    } else {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimId }),
+        signal,
+      })
+      if (!res.ok) {
+        throw new ApiError(`Webhook request failed (${res.status})`, { status: res.status, code: `http_${res.status}` })
+      }
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        try {
+          return await res.json()
+        } catch {
+          return null
+        }
+      }
+      try {
+        return await res.text()
+      } catch {
+        return null
+      }
+    }
+  } catch (cause) {
+    if (cause instanceof ApiError) throw cause
+    if (cause instanceof Error && cause.name === 'AbortError') {
+      throw new ApiError('The analysis request timed out.', { status: 0, code: 'timeout', details: cause })
+    }
+    throw new ApiError('Could not reach the analysis service.', { status: 0, code: 'network_error', details: cause })
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 /**

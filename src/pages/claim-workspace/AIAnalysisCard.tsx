@@ -19,17 +19,25 @@ const COVERAGE_TONE: Record<AnalysisCoverage, BadgeTone> = {
 const CLAMP_LIMIT = 80
 
 type AIAnalysisCardProps = {
-  /** The mapped analysis — the only thing this card ever renders. */
+  /** The mapped analysis, shown only once this claim's analysis has run. */
   result: AnalysisResult
-  /** A run is in flight — show the skeleton instead of the settled result. */
+  /**
+   * Whether the user has run the analysis for THIS claim (local, per-claim
+   * state). Until it is true the card shows the empty state — even when the API
+   * already carries a summary saved by an earlier, out-of-band run.
+   */
+  hasRunAnalysis: boolean
+  /** A run started from this page is in flight — show the skeleton. */
   running: boolean
+  /** Disable Run while any page action is in flight (same condition as header). */
+  disabled: boolean
   /** Live status line from the current run (kept after it settles). */
   status: string | null
-  /** Cleaned failure text from the current run, when the claim's own analysis
-      does not carry one yet (e.g. the run could not even start). */
+  /** Failure text from the current run (includes the server message when it
+      sent one). */
   runError: string | null
-  /** Retry performs the same action as the header's "Run AI analysis". */
-  onRetry?: () => void
+  /** Starts the analysis — the same action as the header's Run button. */
+  onRun?: () => void
   /** Show the AI-GENERATED · VERIFY tag (same preference as the other AI UI). */
   showBadges: boolean
 }
@@ -74,39 +82,51 @@ function ClampBlock({
  * payload, or from the legacy analysis, by src/lib/analysisResult.ts and
  * src/api/claimWorkspace.ts) — the raw payload never reaches this component.
  *
- * States: empty (never run), loading (skeleton while the header's Run action
- * is in flight), success ("Analyzed" badge), and failed (cleaned message +
- * Retry inside this card — any output the run did produce stays visible).
- * A denied recommendation is a red-tinted hint, never a decision: AI output
- * never approves, confirms or dismisses anything; the final call stays with
- * the reviewer.
+ * Output is gated by `hasRunAnalysis`: a claim that already carries a saved
+ * summary but has not been analysed here still shows the empty state, exactly
+ * like a brand-new claim. Only after a run succeeds does the result appear.
+ *
+ * States: empty (never run), loading (skeleton while the run is in flight),
+ * success ("Analyzed" badge, only when a summary is visible), and failed (the
+ * error — including the server message — plus the Run/Re-run button, so a
+ * retry is always one click away). A denied recommendation is a red-tinted
+ * hint, never a decision: AI output never approves, confirms or dismisses
+ * anything; the final call stays with the reviewer.
  */
 export function AIAnalysisCard({
   result,
+  hasRunAnalysis,
   running,
+  disabled,
   status,
   runError,
-  onRetry,
+  onRun,
   showBadges,
 }: AIAnalysisCardProps) {
-  const loading = running || result.status === 'loading'
+  /* A saved `running` state is not a run started here: only `running` (this
+     page's active run) may show the skeleton. */
+  const loading = running
+  /* A stored backend error is safe, plain text and should be visible even
+     before this session starts a run. A bare old `failed` state stays hidden
+     until the user actually runs it. */
   const failedMessage =
     runError ??
-    (result.status === 'failed'
-      ? 'The analysis did not finish. Check the evidence and run it again.'
+    (!running && result.status === 'failed'
+      ? result.error ?? (hasRunAnalysis ? 'The analysis did not finish. Check the evidence and run it again.' : null)
       : null)
-  /* A failed run may still have produced usable output (e.g. the detected
-     damage text) — keep showing it above the fold; only the badge stays off. */
+  /* Only output from a run started here is shown. The summary is trimmed so
+     blank strings never render as an empty paragraph. */
+  const summary = hasRunAnalysis ? (result.damageSummary?.trim() ?? '') : ''
+  const hasOutput =
+    Boolean(summary) ||
+    Boolean(result.assessment) ||
+    Boolean(result.proposedDecision) ||
+    result.inconsistency.flagged
+  /* A failed run may still have produced usable output — keep showing it;
+     only the badge stays off. */
   const showResult =
-    result.status === 'success' ||
-    (result.status === 'failed' &&
-      Boolean(
-        result.damageSummary ||
-          result.assessment ||
-          result.proposedDecision ||
-          result.inconsistency.flagged,
-      ))
-  const decision = result.proposedDecision
+    hasRunAnalysis && (result.status === 'success' || (result.status === 'failed' && hasOutput))
+  const decision = showResult ? result.proposedDecision : null
 
   return (
     <section className="cw-card cw-section cw-ai" id="cw-ai-analysis" aria-labelledby="cw-ai-title">
@@ -116,7 +136,8 @@ export function AIAnalysisCard({
           AI analysis
         </h2>
         <span className="cw-ai__head-end">
-          {showResult && result.status === 'success' && !loading && (
+          {/* Badge only when the summary it claims to describe is on screen. */}
+          {showResult && Boolean(summary) && !loading && (
             <span className="cw-badge cw-badge--supported">Analyzed</span>
           )}
           {showBadges && <span className="cw-tag">AI-GENERATED · VERIFY</span>}
@@ -128,8 +149,8 @@ export function AIAnalysisCard({
         {status ?? (running ? 'Running the analysis…' : '')}
       </p>
 
-      {/* Failure lives here, never in the page header — and always as a clean
-          sentence; raw backend errors are replaced in the mapper. */}
+      {/* Failure lives here, never in the page header. The Run button below
+          stays enabled, so the retry never depends on a second control. */}
       {failedMessage && (
         <div className="cw-ai__alert" role="alert">
           <AlertTriangleIcon size={18} className="cw-ai__alert-icon" />
@@ -137,14 +158,6 @@ export function AIAnalysisCard({
             <p className="cw-ai__alert-title">Analysis could not be completed</p>
             <p className="cw-ai__alert-text">{failedMessage}</p>
           </div>
-          <button
-            type="button"
-            className="cw-btn cw-btn--secondary"
-            onClick={onRetry}
-            disabled={running}
-          >
-            Retry
-          </button>
         </div>
       )}
 
@@ -154,21 +167,21 @@ export function AIAnalysisCard({
           <div className="cw-ai__skeleton cw-ai__skeleton--short" />
           <div className="cw-ai__skeleton cw-ai__skeleton--short" />
         </div>
-      ) : result.status === 'empty' ? (
-        <div className="cw-ai__empty">
-          <p>Run AI analysis to see findings.</p>
-          <p className="cw-muted">
-            The analysis reviews the uploaded evidence against the policy document.
-          </p>
-        </div>
       ) : showResult ? (
         <>
-          {result.damageSummary && (
+          {summary ? (
             <ClampBlock
               label="Damage summary"
-              text={result.damageSummary}
+              text={summary}
               closedLabel="Show full summary"
             />
+          ) : (
+            <div className="cw-ai__empty">
+              <p>No findings returned</p>
+              <p className="cw-muted">
+                The analysis finished without a written summary. You can run it again.
+              </p>
+            </div>
           )}
 
           {result.inconsistency.flagged && (
@@ -215,9 +228,27 @@ export function AIAnalysisCard({
           )}
         </>
       ) : (
-        /* Nothing usable to show — the alert above carries the message and
-           the Retry button. */
-        null
+        <div className="cw-ai__empty">
+          <p>Run AI analysis to see findings.</p>
+          <p className="cw-muted">
+            The analysis reviews the uploaded evidence against the policy document.
+          </p>
+        </div>
+      )}
+
+      {/* One Run/Re-run control for the card, disabled for the whole run just
+          like the header's button. */}
+      {onRun && (
+        <div className="cw-ai__actions">
+          <button
+            type="button"
+            className="cw-btn cw-btn--secondary"
+            onClick={onRun}
+            disabled={disabled || running}
+          >
+            {showResult ? 'Re-run analysis' : 'Run AI analysis'}
+          </button>
+        </div>
       )}
     </section>
   )

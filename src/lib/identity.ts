@@ -17,9 +17,19 @@ export interface Identity {
   name: string
   role: string
   email: string
+  /** Local display name override; the sidebar/menu fall back to name. */
+  displayName?: string
+  /** Local job title override; the sidebar/menu fall back to role. */
+  jobTitle?: string
 }
 
 export type IdentityStatus = 'loading' | 'ready' | 'error'
+
+/** Shared fallback label for the sidebar, profile menu, and profile card. */
+export function identityFallbackLabel(status: IdentityStatus): string {
+  if (status === 'loading') return 'Loading account…'
+  return status === 'error' ? 'Account unavailable' : 'Not signed in'
+}
 
 interface IdentityState {
   identity: Identity | null
@@ -93,17 +103,26 @@ const listeners = new Set<() => void>()
 
 /**
  * The session user with the locally saved profile override (Edit Profile on
- * #/settings) applied to name and email, so the sidebar, the profile menu, and
- * the Settings card all show the same person and a saved edit reaches every
- * surface at once. Signed out → null: no identity is ever fabricated.
+ * #/settings) applied to full name, email, display name, and job title. `name`
+ * stays the full name; the sidebar/menu choose the display name separately.
+ * Signed out → null: no identity is ever fabricated.
  */
 function displayIdentity(raw: Identity | null): Identity | null {
   if (!raw) return null
   const local = getSettings().profile
   const name = local.fullName || raw.name
   const email = local.email || raw.email
-  if (name === raw.name && email === raw.email) return raw
-  return { ...raw, name, email }
+  const displayName = local.displayName.trim() || name
+  const jobTitle = local.jobTitle.trim() || raw.jobTitle || ''
+  if (
+    name === raw.name &&
+    email === raw.email &&
+    displayName === (raw.displayName ?? raw.name) &&
+    jobTitle === (raw.jobTitle ?? '')
+  ) {
+    return raw
+  }
+  return { ...raw, name, email, displayName, jobTitle }
 }
 
 /** Replace the raw session identity and refresh the displayed view. */

@@ -105,8 +105,12 @@ type ToggleProps = {
   id: string
   /** Id of the element that names this switch. */
   labelId: string
+  /** Ids of the hint/unavailable text that describes this switch. */
+  describedBy?: string
   checked: boolean
   onChange: (next: boolean) => void
+  /** Rendered disabled when the app has no data to back the setting yet. */
+  disabled?: boolean
 }
 
 /**
@@ -115,7 +119,14 @@ type ToggleProps = {
  * aria-checked state screen readers announce, and a text state for assistive
  * technology — so it never depends on colour alone.
  */
-function Toggle({ id, labelId, checked, onChange }: ToggleProps) {
+function Toggle({
+  id,
+  labelId,
+  describedBy,
+  checked,
+  onChange,
+  disabled = false,
+}: ToggleProps) {
   return (
     <button
       type="button"
@@ -124,6 +135,8 @@ function Toggle({ id, labelId, checked, onChange }: ToggleProps) {
       className={cx('st-switch', checked && 'st-switch--on')}
       aria-checked={checked}
       aria-labelledby={labelId}
+      aria-describedby={describedBy}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
     >
       <span className="st-switch__track" aria-hidden="true">
@@ -142,13 +155,35 @@ type ToggleRowProps = {
   icon?: ReactNode
   checked: boolean
   onChange: (next: boolean) => void
+  /** Rendered disabled when the app has no data to back the setting yet. */
+  disabled?: boolean
+  /** Adds an accessible "Not available yet" note next to the hint. */
+  unavailable?: boolean
 }
 
-export function ToggleRow({ id, label, hint, icon, checked, onChange }: ToggleRowProps) {
+export function ToggleRow({
+  id,
+  label,
+  hint,
+  icon,
+  checked,
+  onChange,
+  disabled = false,
+  unavailable = false,
+}: ToggleRowProps) {
   const labelId = `${id}-label`
+  const hintId = hint ? id + '-hint' : undefined
+  const unavailableId = unavailable ? id + '-unavailable' : undefined
+  const describedBy = [hintId, unavailableId].filter(Boolean).join(' ') || undefined
   const hasIcon = icon != null
   return (
-    <div className={cx('st-toggle', hasIcon && 'st-toggle--with-icon')}>
+    <div
+      className={cx(
+        'st-toggle',
+        hasIcon && 'st-toggle--with-icon',
+        disabled && 'st-toggle--disabled',
+      )}
+    >
       {hasIcon && (
         <span className="st-toggle__icon" aria-hidden="true">
           {icon}
@@ -158,9 +193,25 @@ export function ToggleRow({ id, label, hint, icon, checked, onChange }: ToggleRo
         <span className="st-toggle__label" id={labelId}>
           {label}
         </span>
-        {hint && <p className="st-toggle__hint">{hint}</p>}
+        {hint && (
+          <p className="st-toggle__hint" id={hintId}>
+            {hint}
+          </p>
+        )}
+        {unavailable && (
+          <span className="st-toggle__unavailable" id={unavailableId}>
+            Not available yet
+          </span>
+        )}
       </div>
-      <Toggle id={id} labelId={labelId} checked={checked} onChange={onChange} />
+      <Toggle
+        id={id}
+        labelId={labelId}
+        describedBy={describedBy}
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+      />
     </div>
   )
 }
@@ -187,7 +238,15 @@ export function useSavedFlash(duration = 1600) {
     timer.current = window.setTimeout(() => setSaved(false), duration)
   }
 
-  return { saved, flash }
+  const clear = () => {
+    if (timer.current !== null) {
+      window.clearTimeout(timer.current)
+      timer.current = null
+    }
+    setSaved(false)
+  }
+
+  return { saved, flash, clear }
 }
 
 /**
@@ -198,6 +257,19 @@ export function SavedStatus({ visible }: { visible: boolean }) {
   return (
     <p className="st-saved" role="status" aria-live="polite">
       {visible ? 'Saved' : ''}
+    </p>
+  )
+}
+
+/**
+ * Live error for a refused storage write. The caller keeps the draft dirty so
+ * the value on screen is never mistaken for something that was persisted.
+ */
+export function SaveError({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <p className="st-save__error" role="alert">
+      {message}
     </p>
   )
 }

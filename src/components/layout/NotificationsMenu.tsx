@@ -138,7 +138,12 @@ export function NotificationsMenu() {
             loading ? (
               <p className="notif__state">Loading notifications…</p>
             ) : error ? (
-              <p className="notif__state notif__state--error">{error}</p>
+              <div className="notif__empty" role="alert">
+                <p className="notif__state notif__state--error">Could not load notifications.</p>
+                <button type="button" className="notif__mark" onClick={refresh}>
+                  Retry
+                </button>
+              </div>
             ) : (
               <p className="notif__empty">
                 <InboxIcon size={22} />

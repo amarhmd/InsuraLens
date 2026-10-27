@@ -47,6 +47,11 @@ export interface EvidenceItem {
   id: string
   label: string
   kind: EvidenceKind
+  mimeType?: string
+  /** Authenticated backend file path, when the backend did not publish a CDN URL. */
+  url?: string
+  /** Public CDN URL, when the backend publishes one. */
+  publicUrl?: string
 }
 
 export interface PolicyRow {
@@ -58,6 +63,14 @@ export interface PolicyRow {
 export interface SummaryItem {
   label: string
   value: string
+}
+
+/** Identity/state of the backend's current analysis row, used for polling. */
+export interface AnalysisMeta {
+  id: string | null
+  updatedAt: string | number | null
+  state: string | null
+  error: string | null
 }
 
 export interface Badge {
@@ -93,6 +106,8 @@ export interface ClaimWorkspaceData {
   damage: DamageZone[]
   /** Everything the AI analysis card renders — see AnalysisResult. */
   analysis: AnalysisResult
+  /** Identity/state of the analysis row at load time — the polling baseline. */
+  analysisMeta: AnalysisMeta
   policy: PolicyRow[]
 }
 

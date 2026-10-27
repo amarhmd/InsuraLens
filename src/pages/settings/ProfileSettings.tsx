@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { UserIcon } from '../../components/ui/icons'
 import { initials, validateProfile, type Profile, type ProfileErrors } from '../../lib/settingsStore'
-import { SectionHeader, SettingsGroup, SettingsSaveBar, useDraft } from './settingsKit'
+import { SaveError, SectionHeader, SettingsGroup, SettingsSaveBar, useDraft } from './settingsKit'
 
 type Props = {
   value: Profile
-  onSave: (next: Profile, toastMessage: string) => void
+  onSave: (next: Profile, toastMessage: string) => boolean
+  /** True once identity loading has settled with no session. */
+  noSession?: boolean
+  /** Same fallback label the sidebar/profile menu use for this state. */
+  noSessionLabel?: string
 }
 
 const FIELDS: Array<{
@@ -23,7 +27,7 @@ const FIELDS: Array<{
     required: false,
     type: 'text',
     autoComplete: 'nickname',
-    help: 'Optional. Shown instead of your full name where the workspace displays a nickname.',
+    help: 'Optional. Shown instead of your full name in the sidebar and profile menu.',
   },
   { key: 'jobTitle', label: 'Job Title', required: true, type: 'text', autoComplete: 'organization-title' },
   {
@@ -41,18 +45,26 @@ const FIELDS: Array<{
  * the edit form works on a draft that only reaches the store on Save, so
  * Cancel genuinely discards.
  */
-export function ProfileSettings({ value, onSave }: Props) {
+export function ProfileSettings({
+  value,
+  onSave,
+  noSession = false,
+  noSessionLabel = 'Account unavailable',
+}: Props) {
   const [editing, setEditing] = useState(false)
   const [errors, setErrors] = useState<ProfileErrors>({})
+  const [saveError, setSaveError] = useState<string | null>(null)
   const { draft, setDraft, patch, dirty } = useDraft(value)
 
   const cancel = () => {
     setErrors({})
+    setSaveError(null)
     setDraft(value)
     setEditing(false)
   }
 
   const save = () => {
+    setSaveError(null)
     const found = validateProfile(draft)
     setErrors(found)
     const firstInvalid = (Object.keys(found) as Array<keyof ProfileErrors>)[0]
@@ -60,7 +72,7 @@ export function ProfileSettings({ value, onSave }: Props) {
       document.getElementById(`profile-${firstInvalid}`)?.focus()
       return
     }
-    onSave(
+    const stored = onSave(
       {
         ...draft,
         fullName: draft.fullName.trim(),
@@ -70,10 +82,39 @@ export function ProfileSettings({ value, onSave }: Props) {
       },
       'Profile saved to this browser',
     )
+    if (!stored) {
+      setSaveError(
+        'Could not save your profile. Browser storage is unavailable, so your changes are still here.',
+      )
+      return
+    }
+    setSaveError(null)
     setEditing(false)
   }
 
-  const aka = draft.displayName.trim()
+  const aka = value.displayName.trim()
+  const jobTitle = value.jobTitle.trim()
+
+  if (noSession) {
+    return (
+      <>
+        <SectionHeader
+          icon={<UserIcon size={20} />}
+          title="My Profile"
+          description="Manage the personal information associated with your InsuraLens workspace."
+        />
+
+        <div className="st-profile st-profile--empty">
+          <div className="st-profile__empty" role="status">
+            <p className="st-profile__empty-title">{noSessionLabel}</p>
+            <p className="st-profile__empty-note">
+              No active session. Sign in to view your profile.
+            </p>
+          </div>
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
@@ -94,6 +135,7 @@ export function ProfileSettings({ value, onSave }: Props) {
           {aka && aka !== value.fullName && (
             <p className="st-profile__aka">Display name: {aka}</p>
           )}
+          {jobTitle && <p className="st-profile__title">Job title: {jobTitle}</p>}
         </div>
         <div className="st-profile__chips">
           <span className="st-chip">{value.role}</span>
@@ -155,6 +197,7 @@ export function ProfileSettings({ value, onSave }: Props) {
             </div>
           </SettingsGroup>
           <SettingsSaveBar dirty={dirty} onSave={save} onCancel={cancel} />
+          <SaveError message={saveError} />
         </>
       ) : (
         <p className="st-hint">

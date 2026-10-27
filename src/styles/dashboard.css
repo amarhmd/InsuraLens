@@ -167,12 +167,18 @@
   font-size: 14px;
   color: #ffffff; /* full white, not translucent: AA over the teal glow foot */
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar__user-role {
   font-size: 13px;
   color: #ffffff; /* full white: 0.82 white falls below 4.5:1 here */
   line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar__user-menu {
@@ -240,6 +246,9 @@
   color: var(--text-primary);
   line-height: 1.3;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pfm__role {
@@ -247,6 +256,9 @@
   color: var(--text-secondary);
   line-height: 1.35;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pfm__email {

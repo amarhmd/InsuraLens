@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { initials } from '../../lib/settingsStore'
-import { clearIdentity, useIdentityState } from '../../lib/identity'
+import { clearIdentity, identityFallbackLabel, useIdentityState } from '../../lib/identity'
 import { logout } from '../../api/auth'
 import { navigate } from '../../lib/router'
 
@@ -49,24 +49,20 @@ export function ProfileMenu({ onClose }: Props) {
     navigate({ name: 'settings' })
   }
 
-  const name = identity?.name ?? ''
-  const nameLabel =
-    name ||
-    (status === 'loading'
-      ? 'Loading account…'
-      : status === 'error'
-        ? 'Account unavailable'
-        : 'Not signed in')
+  const fullName = identity?.name ?? ''
+  const displayName = identity?.displayName || fullName
+  const nameLabel = displayName || identityFallbackLabel(status)
+  const subtitle = identity?.jobTitle || identity?.role || ''
 
   return (
     <div className="pfm" ref={panelRef}>
       <div className="pfm__identity">
         <span className="pfm__avatar" aria-hidden="true">
-          {name ? initials(name) : '·'}
+          {fullName ? initials(fullName) : '·'}
         </span>
         <div className="pfm__id">
           <p className="pfm__name">{nameLabel}</p>
-          {identity?.role && <p className="pfm__role">{identity.role}</p>}
+          {subtitle && <p className="pfm__role">{subtitle}</p>}
           {identity?.email && <p className="pfm__email">{identity.email}</p>}
         </div>
       </div>

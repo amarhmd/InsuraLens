@@ -78,15 +78,21 @@ export function subscribeAiPrefs(listener: () => void): () => void {
   }
 }
 
-/** Merges a patch into the saved preferences, persists, then notifies. */
-export function saveAiPrefs(patch: Partial<AiPrefs>): void {
-  state = { ...state, ...patch }
+/**
+ * Merges a patch into the saved preferences, persists, then notifies.
+ * Returns false without publishing the patch when the browser refuses the
+ * write, so callers never show "Saved" for a change that was not stored.
+ */
+export function saveAiPrefs(patch: Partial<AiPrefs>): boolean {
+  const next = { ...state, ...patch }
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     }
   } catch {
-    /* Storage unavailable (private mode, quota) — in-memory state still holds. */
+    return false
   }
+  state = next
   listeners.forEach((listener) => listener())
+  return true
 }

@@ -35,6 +35,8 @@ export interface AnalysisResult {
   estimatedAmount?: string
   damageSummary?: string
   assessment?: string
+  /** Persisted backend failure text. Plain text; never a URL. */
+  error?: string
 }
 
 /** Human labels for the proposed decision — shared by the card and the
@@ -111,12 +113,22 @@ export function normalizeCoverage(value: unknown): AnalysisCoverage {
 }
 
 /** Estimated amount → display string: numbers in the app's money style
-    ("$1,250"), strings passed through trimmed; anything else is absent. */
+    ("$1,250"), a bare numeric string converted to the same style, and any
+    other string passed through trimmed; anything else is absent. */
 export function normalizeEstimate(value: unknown): string | undefined {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return `$${value.toLocaleString('en-US')}`
   }
-  return text(value)
+  const raw = text(value)
+  if (!raw) return undefined
+  /* Edge case: the workflow sometimes sends the amount as a plain number in
+     a string ("1200" or "1,200"). Render it as money too. */
+  const digits = raw.replace(/[$,\s]/g, '')
+  if (/^\d+(\.\d+)?$/.test(digits)) {
+    const amount = Number(digits)
+    if (Number.isFinite(amount)) return `$${amount.toLocaleString('en-US')}`
+  }
+  return raw
 }
 
 /* ------------------------------------------------------------------ */
@@ -171,6 +183,8 @@ export function mapAnalysisResult(raw: unknown): AnalysisResult | null {
   if (damageSummary) result.damageSummary = damageSummary
   const assessment = text(fields.claimassessment)
   if (assessment) result.assessment = assessment
+  const error = text(fields.analysiserror ?? fields.error ?? fields.errormessage)
+  if (error) result.error = error
 
   return result
 }

@@ -193,12 +193,12 @@ function buildUrl(path, query) {
  * and a 401 clears the token, re-authenticates, and retries once.
  *
  * @param {string} path e.g. '/api/claims'
- * @param {{ method?: string, body?: unknown, query?: Record<string, string | number | undefined>, headers?: Record<string, string>, signal?: AbortSignal, retries?: number }} [options]
+ * @param {{ method?: string, body?: unknown, query?: Record<string, string | number | undefined>, headers?: Record<string, string>, signal?: AbortSignal, retries?: number, as?: 'auto' | 'blob' }} [options]
  * @returns {Promise<any>}
  */
 export async function request(
   path,
-  { method = 'GET', body, query, headers = {}, signal, retries = 1 } = {},
+  { method = 'GET', body, query, headers = {}, signal, retries = 1, as = 'auto' } = {},
 ) {
   /* Auth endpoints are excluded: they are how a token is obtained, so they must
      never auto-authenticate or retry — that would recurse. */
@@ -226,7 +226,7 @@ export async function request(
   if (response.status === 401 && !isAuthPath && retries > 0) {
     clearToken()
     await ensureToken()
-    return request(path, { method, body, query, headers, signal, retries: retries - 1 })
+    return request(path, { method, body, query, headers, signal, retries: retries - 1, as })
   }
 
   if (!response.ok) {
@@ -244,6 +244,7 @@ export async function request(
   }
 
   if (response.status === 204) return null
+  if (as === 'blob') return response.blob()
   const contentType = response.headers.get('content-type') ?? ''
   if (!contentType.includes('application/json')) return response.text()
   return response.json()

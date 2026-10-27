@@ -9,6 +9,7 @@
 
 import { getClaim } from './claims'
 import type {
+  AnalysisMeta,
   Badge,
   ClaimWorkspaceData,
   DamageZone,
@@ -36,7 +37,10 @@ interface ApiFile {
   kind?: string
   name?: string
   mimeType?: string
+  mime_type?: string
   url?: string
+  publicUrl?: string
+  public_url?: string
 }
 
 interface ApiDamage {
@@ -82,6 +86,7 @@ interface ApiDecision {
 
 interface ApiAnalysis {
   state?: string
+  error?: string
   vision?: { damages?: ApiDamage[] } | null
   policy?: ApiPolicy | null
   decision?: ApiDecision | null
@@ -101,6 +106,11 @@ interface ApiClaimDetail {
   coverageStatus?: string | null
   /** Workflow stage word on the claim row ("failed", "running", …). */
   analysisState?: string
+  /** Persisted backend failure text for the analysis, when present. */
+  analysisError?: string | null
+  /** Backend analysis row identity and update time, when present. */
+  analysisId?: string | null
+  updatedAt?: string | number | null
   /** Analysis summary text persisted on the claim row, when there is one. */
   damageSummary?: string | null
   /** Inconsistency flag persisted on the claim row. */
@@ -113,6 +123,67 @@ interface ApiClaimDetail {
       own payload (an array with one item, or an object with its keys), or
       null — narrowed by `legacyAnalysisOf` / detected by `isWorkflowPayload`. */
   analysis?: unknown
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function stringField(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+  }
+  return null
+}
+
+function dateField(...values: unknown[]): string | number | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return null
+}
+
+/**
+ * Read the current analysis identity from a raw claim detail. The n8n payload
+ * may be an array or an object, and the backend may place the error/meta on
+ * the claim row or inside the analysis object.
+ */
+export function analysisSnapshot(raw: unknown): AnalysisMeta {
+  const detail = asRecord(raw)
+  if (!detail) return { id: null, updatedAt: null, state: null, error: null }
+  const rawAnalysis = detail.analysis
+  const analysis = asRecord(Array.isArray(rawAnalysis) ? rawAnalysis[0] : rawAnalysis)
+
+  return {
+    id: stringField(
+      detail.analysisId,
+      detail.analysis_id,
+      analysis?.analysisId,
+      analysis?.analysis_id,
+      analysis?.id,
+    ),
+    updatedAt: dateField(detail.updatedAt, detail.updated_at),
+    state: stringField(
+      detail.analysisState,
+      detail.analysis_state,
+      analysis?.analysisState,
+      analysis?.analyseState,
+      analysis?.state,
+    ),
+    error: stringField(
+      detail.analysisError,
+      detail.analysis_error,
+      detail.errorMessage,
+      detail.error_message,
+      analysis?.analysisError,
+      analysis?.analysis_error,
+      analysis?.errorMessage,
+      analysis?.error,
+    ),
+  }
 }
 
 /* The n8n workflow's result: an array with one item whose key casing is
@@ -224,11 +295,20 @@ function evidenceCountLabel(count: number): string {
 function toEvidence(files: ApiFile[]): EvidenceItem[] {
   return files
     .filter((file) => file.kind !== 'policy')
-    .map((file, index) => ({
-      id: file.id ?? `file-${index + 1}`,
-      label: file.name?.trim() || `File ${index + 1}`,
-      kind: file.kind === 'image' ? 'photo' : 'document',
-    }))
+    .map((file, index) => {
+      const mimeType = file.mimeType ?? file.mime_type
+      const isImage =
+        (mimeType ?? '').toLowerCase().startsWith('image/') || file.kind === 'image'
+
+      return {
+        id: file.id ?? `file-${index + 1}`,
+        label: file.name?.trim() || `File ${index + 1}`,
+        kind: isImage ? 'photo' : 'document',
+        mimeType,
+        url: file.url?.trim() || undefined,
+        publicUrl: (file.publicUrl ?? file.public_url)?.trim() || undefined,
+      }
+    })
 }
 
 /** The contract-level policy file on the claim, if the backend sent one. */
@@ -345,10 +425,14 @@ function legacyToAnalysisResult(detail: ApiClaimDetail, analysis: ApiAnalysis | 
 
   const estimatedAmount = normalizeEstimate(detail.estimatedAmount)
   if (estimatedAmount) result.estimatedAmount = estimatedAmount
-  const damageSummary = visionDamageSummary(damages) ?? (detail.damageSummary?.trim() || undefined)
+  const rowSummary =
+    typeof detail.damageSummary === 'string' ? detail.damageSummary.trim() : ''
+  const damageSummary = visionDamageSummary(damages) ?? (rowSummary || undefined)
   if (damageSummary) result.damageSummary = damageSummary
   const assessment = analysis?.decision?.summary?.trim() || analysis?.policy?.reasoning?.trim() || undefined
   if (assessment) result.assessment = assessment
+  const storedError = detail.analysisError?.trim() || analysis?.error?.trim()
+  if (storedError) result.error = storedError
 
   return result
 }
@@ -415,6 +499,7 @@ export function mapClaimDetail(detail: ApiClaimDetail): ClaimWorkspaceData {
     evidence,
     damage,
     analysis: toAnalysisResult(detail, legacy),
+    analysisMeta: analysisSnapshot(detail),
     policy: toPolicy(detail, legacy),
   }
 }

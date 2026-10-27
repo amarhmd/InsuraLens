@@ -14,6 +14,7 @@ type Props = {
   onNew: () => void
   onClear: () => void
   onDelete: (id: string) => void
+  deletingId?: string | null
   onRename: (id: string, title: string) => void
   theme: ChatTheme
   onToggleTheme: () => void
@@ -47,6 +48,7 @@ export function ChatTabsBar({
   onNew,
   onClear,
   onDelete,
+  deletingId = null,
   onRename,
   theme,
   onToggleTheme,
@@ -327,6 +329,22 @@ export function ChatTabsBar({
 
                         <button
                           type="button"
+                          className="chat-history__delete"
+                          aria-label="Delete conversation"
+                          title={`Delete “${conv.title}”`}
+                          aria-busy={deletingId === conv.id}
+                          disabled={deletingId !== null}
+                          onClick={() => {
+                            setRowMenu(null)
+                            setHistoryOpen(false)
+                            onDelete(conv.id)
+                          }}
+                        >
+                          <TrashIcon size={14} />
+                        </button>
+
+                        <button
+                          type="button"
                           className="chat-history__more"
                           aria-label={`Options for ${conv.title}`}
                           aria-haspopup="menu"
@@ -358,12 +376,14 @@ export function ChatTabsBar({
                               type="button"
                               role="menuitem"
                               className="chat-menu__item chat-menu__item--danger"
+                              disabled={deletingId !== null}
                               onClick={() => {
                                 setRowMenu(null)
+                                setHistoryOpen(false)
                                 onDelete(conv.id)
                               }}
                             >
-                              <TrashIcon size={14} /> Delete
+                              <TrashIcon size={14} /> Delete conversation
                             </button>
                           </div>
                         )}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { cx } from '../../lib/cx'
 import { getSettings, initials } from '../../lib/settingsStore'
-import { useIdentityState } from '../../lib/identity'
+import { identityFallbackLabel, useIdentityState } from '../../lib/identity'
 import { ProfileMenu } from './ProfileMenu'
 
 type SidebarKey = 'dashboard' | 'claims' | 'chat' | 'analytics' | 'settings'
@@ -23,14 +23,10 @@ const NAV: Array<{ key: SidebarKey; label: string; href: string }> = [
 export function AppSidebar({ open, active = 'dashboard' }: SidebarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { identity, status } = useIdentityState()
-  const name = identity?.name ?? ''
-  const userLabel =
-    name ||
-    (status === 'loading'
-      ? 'Loading account…'
-      : status === 'error'
-        ? 'Account unavailable'
-        : 'Not signed in')
+  const fullName = identity?.name ?? ''
+  const displayName = identity?.displayName || fullName
+  const userLabel = displayName || identityFallbackLabel(status)
+  const subtitle = identity?.jobTitle || identity?.role || ''
 
   return (
     <aside className={cx('sidebar', open && 'sidebar--open')}>
@@ -62,11 +58,11 @@ export function AppSidebar({ open, active = 'dashboard' }: SidebarProps) {
 
       <div className="sidebar__bottom">
         <span className="sidebar__avatar" aria-hidden="true">
-          {name ? initials(name) : '·'}
+          {fullName ? initials(fullName) : '·'}
         </span>
         <div className="sidebar__user-info">
           <div className="sidebar__user-name">{userLabel}</div>
-          <div className="sidebar__user-role">{identity?.role ?? ''}</div>
+          <div className="sidebar__user-role">{subtitle}</div>
         </div>
         <button
           className="sidebar__user-menu"

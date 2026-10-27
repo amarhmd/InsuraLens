@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Claim } from '../../lib/claimsData'
 import { incidentLabel } from '../../lib/constants'
 import {
@@ -10,44 +10,23 @@ import {
   type Conversation,
 } from '../../lib/chatData'
 import { getClaim, listClaims } from '../../api/claims'
-import { listConversations, sendChatMessage } from '../../api/chat'
-
-/* -------------------------------------------------------------------------- */
-/* Hidden conversations — the backend has no DELETE route, so "Remove from     */
-/* view" is a device-local hide, not a deletion. Hidden ids live in            */
-/* localStorage and are re-applied whenever the list loads.                    */
-/* -------------------------------------------------------------------------- */
-
-const HIDDEN_KEY = 'chat.hiddenConversations'
-
-/** Hidden conversation ids; a blocked or hand-edited store means "none". */
-function readHiddenIds(): string[] {
-  try {
-    if (typeof localStorage === 'undefined') return []
-    const raw = localStorage.getItem(HIDDEN_KEY)
-    const parsed: unknown = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-/** Persisting an empty list removes the key rather than storing "off". */
-function writeHiddenIds(ids: string[]): void {
-  try {
-    if (typeof localStorage === 'undefined') return
-    if (ids.length > 0) localStorage.setItem(HIDDEN_KEY, JSON.stringify(ids))
-    else localStorage.removeItem(HIDDEN_KEY)
-  } catch {
-    /* Storage unavailable (private mode, quota) — the hide won't survive reload. */
-  }
-}
+import {
+  deleteConversation as deleteConversationApi,
+  getConversation,
+  listConversations,
+  sendChatMessage,
+  sendChatWebhookMessage,
+} from '../../api/chat'
+import { ApiError } from '../../api/http'
 
 export type ConfirmState = { kind: 'clear' } | { kind: 'delete'; id: string } | null
 export type RightMode = { kind: 'context' } | { kind: 'preview'; sourceId: string }
 
 /** Conversation titles truncate past this many characters. */
 const MAX_TITLE_CHARS = 42
+
+/** Remember which backend conversation was open across reloads/logins. */
+const ACTIVE_CONVERSATION_KEY = 'insuralens_chat_active_id'
 
 /**
  * Agent Chat page logic — conversations, claims, sending, and the collapsible
@@ -74,31 +53,114 @@ export function useAgentChat() {
   const [evidenceFiles, setEvidenceFiles] = useState<ChatEvidenceFile[]>([])
   const [evidenceLoading, setEvidenceLoading] = useState(false)
   const [evidenceError, setEvidenceError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [messagesError, setMessagesError] = useState<string | null>(null)
+  const pendingRequestRef = useRef<{ controller: AbortController; convId: string } | null>(null)
+  /* Backend conversation ids: list rows, loaded details and adopted new ids. */
+  const backendIds = useRef<Set<string>>(new Set())
+  const loadedIds = useRef<Set<string>>(new Set())
+  const inFlightIds = useRef<Set<string>>(new Set())
+  const persistedUserMsgIds = useRef<Set<string>>(new Set())
+  const messagesRequestRef = useRef<AbortController | null>(null)
+
+  /* Load one conversation's saved transcript from the backend. */
+  const loadMessages = useCallback(async (id: string) => {
+    if (!id || loadedIds.current.has(id) || inFlightIds.current.has(id)) return
+    messagesRequestRef.current?.abort()
+    const controller = new AbortController()
+    messagesRequestRef.current = controller
+    inFlightIds.current.add(id)
+    setMessagesLoading(true)
+    setMessagesError(null)
+    try {
+      const detail = await getConversation(id)
+      if (controller.signal.aborted) return
+      loadedIds.current.add(id)
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                title: c.title === 'Conversation' ? detail.title : c.title,
+                claimId: detail.claimId ?? c.claimId,
+                messages: detail.messages,
+              }
+            : c,
+        ),
+      )
+    } catch (cause: unknown) {
+      if (controller.signal.aborted) return
+      setMessagesError(
+        cause instanceof Error ? cause.message : 'Could not load this conversation.',
+      )
+    } finally {
+      inFlightIds.current.delete(id)
+      if (!controller.signal.aborted) setMessagesLoading(false)
+    }
+  }, [])
 
   /* Load conversations + claims through the API. Retry re-runs the call. */
   const load = useCallback(() => {
     setLoading(true)
     setLoadError(null)
+    setMessagesError(null)
+    messagesRequestRef.current?.abort()
+    messagesRequestRef.current = null
+    backendIds.current.clear()
+    loadedIds.current.clear()
+    inFlightIds.current.clear()
+    persistedUserMsgIds.current.clear()
     Promise.all([listConversations(), listClaims()])
       .then(([seeded, rows]) => {
-        /* Re-apply the device-local hide (see HIDDEN_KEY) to fresh list data. */
-        const hidden = new Set(readHiddenIds())
-        setConversations(seeded.filter((c) => !hidden.has(c.id)))
+        seeded.forEach((conv) => backendIds.current.add(conv.id))
+        setConversations(seeded)
         setClaims(rows)
         setLoading(false)
+        let stored: string | null = null
+        try {
+          stored = window.localStorage.getItem(ACTIVE_CONVERSATION_KEY)
+        } catch {
+          stored = null
+        }
+        const next = stored && seeded.some((c) => c.id === stored) ? stored : (seeded[0]?.id ?? null)
+        setActiveId(next)
+        if (next) void loadMessages(next)
       })
       .catch((cause: unknown) => {
         setLoadError(cause instanceof Error ? cause.message : 'Could not load Agent Chat.')
         setLoading(false)
       })
-  }, [])
+  }, [loadMessages])
 
   useEffect(load, [load])
 
-  /* Default to the first conversation once the seed arrives. */
+  /* Remember the open conversation, and fetch its transcript when it changes. */
   useEffect(() => {
-    if (activeId === null && conversations.length > 0) setActiveId(conversations[0].id)
-  }, [activeId, conversations])
+    if (activeId === null) return
+    try {
+      window.localStorage.setItem(ACTIVE_CONVERSATION_KEY, activeId)
+    } catch {
+      /* Storage unavailable — selection simply isn't remembered. */
+    }
+    if (backendIds.current.has(activeId)) {
+      void loadMessages(activeId)
+    } else {
+      /* New, not-yet-saved conversation — nothing to fetch yet. */
+      messagesRequestRef.current?.abort()
+      messagesRequestRef.current = null
+      setMessagesLoading(false)
+      setMessagesError(null)
+    }
+  }, [activeId, loadMessages])
+
+  const retryMessages = useCallback(() => {
+    if (!activeId || !backendIds.current.has(activeId)) return
+    loadedIds.current.delete(activeId)
+    setMessagesError(null)
+    void loadMessages(activeId)
+  }, [activeId, loadMessages])
 
   /* Panel toggles — collapse at 1280px (right), 1440px (left) */
   useEffect(() => {
@@ -196,20 +258,61 @@ export function useAgentChat() {
     setLeftOpen(false)
   }, [])
 
-  /* "Remove from view": hides the conversation on this device only. The
-     backend has no delete route, so nothing is deleted server-side — the id is
-     persisted (HIDDEN_KEY) and filtered out on every subsequent load. */
-  const deleteConversation = useCallback((id: string) => {
-    const hidden = readHiddenIds()
-    if (!hidden.includes(id)) writeHiddenIds([...hidden, id])
-    setConversations((prev) => prev.filter((c) => c.id !== id))
-    setActiveId((current) => {
-      if (current !== id) return current
+  const requestDeleteConversation = useCallback((id: string) => {
+    if (pendingRequestRef.current?.convId === id) {
+      pendingRequestRef.current.controller.abort()
+      pendingRequestRef.current = null
+    }
+    setDeleteError(null)
+    setConfirm({ kind: 'delete', id })
+  }, [])
+
+  const confirmDeleteConversation = useCallback(async () => {
+    const id = confirm?.kind === 'delete' ? confirm.id : null
+    if (!id || deletingId) return
+    if (pendingRequestRef.current?.convId === id) {
+      pendingRequestRef.current.controller.abort()
+      pendingRequestRef.current = null
+    }
+    setDeletingId(id)
+    setDeleteError(null)
+    try {
+      /* Unsaved/new conversations exist only in the UI. */
+      if (backendIds.current.has(id)) await deleteConversationApi(id)
       const remaining = conversations.filter((c) => c.id !== id)
-      return remaining[0]?.id ?? null
-    })
-    setToast('Removed from this view.')
-  }, [conversations])
+      setConversations(remaining)
+      if (activeId === id) {
+        setActiveId(remaining[0]?.id ?? null)
+        setInput('')
+        setRightMode({ kind: 'context' })
+        setRightOpen(false)
+        setHighlightId(null)
+      }
+      setToast('Conversation deleted.')
+    } catch (cause: unknown) {
+      if (cause instanceof ApiError && cause.status === 404) {
+        const remaining = conversations.filter((c) => c.id !== id)
+        setConversations(remaining)
+        if (activeId === id) {
+          setActiveId(remaining[0]?.id ?? null)
+          setInput('')
+          setRightMode({ kind: 'context' })
+          setRightOpen(false)
+          setHighlightId(null)
+        }
+        setToast('Conversation was already deleted.')
+      } else {
+        setDeleteError(cause instanceof Error ? cause.message : 'Could not delete the conversation.')
+        setDeletingId(null)
+        return
+      }
+    } finally {
+      backendIds.current.delete(id)
+      loadedIds.current.delete(id)
+      setDeletingId(null)
+    }
+    setConfirm(null)
+  }, [activeId, confirm, conversations, deletingId])
 
   const clearConversation = useCallback(() => {
     if (active) updateConv(active.id, (c) => ({ ...c, messages: [] }))
@@ -236,37 +339,147 @@ export function useAgentChat() {
   /* Sending                                                                */
   /* ---------------------------------------------------------------------- */
 
+  useEffect(() => {
+    return () => {
+      if (pendingRequestRef.current) {
+        pendingRequestRef.current.controller.abort()
+        pendingRequestRef.current = null
+      }
+      messagesRequestRef.current?.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (pendingRequestRef.current && pendingRequestRef.current.convId !== activeId) {
+      pendingRequestRef.current.controller.abort()
+      pendingRequestRef.current = null
+      setSending(false)
+    }
+  }, [activeId])
+
+  /**
+   * Persist the user message (when the backend hasn't stored it yet), then ask
+   * the webhook and append exactly its `output`. The backend conversation id is
+   * adopted as the tab id so loading, retry, delete and the n8n sessionId all
+   * use the same value.
+   */
+  const scheduleReply = useCallback(
+    (convId: string, claimId: string | undefined, text: string, userMsgId: string) => {
+      const controller = new AbortController()
+      if (pendingRequestRef.current) pendingRequestRef.current.controller.abort()
+      pendingRequestRef.current = { controller, convId }
+      setSending(true)
+
+      const isCurrent = (id: string) =>
+        !controller.signal.aborted && pendingRequestRef.current?.convId === id
+
+      const append = (id: string, message: ChatMessage) => {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, messages: [...c.messages, message] } : c)),
+        )
+      }
+
+      const fail = (id: string) => {
+        append(id, {
+          id: nextId('msg'),
+          role: 'assistant',
+          time: clockNow(),
+          error: true,
+          text: 'The assistant is unavailable right now. Please try again.',
+        } as ChatMessage)
+      }
+
+      ;(async () => {
+        let currentId = convId
+        try {
+          let assistantId: string | undefined
+          if (!persistedUserMsgIds.current.has(userMsgId)) {
+            const knownId = backendIds.current.has(currentId)
+            let persisted: Awaited<ReturnType<typeof sendChatMessage>> | null = null
+            try {
+              persisted = await sendChatMessage({
+                question: text,
+                claimId,
+                conversationId: knownId ? currentId : undefined,
+              })
+            } catch (persistCause: unknown) {
+              /* With a known conversation id the reply can still be shown. */
+              if (!knownId) throw persistCause
+              if (typeof console !== 'undefined') console.log('chat_persist_error')
+            }
+            if (controller.signal.aborted) return
+            if (persisted) persistedUserMsgIds.current.add(userMsgId)
+
+            const savedId = persisted?.conversationId
+            if (savedId && savedId !== currentId) {
+              const previousId = currentId
+              currentId = savedId
+              if (pendingRequestRef.current?.convId === previousId) {
+                pendingRequestRef.current.convId = savedId
+              }
+              setConversations((prev) =>
+                prev.map((c) => (c.id === previousId ? { ...c, id: savedId } : c)),
+              )
+              setActiveId((current) => (current === previousId ? savedId : current))
+            }
+            if (savedId) {
+              backendIds.current.add(savedId)
+              loadedIds.current.add(savedId)
+            }
+            assistantId = persisted?.assistant?.id
+          }
+
+          const replyText = await sendChatWebhookMessage(currentId, text, {
+            signal: controller.signal,
+          })
+          if (!isCurrent(currentId)) return
+          if (typeof replyText !== 'string' || replyText.trim() === '') {
+            if (typeof console !== 'undefined') console.log('chat_webhook_error')
+            fail(currentId)
+            return
+          }
+          append(currentId, {
+            id: assistantId ?? nextId('msg'),
+            role: 'assistant',
+            time: clockNow(),
+            sections: [{ kind: 'paragraph', text: replyText.trim() }],
+            activity: [],
+          } as ChatMessage)
+        } catch (cause: unknown) {
+          if (controller.signal.aborted) return
+          if (typeof console !== 'undefined') {
+            const status = (cause as { status?: number })?.status
+            if (typeof status === 'number') console.log('chat_error_status', status)
+            else console.log('chat_error')
+          }
+          if (!isCurrent(currentId)) return
+          fail(currentId)
+        }
+      })()
+        .catch(() => {
+          /* Swallow unexpected errors */
+        })
+        .finally(() => {
+          if (pendingRequestRef.current?.controller === controller) {
+            pendingRequestRef.current = null
+          }
+          setSending(false)
+        })
+    },
+    [],
+  )
+
   const send = useCallback(
     (raw: string) => {
       const text = raw.trim()
-      if (!text || sending) return
+      if (!text) return
+      if (sending || messagesLoading) return
 
-      /* Appends the API's reply for `text` to conversation `convId`. The
-         claim context comes from the active conversation's pinned claim. */
-      const scheduleReply = (convId: string, claimId: string | undefined) => {
-        setSending(true)
-        sendChatMessage({ question: text, claimId })
-          .then((reply) => {
-            setConversations((prev) =>
-              prev.map((c) => (c.id === convId ? { ...c, messages: [...c.messages, reply] } : c)),
-            )
-          })
-          .catch((cause: unknown) => {
-            const failed: ChatMessage = {
-              id: nextId('msg'),
-              role: 'assistant',
-              time: clockNow(),
-              error: true,
-              text:
-                cause instanceof Error
-                  ? cause.message
-                  : 'The assistant could not respond. Try again.',
-            }
-            setConversations((prev) =>
-              prev.map((c) => (c.id === convId ? { ...c, messages: [...c.messages, failed] } : c)),
-            )
-          })
-          .finally(() => setSending(false))
+      const userMsg: ChatMessage = {
+        id: nextId('msg'),
+        role: 'user',
+        text,
+        time: clockNow(),
       }
 
       /* No conversation left — start one so the empty state stays useful. */
@@ -276,23 +489,16 @@ export function useAgentChat() {
           title: text.length > MAX_TITLE_CHARS ? `${text.slice(0, MAX_TITLE_CHARS)}…` : text,
           group: 'Recent',
           time: 'Just now',
-          messages: [],
+          messages: [userMsg],
         }
         setConversations((prev) => [conv, ...prev])
         setActiveId(conv.id)
         setInput('')
-        scheduleReply(conv.id, undefined)
+        scheduleReply(conv.id, undefined, text, userMsg.id)
         return
       }
 
       const conv = active
-      const userMsg: ChatMessage = {
-        id: nextId('msg'),
-        role: 'user',
-        text,
-        time: clockNow(),
-      }
-
       updateConv(conv.id, (c) => {
         const firstUser = c.messages.every((m) => m.role !== 'user')
         const title =
@@ -305,9 +511,9 @@ export function useAgentChat() {
       })
 
       setInput('')
-      scheduleReply(conv.id, active.claimId)
+      scheduleReply(conv.id, active.claimId, text, userMsg.id)
     },
-    [active, sending, updateConv],
+    [active, messagesLoading, scheduleReply, sending, updateConv],
   )
 
   const retryLastUserMessage = useCallback(() => {
@@ -316,7 +522,7 @@ export function useAgentChat() {
     const lastUser = [...conv.messages].reverse().find((m) => m.role === 'user')
     if (!lastUser?.text) return
 
-    /* Drop the error bubble, then re-send the question to the backend. */
+    /* Drop the error bubble, then re-send. The user bubble stays single. */
     setConversations((prev) =>
       prev.map((c) =>
         c.id === conv.id
@@ -324,38 +530,14 @@ export function useAgentChat() {
           : c,
       ),
     )
-    setSending(true)
-    const question = lastUser.text
-    sendChatMessage({ question, claimId: conv.claimId })
-      .then((reply) => {
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conv.id ? { ...c, messages: [...c.messages, reply] } : c)),
-        )
-      })
-      .catch((cause: unknown) => {
-        const failed: ChatMessage = {
-          id: nextId('msg'),
-          role: 'assistant',
-          time: clockNow(),
-          error: true,
-          text:
-            cause instanceof Error
-              ? cause.message
-              : 'The assistant could not respond. Try again.',
-        }
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conv.id ? { ...c, messages: [...c.messages, failed] } : c)),
-        )
-      })
-      .finally(() => setSending(false))
-  }, [active, sending])
+    scheduleReply(conv.id, conv.claimId, lastUser.text, lastUser.id)
+  }, [active, scheduleReply, sending])
 
   /* ---------------------------------------------------------------------- */
   /* Regenerate                                                             */
   /* ---------------------------------------------------------------------- */
 
-  /* Drops the trailing assistant reply for the last question and re-sends it
-     through the same API call. */
+  /* Drops the trailing assistant reply for the last question and re-sends it. */
   const regenerateLast = useCallback(() => {
     const conv = active
     if (!conv || sending) return
@@ -368,30 +550,8 @@ export function useAgentChat() {
     setConversations((prev) =>
       prev.map((c) => (c.id === conv.id ? { ...c, messages: kept } : c)),
     )
-    setSending(true)
-    sendChatMessage({ question: lastUser.text, claimId: conv.claimId })
-      .then((reply) => {
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conv.id ? { ...c, messages: [...c.messages, reply] } : c)),
-        )
-      })
-      .catch((cause: unknown) => {
-        const failed: ChatMessage = {
-          id: nextId('msg'),
-          role: 'assistant',
-          time: clockNow(),
-          error: true,
-          text:
-            cause instanceof Error
-              ? cause.message
-              : 'The assistant could not respond. Try again.',
-        }
-        setConversations((prev) =>
-          prev.map((c) => (c.id === conv.id ? { ...c, messages: [...c.messages, failed] } : c)),
-        )
-      })
-      .finally(() => setSending(false))
-  }, [active, sending])
+    scheduleReply(conv.id, conv.claimId, lastUser.text, lastUser.id)
+  }, [active, scheduleReply, sending])
 
   /* ---------------------------------------------------------------------- */
   /* Evidence preview                                                       */
@@ -441,6 +601,12 @@ export function useAgentChat() {
     showPanelToggles,
     confirm,
     setConfirm,
+    deleteError,
+    setDeleteError,
+    deletingId,
+    messagesLoading,
+    messagesError,
+    retryMessages,
     toast,
     setToast,
     active,
@@ -451,7 +617,8 @@ export function useAgentChat() {
     evidenceError,
     updateConv,
     startNewConversation,
-    deleteConversation,
+    deleteConversation: requestDeleteConversation,
+    confirmDelete: confirmDeleteConversation,
     clearConversation,
     setClaimContext,
     send,

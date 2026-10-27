@@ -1,21 +1,35 @@
+import { useState } from 'react'
 import { ShieldIcon } from '../../components/layout/icons'
 import { EyeIcon, LinkIcon, LockIcon, SparkleIcon } from '../../components/ui/icons'
 import { useAiPrefs } from '../../hooks/useAiPrefs'
 import { saveAiPrefs, type AiPrefs } from '../../lib/aiPrefs'
-import { SectionHeader, SettingsGroup, SavedStatus, ToggleRow, useSavedFlash } from './settingsKit'
+import {
+  SaveError,
+  SectionHeader,
+  SettingsGroup,
+  SavedStatus,
+  ToggleRow,
+  useSavedFlash,
+} from './settingsKit'
 
 /**
- * AI Review Preferences — the display switches the Claim workspace really
- * reads. Each one hides or shows a specific piece of AI-assisted UI; none of
- * them changes an AI analysis or a claim decision, and Approve stays disabled
- * until every damage area is confirmed or dismissed whatever these are set to.
+ * AI Review Preferences — the two display switches the Claim workspace reads.
+ * Evidence links stay disabled until findings carry evidence references. None
+ * of these changes an AI analysis or a claim decision, and Approve stays
+ * disabled until every damage area is confirmed or dismissed.
  */
 export function AIReviewSettings() {
   const prefs = useAiPrefs()
-  const { saved, flash } = useSavedFlash()
+  const { saved, flash, clear } = useSavedFlash()
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   const set = (patch: Partial<AiPrefs>) => {
-    saveAiPrefs(patch)
+    if (!saveAiPrefs(patch)) {
+      clear()
+      setSaveError('Could not save this preference. Browser storage is unavailable.')
+      return
+    }
+    setSaveError(null)
     flash()
   }
 
@@ -47,6 +61,8 @@ export function AIReviewSettings() {
           hint="Shows the chips linking a finding to the evidence it relies on."
           checked={prefs.evidenceLinks}
           onChange={(evidenceLinks) => set({ evidenceLinks })}
+          disabled
+          unavailable
         />
         <ToggleRow
           id="ai-badges"
@@ -59,6 +75,7 @@ export function AIReviewSettings() {
       </SettingsGroup>
 
       <SavedStatus visible={saved} />
+      <SaveError message={saveError} />
 
       <div className="st-fixed-note">
         <span className="st-fixed-note__icon" aria-hidden="true">

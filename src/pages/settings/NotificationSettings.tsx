@@ -1,7 +1,7 @@
 import { BellIcon, ClockIcon, InboxIcon } from '../../components/layout/icons'
 import { useSettingsValue } from '../../hooks/useSettingsValue'
-import { NOTIFICATION_ITEMS, saveSettings, type NotificationKey } from '../../lib/settingsStore'
-import { SavedStatus, SectionHeader, SettingsGroup, ToggleRow, useSavedFlash } from './settingsKit'
+import { NOTIFICATION_ITEMS, type NotificationKey } from '../../lib/settingsStore'
+import { SectionHeader, SettingsGroup, ToggleRow } from './settingsKit'
 
 /** Decorative row icon per notification switch. */
 function iconFor(key: NotificationKey) {
@@ -9,17 +9,12 @@ function iconFor(key: NotificationKey) {
 }
 
 /**
- * Notifications — the two switches for the top bar bell. Changes save
- * immediately and persist in this browser only; nothing is sent to a server.
+ * Notifications — the two switches for the top bar bell. They stay disabled
+ * until the notification feed carries the assignment/review ownership they
+ * describe, so a switch can never filter the wrong rows.
  */
 export function NotificationSettings() {
   const notifications = useSettingsValue().notifications
-  const { saved, flash } = useSavedFlash()
-
-  const setFlag = (key: NotificationKey, on: boolean) => {
-    saveSettings({ notifications: { ...notifications, [key]: on } })
-    flash()
-  }
 
   return (
     <>
@@ -31,7 +26,7 @@ export function NotificationSettings() {
 
       <SettingsGroup
         title="Claim notifications"
-        hint="Stored in this browser only. Nothing is sent to a server."
+        hint="Not available yet. The notification feed does not include assignment or review-owner data."
       >
         {NOTIFICATION_ITEMS.map((item) => (
           <ToggleRow
@@ -41,12 +36,12 @@ export function NotificationSettings() {
             label={item.label}
             hint={item.hint}
             checked={notifications[item.key]}
-            onChange={(on) => setFlag(item.key, on)}
+            onChange={() => undefined}
+            disabled
+            unavailable
           />
         ))}
       </SettingsGroup>
-
-      <SavedStatus visible={saved} />
     </>
   )
 }

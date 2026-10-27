@@ -275,16 +275,22 @@ export function subscribeSettings(listener: () => void): () => void {
   }
 }
 
-/** Merges a patch into the saved settings, persists, then notifies. */
-export function saveSettings(patch: Partial<Settings>): void {
-  state = { ...state, ...patch }
+/**
+ * Merges a patch into the saved settings, persists, then notifies.
+ * Returns false without publishing the patch when the browser refuses the
+ * write, so callers never show "Saved" for a change that was not stored.
+ */
+export function saveSettings(patch: Partial<Settings>): boolean {
+  const next = { ...state, ...patch }
   try {
     if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     }
   } catch {
-    /* Storage unavailable (private mode, quota) — in-memory state still holds. */
+    return false
   }
+  state = next
   applyEffects(state)
   listeners.forEach((listener) => listener())
+  return true
 }

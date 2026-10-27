@@ -15,8 +15,81 @@ import { clockNow, nextId } from '../lib/chatData'
 /** Conversations updated within this many hours are grouped as "Recent". */
 const RECENT_HOURS = 48
 
-/** Backend conversation ids, keyed by claim id ('general' = no claim). */
-const threads = new Map()
+/* Conversations deleted in this session: never attach their ids to new
+   requests and ignore any late replies that would recreate them. */
+const deletedConversationIds = new Set()
+
+/**
+ * Call the n8n chat webhook directly from the frontend.
+ * Never logs the webhook URL.
+ */
+export async function sendChatWebhookMessage(conversationId, text, options = {}) {
+  const webhookUrl = import.meta.env.VITE_CHAT_WEBHOOK_URL
+  if (!webhookUrl || String(webhookUrl).trim() === '') {
+    throw new Error('Chat is not configured')
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 120_000)
+  const signal = options.signal || controller.signal
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatInput: text, sessionId: conversationId }),
+      signal,
+    })
+
+    if (!res.ok) {
+      const err = new Error('Webhook request failed')
+      err.status = res.status
+      throw err
+    }
+
+    const contentType = res.headers.get('content-type') || ''
+    if (!contentType.includes('application/json')) {
+      const textBody = await res.text()
+      if (!textBody || textBody.trim() === '') {
+        throw new Error('Empty response from chat service')
+      }
+      return textBody.trim()
+    }
+
+    try {
+      const data = await res.json()
+      const reply = data?.output ?? data?.text ?? data?.message ?? data?.response ?? data?.answer
+      if (typeof reply === 'string' && reply.trim() !== '') {
+        return reply.trim()
+      }
+      if (typeof reply === 'object' && reply !== null) {
+        const nested = reply?.output ?? reply?.text ?? reply?.message
+        if (typeof nested === 'string' && nested.trim() !== '') {
+          return nested.trim()
+        }
+      }
+      throw new Error('Empty response from chat service')
+    } catch (cause) {
+      if (cause instanceof Error && cause.message.startsWith('Webhook') === false && cause.message.startsWith('Chat is not') === false && cause.message.startsWith('Empty') === false && cause.name !== 'SyntaxError') {
+        throw cause
+      }
+      if (cause instanceof SyntaxError) {
+        throw new Error('Invalid response from chat service')
+      }
+      throw cause
+    }
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === 'AbortError') {
+      throw new Error('The request timed out.')
+    }
+    if (cause instanceof Error) {
+      throw cause
+    }
+    throw new Error('Could not reach the chat service.')
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 /** "2026-10-13T09:42:10Z" -> "2h ago" / "Oct 13" for the list's time column. */
 function relativeTime(iso) {
@@ -53,7 +126,30 @@ function toConversation(row) {
 export async function listConversations() {
   const res = await request('/api/chat/conversations')
   const rows = Array.isArray(res) ? res : (res.items ?? res.conversations ?? res.data ?? [])
-  return rows.map(toConversation)
+  return rows
+    .map(toConversation)
+    .filter((conv) => !deletedConversationIds.has(conv.id))
+}
+
+/**
+ * DELETE /api/chat/conversations/:id — permanently delete a conversation
+ * and its messages on the backend. Returns true on success or 404 (already
+ * deleted).
+ */
+export async function deleteConversation(id) {
+  if (!id) return
+  try {
+    await request(`/api/chat/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  } catch (cause) {
+    const err = cause
+    if (err?.status === 404 || err?.code === 'http_404') {
+      /* Already removed on the server — treat as success. */
+    } else {
+      throw cause
+    }
+  } finally {
+    deletedConversationIds.add(id)
+  }
 }
 
 /** Plain text -> page sections: paragraphs, bullet lists, numbered lists. */
@@ -82,30 +178,68 @@ function toSections(content, sources) {
 }
 
 /**
- * POST /api/chat/messages — send a question, receive the assistant reply.
- * The claim context comes from the conversation's pinned claimId.
+ * GET /api/chat/conversations/:id — one conversation with its messages.
+ * The list route only returns headers, so this is what fills the transcript.
  *
- * @param {{ question: string, claimId?: string }} payload
- * @returns {Promise<import('../lib/chatData').ChatMessage>} the assistant message
+ * @param {string} id backend conversation id
+ * @returns {Promise<{ id: string, title: string, claimId?: string, messages: import('../lib/chatData').ChatMessage[] }>}
  */
-export async function sendChatMessage({ question, claimId }) {
-  const key = claimId ?? 'general'
+export async function getConversation(id) {
+  if (!id) throw new Error('Missing conversation id')
+  const res = await request(`/api/chat/conversations/${encodeURIComponent(id)}`)
+  const row = res?.conversation ?? res ?? {}
+  const rows = Array.isArray(row.messages) ? row.messages : []
+  return {
+    id: row.id ?? id,
+    title: row.title || 'Conversation',
+    claimId: row.claimId ?? row.claim_id ?? undefined,
+    messages: rows.map(mapMessage).filter((m) => m.text || (m.sections && m.sections.length > 0)),
+  }
+}
+
+/** "09:41" for a backend timestamp; falls back to the current clock. */
+function formatTime(iso) {
+  const ms = Date.parse(iso ?? '')
+  if (Number.isNaN(ms)) return clockNow()
+  return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+/** Map one backend message row into the page's ChatMessage shape. */
+function mapMessage(row) {
+  const role = row?.role === 'user' ? 'user' : 'assistant'
+  const content = String(row?.content ?? row?.text ?? '')
+  const id = row?.id != null ? String(row.id) : nextId('msg')
+  const time = formatTime(row?.createdAt ?? row?.created_at ?? row?.time)
+  if (role === 'user') return { id, role, time, text: content }
+  const sections =
+    Array.isArray(row?.sections) && row.sections.length > 0
+      ? row.sections
+      : toSections(content, row?.sources)
+  return { id, role, time, sections, activity: [] }
+}
+
+/**
+ * POST /api/chat/messages — persist the question and receive the backend's
+ * own assistant row (ids/timestamps only; the UI shows the webhook reply).
+ * When `conversationId` is known the backend appends to that conversation
+ * instead of creating a new one.
+ *
+ * @param {{ question: string, claimId?: string, conversationId?: string }} payload
+ * @returns {Promise<{ conversationId: string | undefined, assistant: import('../lib/chatData').ChatMessage | null }>}
+ */
+export async function sendChatMessage({ question, claimId, conversationId }) {
   const res = await request('/api/chat/messages', {
     method: 'POST',
     body: {
       content: question,
       ...(claimId && { claimId }),
-      ...(threads.has(key) && { conversationId: threads.get(key) }),
+      ...(conversationId && { conversationId }),
     },
   })
-  if (res.conversationId) threads.set(key, res.conversationId)
-
-  const reply = [...(res.messages ?? [])].reverse().find((m) => m.role === 'assistant')
+  const rows = Array.isArray(res?.messages) ? res.messages : []
+  const assistantRow = [...rows].reverse().find((m) => m?.role === 'assistant')
   return {
-    id: reply?.id ?? nextId('msg'),
-    role: 'assistant',
-    time: clockNow(),
-    sections: toSections(reply?.content ?? '', reply?.sources),
-    activity: [],
+    conversationId: res?.conversationId ?? conversationId,
+    assistant: assistantRow ? mapMessage(assistantRow) : null,
   }
 }

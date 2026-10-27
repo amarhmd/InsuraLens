@@ -40,10 +40,12 @@ export function ReviewProgress({ total, confirmed, dismissed, complete }: Review
       <p className="cw-progress__line">
         Damage areas: {confirmed} confirmed, {dismissed} dismissed
       </p>
-      <p className={cx('cw-progress__hint', complete && 'cw-progress__hint--done')}>
-        {complete
-          ? 'All damage areas reviewed. Approval is now available.'
-          : 'Confirm or dismiss each damage area to finish the review.'}
+      <p className={cx('cw-progress__hint', total > 0 && complete && 'cw-progress__hint--done')}>
+        {total === 0
+          ? 'No damage areas to review yet. Run AI analysis or add evidence.'
+          : complete
+            ? 'All damage areas reviewed. Approval is now available.'
+            : 'Confirm or dismiss each damage area to finish the review.'}
       </p>
     </section>
   )
