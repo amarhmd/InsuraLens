@@ -291,7 +291,7 @@ export const updateAnalysis = async (req, res) => {
 
     await query(
       `UPDATE public.claim_analyses
-          SET decision_jsonb = to_jsonb($1::text)
+          SET decision = to_jsonb($1::text)
         WHERE claim_id = $2`,
       [decision, req.params.id]
     );

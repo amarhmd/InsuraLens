@@ -45,7 +45,7 @@ r.get(
   claims.getFileImage
 );
 
-r.patch('/claims/:id/analysis', authed, withClaimId, claims.updateAnalysis);
+r.patch('/claims/:id/analysis', withClaimId, claims.updateAnalysis);
   
   r.post('/claims/:id/analyze', authed, analyzeLimiter, withClaimId, claims.analyzeFactory(analysis));
   r.get('/claims/:id/stream', requireAuth({ allowQueryToken: true }), withClaimId, claims.streamFactory(events));
