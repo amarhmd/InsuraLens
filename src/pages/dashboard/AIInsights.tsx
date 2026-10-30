@@ -1,39 +1,46 @@
+import { hashFromRoute } from '../../lib/router'
+import type { InsightKey } from '../../lib/insights'
+import type { ReactNode } from 'react'
+
 export function AIInsights({
   damagePattern,
   missingEvidence,
   policyReview,
 }: {
-  damagePattern: number
-  missingEvidence: number
-  policyReview: number
+  damagePattern: number | null
+  missingEvidence: number | null
+  policyReview: number | null
 }) {
   /* Counts arrive from getDashboardSummary() (src/api/dashboard.js), which
-     derives them from the live claim queue the Dashboard KPIs and the Analytics
-     page read — no card here can quote a number those pages disagree with.
-     Each predicate is stated in the card's description. */
-  const insights = [
+     derives them from the live claim queue through src/lib/insights.ts — the
+     same helper the #/claims insight filters use. A null count means the
+     loaded data was insufficient, so the card shows "—", never a fake zero. */
+  const insights: {
+    key: InsightKey
+    title: string
+    count: number | null
+    desc: string
+    icon: ReactNode
+  }[] = [
     {
-      key: 'damage',
+      key: 'repeated_damage',
       title: 'Repeated damage pattern',
-      count: String(damagePattern),
-      countLabel: 'claims',
-      desc: 'High-priority rear-end collisions sharing a similar impact profile.',
+      count: damagePattern,
+      desc: 'Claims with the same incident type and overlapping damage areas.',
       icon: <PatternIcon />,
     },
     {
-      key: 'missing',
+      key: 'missing_evidence',
       title: 'Missing evidence',
-      count: String(missingEvidence),
-      countLabel: 'claims',
-      desc: 'Accident reports are missing or incomplete.',
+      count: missingEvidence,
+      desc: 'Claims with no accident report or document file — images only, or no files.',
       icon: <DocAlertIcon />,
     },
     {
-      key: 'policy',
+      key: 'policy_review',
       title: 'Policy review',
-      count: String(policyReview),
-      countLabel: 'claims',
-      desc: 'Evidence on file with a policy match needing reviewer verification.',
+      count: policyReview,
+      desc: 'Coverage unable to be evaluated, a policy mismatch, or an inconsistency flag.',
       icon: <ShieldIcon />,
     },
   ]
@@ -48,22 +55,22 @@ export function AIInsights({
       </div>
       <div className="ai-insights__grid">
         {insights.map((insight) => (
-          <div key={insight.key} className="panel ai-insights__card">
+          <a
+            key={insight.key}
+            className="panel ai-insights__card"
+            href={hashFromRoute({ name: 'claims', query: { insight: insight.key } })}
+          >
             <div className="ai-insights__icon" aria-hidden="true">
               {insight.icon}
             </div>
-            <div className="ai-insights__count">{insight.count}</div>
-            <div className="ai-insights__count-label">{insight.countLabel}</div>
+            <div className="ai-insights__count">
+              {insight.count == null ? '—' : insight.count}
+            </div>
+            <div className="ai-insights__count-label">claims</div>
             <h3 className="ai-insights__title">{insight.title}</h3>
             <p className="ai-insights__desc">{insight.desc}</p>
-            <a
-              className="ai-insights__link"
-              href="#/dashboard"
-              onClick={(e) => e.preventDefault()}
-            >
-              View claims →
-            </a>
-          </div>
+            <span className="ai-insights__link">View claims →</span>
+          </a>
         ))}
       </div>
     </section>

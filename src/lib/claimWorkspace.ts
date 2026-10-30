@@ -89,6 +89,10 @@ export interface DamageZone {
   bbox: DamageBBox
   /** Initial review state; the page seeds its status map from this. */
   status: DamageStatus
+  /** True when the area was inferred from the summary, not returned by analysis. */
+  estimated?: boolean
+  /** The summary text that triggered an estimated area. */
+  matchedText?: string
 }
 
 export interface ClaimWorkspaceData {

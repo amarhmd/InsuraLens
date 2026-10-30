@@ -23,16 +23,22 @@ export function DamageDetail({
       <p className="cw-dmg-detail__eyebrow">Selected damage</p>
       <h3 className="cw-dmg-detail__title">{zone.zone}</h3>
 
-      <div className="cw-dmg-detail__photo">
-        <span className="cw-dmg-detail__thumb">
-          <PhotoGlyph />
-        </span>
-        <span className="cw-dmg-detail__photo-label">
-          {zone.photo} · {evidenceLabel}
-        </span>
-      </div>
+      {!zone.estimated && (
+        <div className="cw-dmg-detail__photo">
+          <span className="cw-dmg-detail__thumb">
+            <PhotoGlyph />
+          </span>
+          <span className="cw-dmg-detail__photo-label">
+            {evidenceLabel && zone.photo && evidenceLabel === zone.photo
+              ? evidenceLabel
+              : evidenceLabel && zone.photo
+                ? `${zone.photo} · ${evidenceLabel}`
+                : evidenceLabel || zone.photo}
+          </span>
+        </div>
+      )}
 
-      <p className="cw-dmg-detail__finding">{zone.finding}</p>
+      {!zone.estimated && <p className="cw-dmg-detail__finding">{zone.finding}</p>}
 
       <p className="cw-dmg-detail__status">
         Status: <strong>{DAMAGE_STATUS_LABEL[status]}</strong>

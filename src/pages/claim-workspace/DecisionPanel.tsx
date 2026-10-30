@@ -1,5 +1,5 @@
 type DecisionPanelProps = {
-  /** Every damage area has been confirmed or dismissed. */
+  /** Every STRUCTURED damage area has been confirmed or dismissed. */
   complete: boolean
   /** An action is in flight — disable the controls. */
   busy?: boolean
@@ -11,7 +11,6 @@ type DecisionPanelProps = {
       the rest of the claim workspace. */
   approveBlockedReason?: string | null
   onApprove?: () => void
-  onRequestInfo?: () => void
 }
 
 /**
@@ -28,8 +27,9 @@ export function DecisionPanel({
   suggestion = null,
   approveBlockedReason = null,
   onApprove,
-  onRequestInfo,
 }: DecisionPanelProps) {
+  const isApproveDisabled = busy || !complete || Boolean(approveBlockedReason)
+
   return (
     <section className="cw-decision" aria-labelledby="cw-decision-title">
       <h2 className="cw-decision__title" id="cw-decision-title">
@@ -44,32 +44,18 @@ export function DecisionPanel({
         <button
           type="button"
           className="cw-btn cw-btn--primary cw-btn--block"
-          aria-disabled={!complete || Boolean(approveBlockedReason) || busy}
+          aria-disabled={isApproveDisabled}
           aria-describedby={approveBlockedReason ? 'cw-approve-reason' : undefined}
-          disabled={busy}
-          onClick={(event) => {
-            if (!complete || approveBlockedReason) {
-              event.preventDefault()
-              return
-            }
-            onApprove?.()
-          }}
+          disabled={isApproveDisabled}
+          onClick={onApprove}
         >
-          Approve claim
+          {busy ? 'Approving…' : 'Approve claim'}
         </button>
         {approveBlockedReason && (
           <p className="cw-decision__helper" id="cw-approve-reason">
             {approveBlockedReason}
           </p>
         )}
-        <button
-          type="button"
-          className="cw-btn cw-btn--light cw-btn--block"
-          onClick={onRequestInfo}
-          disabled={busy}
-        >
-          Request more information
-        </button>
         <button type="button" className="cw-btn cw-btn--ghost cw-btn--block">
           Escalate
         </button>

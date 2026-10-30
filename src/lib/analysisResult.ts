@@ -37,6 +37,8 @@ export interface AnalysisResult {
   assessment?: string
   /** Persisted backend failure text. Plain text; never a URL. */
   error?: string
+  /** Optional AI decision confidence (0..1 or 0..100 handled by UI). */
+  confidence?: number
 }
 
 /** Human labels for the proposed decision — shared by the card and the
@@ -64,6 +66,18 @@ export function emptyAnalysisResult(): AnalysisResult {
     coverage: 'unable_to_evaluate',
     inconsistency: { flagged: false },
   }
+}
+
+/** True when an AnalysisResult carries persisted output worth showing. */
+export function hasAnalysisResults(result: AnalysisResult): boolean {
+  return (
+    Boolean(result.damageSummary?.trim()) ||
+    Boolean(result.assessment?.trim()) ||
+    Boolean(result.proposedDecision) ||
+    Boolean(result.estimatedAmount) ||
+    result.inconsistency.flagged ||
+    Boolean(result.inconsistency.details)
+  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -159,10 +173,26 @@ export function mapAnalysisResult(raw: unknown): AnalysisResult | null {
   const statusRaw = fields.analysestate ?? fields.analysisstate
   const status: AnalysisStatus = (() => {
     const value = text(statusRaw)?.toLowerCase()
-    if (value === 'completed' || value === 'analyzed') return 'success'
+    if (
+      value === 'completed' ||
+      value === 'analyzed' ||
+      value === 'awaiting_review' ||
+      value === 'reviewing' ||
+      value === 'reviewed'
+    ) {
+      return 'success'
+    }
     if (value === 'failed' || value === 'error') return 'failed'
-    if (value === 'running' || value === 'processing' || value === 'pending') return 'loading'
-    /* Missing or unrecognized: nothing to show — invite a run. */
+    if (
+      value === 'not_started' ||
+      value === 'queued' ||
+      value === 'running' ||
+      value === 'processing' ||
+      value === 'pending'
+    ) {
+      return 'loading'
+    }
+    /* Missing or unrecognized: nothing to show yet. */
     return 'empty'
   })()
 
@@ -185,6 +215,11 @@ export function mapAnalysisResult(raw: unknown): AnalysisResult | null {
   if (assessment) result.assessment = assessment
   const error = text(fields.analysiserror ?? fields.error ?? fields.errormessage)
   if (error) result.error = error
+
+  const confidenceRaw = fields.confidence ?? fields.aiconfidence ?? fields.decisionconfidence
+  if (typeof confidenceRaw === 'number' && Number.isFinite(confidenceRaw)) {
+    result.confidence = confidenceRaw
+  }
 
   return result
 }

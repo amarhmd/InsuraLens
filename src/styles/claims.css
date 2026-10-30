@@ -503,6 +503,28 @@
   font-weight: 600;
 }
 
+.claims-chip--insight {
+  gap: 8px;
+}
+
+.claims-chip__clear {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.claims-chip__clear:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 /* --------------------------------------------------------------------------
    Table
    -------------------------------------------------------------------------- */

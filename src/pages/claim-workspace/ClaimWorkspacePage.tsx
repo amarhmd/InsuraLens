@@ -3,19 +3,19 @@ import type { ReactNode } from 'react'
 import { AppSidebar } from '../../components/layout/AppSidebar'
 import { TopBar } from '../../components/layout/TopBar'
 import { useAiPrefs } from '../../hooks/useAiPrefs'
-import type { AnalysisMeta, ClaimWorkspaceData, DamageStatus } from '../../lib/claimWorkspace'
-import { PROPOSED_DECISION_LABEL } from '../../lib/analysisResult'
+import type { ClaimWorkspaceData, DamageStatus } from '../../lib/claimWorkspace'
+import { PROPOSED_DECISION_LABEL, hasAnalysisResults } from '../../lib/analysisResult'
+import { resolveDamageAreas } from '../../lib/damageAreas'
+import { extractZonesFromSummary } from '../../lib/summaryZones'
 import { analysisSnapshot, fetchClaimWorkspace } from '../../api/claimWorkspace'
-import { analyzeClaim, getClaim, openAnalysisStream, reviewClaim, triggerAnalysisWebhook } from '../../api/claims'
+import { analyzeClaim, getClaim, reviewClaim } from '../../api/claims'
 import { ApiError } from '../../api/http'
 import { uploadClaimEvidence } from '../../api/evidence'
 import { validateEvidenceFile } from '../claims/claimAttachments'
 import {
   analysisCompleted,
   analysisFailed,
-  analysisStarted,
   evidenceUploaded,
-  infoRequested,
   reviewCompleted,
 } from '../../lib/notifications'
 import { ingestNotifications } from '../../lib/notificationsStore'
@@ -28,17 +28,25 @@ import { EvidenceGrid } from './EvidenceGrid'
 import { PolicyCoverage } from './PolicyCoverage'
 import { ReviewProgress } from './ReviewProgress'
 import { SummaryStrip } from './SummaryStrip'
+import { ClaimsToast } from '../claims/ClaimsToast'
 
 type LoadState = 'loading' | 'ready' | 'notfound' | 'error'
 
-/** Stop waiting on a silent stream after this long (ms). */
-const STREAM_TIMEOUT_MS = 3 * 60 * 1000
-
-const ANALYSIS_POLL_START_MS = 3000
+/** While an analysis is in flight, poll the claim at this cadence. */
 const ANALYSIS_POLL_INTERVAL_MS = 4000
-const ANALYSIS_POLL_MAX_MS = 2 * 60 * 1000
-const ANALYSIS_MAX_POLLS = Math.ceil(ANALYSIS_POLL_MAX_MS / ANALYSIS_POLL_INTERVAL_MS)
+/** Safety stop: after this long, offer a retry instead of spinning forever. */
+const ANALYSIS_SAFETY_TIMEOUT_MS = 5 * 60 * 1000
 
+/** The backend is still working on the analysis. */
+const ANALYSIS_ACTIVE_STATES = new Set([
+  'not_started',
+  'queued',
+  'running',
+  'processing',
+  'pending',
+])
+
+/** A result or a failure: polling stops here. */
 const ANALYSIS_TERMINAL_STATES = new Set([
   'awaiting_review',
   'reviewing',
@@ -46,72 +54,47 @@ const ANALYSIS_TERMINAL_STATES = new Set([
   'completed',
   'analyzed',
   'success',
+  'failed',
+  'error',
 ])
-const ANALYSIS_FAILURE_STATES = new Set(['failed', 'error'])
-
-type AnalysisMode = 'webhook' | 'backend'
-
-/** Pick exactly one trigger path; never both. */
-function resolveAnalysisMode(): AnalysisMode {
-  const configured = String(import.meta.env.VITE_ANALYSIS_MODE ?? '').trim().toLowerCase()
-  if (configured === 'webhook' || configured === 'backend') return configured
-  const webhook = String(import.meta.env.VITE_ANALYSIS_WEBHOOK_URL ?? '').trim()
-  return webhook ? 'webhook' : 'backend'
-}
 
 function normalizedState(value: string | null): string {
   return value?.trim().toLowerCase() ?? ''
 }
 
-function timestamp(value: string | number | null): number {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
-  if (!value) return 0
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? 0 : parsed
+function isActiveAnalysisState(value: string | null): boolean {
+  return ANALYSIS_ACTIVE_STATES.has(normalizedState(value))
 }
 
-/** A new row is identified by a changed analysis id or a newer updatedAt. */
-function hasNewAnalysis(current: AnalysisMeta, baseline: AnalysisMeta): boolean {
-  if (current.id && current.id !== baseline.id) return true
-  const currentTime = timestamp(current.updatedAt)
-  const baselineTime = timestamp(baseline.updatedAt)
-  return currentTime > 0 && (baselineTime === 0 || currentTime > baselineTime)
+function isTerminalAnalysisState(value: string | null): boolean {
+  return ANALYSIS_TERMINAL_STATES.has(normalizedState(value))
 }
 
-function triggerErrorMessage(cause: unknown, mode: AnalysisMode): string {
-  const fallback = 'Could not start the analysis. Check your connection and try again.'
-  if (cause instanceof ApiError) {
-    if (mode === 'backend' && cause.status === 409) {
-      return 'An analysis is already running or this claim cannot be analyzed right now.'
-    }
-    if (mode === 'webhook') {
-      if (cause.status >= 400) {
-        return `The analysis service returned an error (status ${cause.status}).`
-      }
-      if (cause.code === 'network_error') return 'Could not reach the analysis service.'
-      if (cause.code === 'timeout') {
-        return cause.message.trim() || 'The analysis request timed out.'
-      }
-    }
-    return cause.message.trim() || fallback
-  }
-  return cause instanceof Error && cause.message.trim() ? cause.message.trim() : fallback
+function isFailedAnalysisState(value: string | null): boolean {
+  const state = normalizedState(value)
+  return state === 'failed' || state === 'error'
 }
 
 /**
  * Claim workspace (route #/claims/:id).
  *
- * The page loads the claim from the backend (GET /api/claims/:id), maps the
- * analysis it carries into the view model, and owns the two pieces of review
- * state — which damage area is selected and each area's status. The counter,
- * progress bar, tallies, and the Approve button all derive from those, so they
- * can never disagree.
+ * The backend starts AI analysis automatically, so this page never asks the
+ * reviewer to run it. It loads the claim from GET /api/claims/:id, maps the
+ * analysis it carries into the view model, and follows the analysisState:
  *
- * Actions talk to the real routes: Analyze starts POST …/analyze and follows
- * GET …/stream (SSE) for live progress; Approve / Request information POST
- * …/review; evidence upload POSTs multipart …/evidence. Every action refreshes
- * the claim afterwards.
+ * - not_started / queued / running → poll every 4 seconds (paused while the
+ *   tab is hidden) until a terminal state, with a 5-minute safety timeout.
+ * - awaiting_review / completed → show the persisted results.
+ * - failed → the AI analysis card offers one Retry analysis action.
+ *
+ * A terminal poll refreshes the whole claim, so the results, damage map and
+ * "Policy & coverage" card all update without a manual reload. The page still
+ * owns the review state (selected damage area and each area's status) and the
+ * human review actions: Approve / Complete review POST …/review and
+ * evidence upload POSTs multipart …/evidence.
  */
+import { DEMO_FALLBACK, approvedClaimIds, demoReviewedClaims, claimReviewStore } from '../../lib/demoFallback'
+
 export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const toggleMenu = () => setMenuOpen((was) => !was)
@@ -123,41 +106,29 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
   const [reloadKey, setReloadKey] = useState(0)
 
   const [busy, setBusy] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  /* The analysis run narrates itself inside the AI analysis card — its
-     progress line and failures never appear under the page title. */
-  const [runStatus, setRunStatus] = useState<string | null>(null)
-  const [runError, setRunError] = useState<string | null>(null)
-  /* True from the moment Run is clicked until the card settles: the view
-     scrolls the AI analysis card into view when results (or a failure)
-     arrive. */
-  const [revealAnalysis, setRevealAnalysis] = useState(false)
-  /* Which claim's analysis has run successfully in this session. The AI card
-     shows its result only for that claim, so an already-saved summary on a
-     claim nobody has analysed here is treated like a brand-new claim. Stored
-     as the id (not a bare boolean) so switching claims can never leak it. */
-  const [ranClaimId, setRanClaimId] = useState<string | null>(null)
-  const hasRunAnalysis = ranClaimId === claimId
+  const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' | 'info' } | null>(null)
 
-  const streamRef = useRef<EventSource | null>(null)
-  const streamTimer = useRef<number | null>(null)
+  /* Retry is the only analysis action left: it re-calls the existing analyze
+     endpoint for a failed run (or after the safety timeout). */
+  const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState<string | null>(null)
+  /* Set after a retry is accepted. The backend may still report the previous
+     terminal state for a moment, so this keeps the card analyzing (and the
+     poller alive) until the new run reaches its own terminal state. */
+  const [analysisOverride, setAnalysisOverride] = useState(false)
+  const [analysisTimedOut, setAnalysisTimedOut] = useState(false)
+
   const loadedIdRef = useRef<string | null>(null)
-  /* Set when a run succeeds: the skeleton stays up until the refreshed claim
-     lands, so the card never flashes the empty state in between. */
-  const awaitingRefreshRef = useRef(false)
+  const pollTimerRef = useRef<number | null>(null)
+  const pollStartRef = useRef<number | null>(null)
+  const pollInFlightRef = useRef(false)
+  /* After a retry, ignore a stale "failed" row for a short grace period so the
+     card does not flip back to the error state before the new run starts. */
+  const retryGraceUntilRef = useRef(0)
 
   const refresh = useCallback(() => setReloadKey((key) => key + 1), [])
-
-  const stopStream = useCallback(() => {
-    streamRef.current?.close()
-    streamRef.current = null
-    if (streamTimer.current !== null) {
-      window.clearTimeout(streamTimer.current)
-      streamTimer.current = null
-    }
-  }, [])
 
   /* Load (and reload) the claim. A reload keeps the current view on screen and
      swaps in the fresh data; only a first load or an id change shows the
@@ -176,28 +147,27 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
         if (!active) return
         loadedIdRef.current = claimId
         if (result) {
-          setData(result)
+          const next =
+            (claimReviewStore.get(claimId)?.approved ?? approvedClaimIds.has(claimId)) || (DEMO_FALLBACK && demoReviewedClaims.has(claimId))
+              ? {
+                  ...result,
+                  badges: [{ label: 'APPROVED', tone: 'supported' as const }],
+                  summary: result.summary.map((item) =>
+                    item.label === 'Last updated' ? { ...item, value: 'Just now' } : item,
+                  ),
+                }
+              : result
+          setData(next)
           setState('ready')
         } else {
           setData(null)
           setState('notfound')
-        }
-        /* A successful run keeps the skeleton up until the fresh claim has
-           landed; end it now so the card swaps straight to the result. */
-        if (awaitingRefreshRef.current) {
-          awaitingRefreshRef.current = false
-          setAnalyzing(false)
         }
       })
       .catch((cause: unknown) => {
         if (!active) return
         setLoadError(cause instanceof Error ? cause.message : 'Something went wrong loading this claim.')
         setState('error')
-        if (awaitingRefreshRef.current) {
-          awaitingRefreshRef.current = false
-          setAnalyzing(false)
-          setRunError('The analysis finished, but the claim could not be reloaded. Refresh the page to see it.')
-        }
       })
 
     return () => {
@@ -205,241 +175,211 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
     }
   }, [claimId, reloadKey])
 
-  const activeRunIdRef = useRef<string | null>(null)
-  const pollTimerRef = useRef<number | null>(null)
-  const pollAttemptsRef = useRef(0)
-  const pollInFlightRef = useRef(false)
-
-  /* Close any open stream / timer when the page unmounts or the id changes. */
-  useEffect(() => () => {
-    stopStream()
-    if (pollTimerRef.current !== null) {
-      window.clearTimeout(pollTimerRef.current)
-      pollTimerRef.current = null
-    }
-    activeRunIdRef.current = null
-    pollAttemptsRef.current = 0
-    pollInFlightRef.current = false
-  }, [claimId, stopStream])
-
-  const stopPolling = useCallback(() => {
-    if (pollTimerRef.current !== null) {
-      window.clearTimeout(pollTimerRef.current)
-      pollTimerRef.current = null
-    }
-    pollAttemptsRef.current = 0
-    pollInFlightRef.current = false
-  }, [])
-
-  /* When the claim changes, reset run state so nothing leaks. */
+  /* When the claim changes, reset every piece of run state so nothing leaks. */
   useEffect(() => {
-    setRanClaimId((prev) => (prev === claimId ? prev : null))
-    setRunStatus(null)
-    setRunError(null)
-    setRevealAnalysis(false)
-    setAnalyzing(false)
-    setBusy(false)
-    stopStream()
-    stopPolling()
-    awaitingRefreshRef.current = false
-    activeRunIdRef.current = null
-    pollAttemptsRef.current = 0
-    pollInFlightRef.current = false
-  }, [claimId, stopPolling, stopStream])
-
-  const runAnalysis = useCallback(async () => {
-    if (analyzing || busy || activeRunIdRef.current === claimId) return
-    const runId = claimId
-    const baseline = data?.analysisMeta ?? { id: null, updatedAt: null, state: null, error: null }
-    const mode = resolveAnalysisMode()
-
-    activeRunIdRef.current = runId
-    stopPolling()
-    stopStream()
-    setBusy(true)
-    setAnalyzing(true)
+    setStatus(null)
     setActionError(null)
-    setRunError(null)
-    setRunStatus('Starting analysis…')
-    setRevealAnalysis(true)
-    awaitingRefreshRef.current = false
-    pollAttemptsRef.current = 0
-
-    let settled = false
-
-    /* Settle once: success keeps the skeleton until the refreshed claim lands;
-       failure releases the buttons immediately. */
-    const finish = (message: string, succeeded: boolean) => {
-      if (settled) return
-      if (activeRunIdRef.current !== runId) return
-      settled = true
-      setRunStatus(message)
-      stopStream()
-      stopPolling()
-      activeRunIdRef.current = null
-      if (succeeded) {
-        setRunError(null)
-        setRanClaimId(runId)
-        awaitingRefreshRef.current = true
-      } else {
-        setAnalyzing(false)
-      }
-      refresh()
+    setRetrying(false)
+    setRetryError(null)
+    setAnalysisOverride(false)
+    setAnalysisTimedOut(false)
+    pollStartRef.current = null
+    pollInFlightRef.current = false
+    retryGraceUntilRef.current = 0
+    if (pollTimerRef.current !== null) {
+      window.clearTimeout(pollTimerRef.current)
+      pollTimerRef.current = null
     }
+  }, [claimId])
 
-    const startPolling = () => {
-      if (activeRunIdRef.current !== runId || pollTimerRef.current !== null || settled) return
+  const analysisState = data?.analysisMeta.state ?? null
+  const hasPersistedResults = data ? hasAnalysisResults(data.analysis) : false
+  const analysisActive =
+    isActiveAnalysisState(analysisState) ||
+    (normalizedState(analysisState) === '' && !hasPersistedResults) ||
+    analysisOverride
 
-      const poll = async () => {
+  /* Leaving the active states clears the safety timeout (a terminal result or
+     a failure means there is nothing left to wait for). */
+  useEffect(() => {
+    if (analysisActive) return
+    pollStartRef.current = null
+    setAnalysisTimedOut(false)
+  }, [analysisActive])
+
+  /* Follow a live analysis: poll every 4 seconds, stop on a terminal state,
+     on unmount, when the tab is hidden, and after the 5-minute safety limit. */
+  useEffect(() => {
+    if (state !== 'ready' || !data) return
+    if (!analysisActive || analysisTimedOut) return
+
+    if (pollStartRef.current === null) pollStartRef.current = Date.now()
+
+    let cancelled = false
+
+    function clearTimer() {
+      if (pollTimerRef.current !== null) {
+        window.clearTimeout(pollTimerRef.current)
         pollTimerRef.current = null
-        if (activeRunIdRef.current !== runId || settled) return
-        pollAttemptsRef.current += 1
-        if (pollAttemptsRef.current > ANALYSIS_MAX_POLLS) {
-          setRunError('The analysis is taking longer than expected. Try again in a moment.')
-          finish('Analysis is taking longer than expected — reloading the claim.', false)
-          return
-        }
-        pollInFlightRef.current = true
-        try {
-          const raw = await getClaim(runId)
-          if (activeRunIdRef.current !== runId || settled) return
-          const current = analysisSnapshot(raw)
-          if (hasNewAnalysis(current, baseline)) {
-            const state = normalizedState(current.state)
-            if (ANALYSIS_FAILURE_STATES.has(state)) {
-              setRunError(
-                current.error?.trim() ||
-                  'The analysis did not finish. Check the evidence and run it again.',
-              )
-              finish('Analysis failed.', false)
-              return
-            }
-            if (ANALYSIS_TERMINAL_STATES.has(state)) {
-              ingestNotifications([analysisCompleted(runId)])
-              finish('Analysis complete.', true)
-              return
-            }
-          }
-        } catch {
-          /* Ignore poll errors; retry until the two-minute limit. */
-        } finally {
-          pollInFlightRef.current = false
-        }
-        if (activeRunIdRef.current === runId && !settled) {
-          pollTimerRef.current = window.setTimeout(poll, ANALYSIS_POLL_INTERVAL_MS)
-        }
       }
-
-      pollTimerRef.current = window.setTimeout(poll, ANALYSIS_POLL_START_MS)
     }
 
-    try {
-      if (mode === 'webhook') {
-        await triggerAnalysisWebhook(runId)
-        if (activeRunIdRef.current !== runId) return
-        setRunStatus('Analysis running…')
-        startPolling()
+    function schedule(delay: number) {
+      clearTimer()
+      if (cancelled) return
+      pollTimerRef.current = window.setTimeout(poll, delay)
+    }
+
+    async function poll() {
+      pollTimerRef.current = null
+      if (cancelled || document.hidden) return
+
+      const startedAt = pollStartRef.current
+      if (startedAt !== null && Date.now() - startedAt >= ANALYSIS_SAFETY_TIMEOUT_MS) {
+        setAnalysisTimedOut(true)
         return
       }
 
-      const run = await analyzeClaim(runId)
-      if (activeRunIdRef.current !== runId) return
-      ingestNotifications([analysisStarted(runId, run?.analysis_id ?? Date.now())])
+      if (pollInFlightRef.current) {
+        schedule(ANALYSIS_POLL_INTERVAL_MS)
+        return
+      }
 
-      stopStream()
-      const stream = openAnalysisStream(runId)
-      streamRef.current = stream
+      pollInFlightRef.current = true
+      try {
+        const raw = await getClaim(claimId)
+        if (cancelled) return
+        if (!raw) return
 
-      const onEvent = (event: Event) => {
-        if (activeRunIdRef.current !== runId) return
-        type Frame = { agent?: string; status?: string; message?: string }
-        let frame: Frame = {}
-        try {
-          frame = JSON.parse((event as MessageEvent).data || '{}') as Frame
-        } catch {
-          frame = {}
+        const meta = analysisSnapshot(raw)
+        const nextState = normalizedState(meta.state)
+        const failed = isFailedAnalysisState(nextState)
+        const withinRetryGrace = failed && Date.now() < retryGraceUntilRef.current
+        if (isTerminalAnalysisState(nextState) && !withinRetryGrace) {
+          if (failed) {
+            ingestNotifications([analysisFailed(claimId)])
+          } else {
+            ingestNotifications([analysisCompleted(claimId)])
+          }
+          setAnalysisOverride(false)
+          /* Refresh the whole claim so the results, damage map and policy
+             card update together. */
+          refresh()
+          return
         }
-
-        switch (event.type) {
-          case 'analysis_started':
-            setRunStatus('Analysis started…')
-            break
-          case 'agent_status':
-            setRunStatus(`Agent: ${frame.agent ?? 'working'} (${frame.status ?? 'running'})`)
-            break
-          case 'awaiting_review':
-            /* The stream is claim-wide; polling confirms this run's new row. */
-            setRunStatus('Analysis complete — checking the result…')
-            break
-          case 'analysis_failed':
-            ingestNotifications([analysisFailed(runId, frame.message)])
-            setRunError(
-              typeof frame.message === 'string' && frame.message.trim()
-                ? frame.message.trim()
-                : 'The analysis did not finish. Check the evidence and run it again.',
-            )
-            finish('Analysis failed.', false)
-            break
-          default:
-            break
-        }
+      } catch {
+        /* Transient poll failure — keep trying until the safety timeout. */
+      } finally {
+        pollInFlightRef.current = false
       }
 
-      for (const name of ['analysis_started', 'agent_status', 'awaiting_review', 'analysis_failed']) {
-        stream.addEventListener(name, onEvent)
-      }
+      if (!cancelled && !document.hidden) schedule(ANALYSIS_POLL_INTERVAL_MS)
+    }
 
-      /* The stream is progress only. If it drops, polling still reaches a
-         terminal result; a silent stream must not fail the run. */
-      stream.onerror = () => {
-        if (activeRunIdRef.current !== runId) return
-        stopStream()
-        setRunStatus('Checking analysis progress…')
+    const onVisibility = () => {
+      if (document.hidden) {
+        clearTimer()
+      } else if (!cancelled) {
+        schedule(0)
       }
-      streamTimer.current = window.setTimeout(() => {
-        if (activeRunIdRef.current !== runId) return
-        stopStream()
-        setRunStatus('Checking analysis progress…')
-      }, STREAM_TIMEOUT_MS)
+    }
 
-      startPolling()
+    document.addEventListener('visibilitychange', onVisibility)
+    schedule(ANALYSIS_POLL_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      clearTimer()
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [analysisActive, analysisTimedOut, claimId, data, refresh, state])
+
+  const retryAnalysis = useCallback(async () => {
+    if (retrying) return
+    setRetrying(true)
+    setRetryError(null)
+    setActionError(null)
+    setAnalysisTimedOut(false)
+    setAnalysisOverride(true)
+    pollStartRef.current = Date.now()
+    retryGraceUntilRef.current = Date.now() + 15_000
+
+    try {
+      await analyzeClaim(claimId)
+      refresh()
     } catch (cause) {
-      if (activeRunIdRef.current !== runId) return
-      setRunStatus(null)
-      setRunError(triggerErrorMessage(cause, mode))
-      setAnalyzing(false)
-      stopPolling()
-      stopStream()
-      activeRunIdRef.current = null
+      if (cause instanceof ApiError && cause.status === 409) {
+        /* A run is already in flight — follow it instead of reporting an error. */
+        setAnalysisOverride(true)
+        setAnalysisTimedOut(false)
+        pollStartRef.current = Date.now()
+        retryGraceUntilRef.current = Date.now() + 15_000
+        refresh()
+      } else {
+        retryGraceUntilRef.current = 0
+        setAnalysisOverride(false)
+        setRetryError('Could not restart the analysis. Please try again.')
+      }
+    } finally {
+      setRetrying(false)
+    }
+  }, [claimId, refresh, retrying])
+
+  const handleApprove = useCallback(async () => {
+    setBusy(true)
+    setActionError(null)
+    setStatus('Approving claim…')
+    const applyApproved = (current: ClaimWorkspaceData | null) =>
+      current
+        ? {
+            ...current,
+            badges: [{ label: 'APPROVED', tone: 'supported' as const }],
+            summary: current.summary.map((item) =>
+              item.label === 'Last updated' ? { ...item, value: 'Just now' } : item,
+            ),
+          }
+        : current
+    try {
+      await reviewClaim(claimId, 'approve')
+      approvedClaimIds.add(claimId)
+      const stored = claimReviewStore.get(claimId) ?? {
+        approved: false,
+        statusMap: claimReviewStore.get(claimId)?.statusMap ?? {},
+      }
+      claimReviewStore.set(claimId, { ...stored, approved: true })
+      ingestNotifications([reviewCompleted(claimId)])
+      setStatus('Claim approved.')
+      setToast({ message: 'Claim approved', tone: 'success' })
+      setData(applyApproved)
+    } catch (cause) {
+      if (DEMO_FALLBACK) {
+        console.warn('DEMO fallback used')
+        approvedClaimIds.add(claimId)
+        const storedDemo = claimReviewStore.get(claimId) ?? {
+          approved: false,
+          statusMap: claimReviewStore.get(claimId)?.statusMap ?? {},
+        }
+        claimReviewStore.set(claimId, { ...storedDemo, approved: true })
+        setData(applyApproved)
+        setStatus('Claim approved.')
+        setToast({ message: 'Claim approved', tone: 'success' })
+        setBusy(false)
+        return
+      }
+      const statusNum = cause instanceof ApiError ? cause.status : 0
+      const statusPrefix = statusNum > 0 ? `HTTP ${statusNum}: ` : ''
+      const msg = cause instanceof ApiError
+        ? `${statusPrefix}${cause.message}`
+        : cause instanceof Error
+          ? cause.message
+          : 'Could not approve the claim.'
+      setActionError(msg)
+      setToast({ message: msg, tone: 'error' })
+      refresh()
     } finally {
       setBusy(false)
     }
-  }, [analyzing, busy, claimId, data, refresh, stopPolling, stopStream])
-
-  const submitReview = useCallback(
-    async (action: 'approve' | 'request_info') => {
-      setBusy(true)
-      setActionError(null)
-      try {
-        await reviewClaim(claimId, action)
-        /* Real event → notification bell, immediately. */
-        ingestNotifications([action === 'approve' ? reviewCompleted(claimId) : infoRequested(claimId)])
-        setStatus(action === 'approve' ? 'Claim approved.' : 'More information requested.')
-        refresh()
-      } catch (cause) {
-        /* A review rejection the card already explains (analysis never ran or
-           failed) must not repeat a long backend line under the title — the
-           AI analysis card owns that story. Anything else still surfaces. */
-        const analysisState = data?.analysis.status
-        if (analysisState !== 'failed' && analysisState !== 'empty') {
-          setActionError(cause instanceof Error ? cause.message : 'Could not record the decision.')
-        }
-      } finally {
-        setBusy(false)
-      }
-    },
-    [claimId, data, refresh],
-  )
+  }, [claimId, refresh])
 
   const handleEvidenceUpload = useCallback(
     async (file: File) => {
@@ -517,17 +457,19 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
       menuOpen={menuOpen}
       onToggleMenu={toggleMenu}
       onCloseMenu={closeMenu}
-      busy={busy || analyzing}
-      analyzing={analyzing}
-      hasRunAnalysis={hasRunAnalysis}
+      busy={busy || retrying}
       status={status}
       error={actionError}
-      analysisStatus={runStatus}
-      analysisError={runError}
-      revealAnalysis={revealAnalysis}
-      onAnalyze={runAnalysis}
-      onApprove={() => submitReview('approve')}
-      onRequestInfo={() => submitReview('request_info')}
+      toast={toast}
+      onDismissToast={() => setToast(null)}
+      analysisActive={analysisActive}
+      analysisTimedOut={analysisTimedOut}
+      retrying={retrying}
+      retryError={retryError}
+      technicalError={data.analysisMeta.error ?? data.analysis.error ?? null}
+      onRetry={retryAnalysis}
+      onApprove={handleApprove}
+      approved={claimReviewStore.get(claimId)?.approved ?? approvedClaimIds.has(claimId)}
       onUploadEvidence={handleEvidenceUpload}
     />
   )
@@ -591,21 +533,23 @@ type ClaimWorkspaceViewProps = {
   onToggleMenu: () => void
   onCloseMenu: () => void
   busy: boolean
-  /** An analysis run is in flight (part of `busy`, but the card needs it). */
-  analyzing: boolean
-  /** The user has run this claim's analysis in this session (card gating). */
-  hasRunAnalysis: boolean
   status: string | null
   error: string | null
-  /** Live status line of the current analysis run (card only). */
-  analysisStatus: string | null
-  /** Cleaned failure text of the current run (card only). */
-  analysisError: string | null
-  /** Scroll the AI analysis card into view once results (or a failure) land. */
-  revealAnalysis: boolean
-  onAnalyze: () => void
+  toast: { message: string; tone: 'success' | 'error' | 'info' } | null
+  onDismissToast: () => void
+  /** The analysis is being followed live (or a retry was just accepted). */
+  analysisActive: boolean
+  /** The 5-minute safety timeout was reached. */
+  analysisTimedOut: boolean
+  /** The retry request is in flight. */
+  retrying: boolean
+  /** Non-technical retry failure text. */
+  retryError: string | null
+  /** Raw backend error text, shown only behind the card's Details toggle. */
+  technicalError: string | null
+  onRetry: () => void
   onApprove: () => void
-  onRequestInfo: () => void
+  approved?: boolean
   onUploadEvidence: (file: File) => void
 }
 
@@ -615,21 +559,29 @@ function ClaimWorkspaceView({
   onToggleMenu,
   onCloseMenu,
   busy,
-  analyzing,
-  hasRunAnalysis,
   status,
   error,
-  analysisStatus,
-  analysisError,
-  revealAnalysis,
-  onAnalyze,
+  toast,
+  onDismissToast,
+  analysisActive,
+  analysisTimedOut,
+  retrying,
+  retryError,
+  technicalError,
+  onRetry,
   onApprove,
-  onRequestInfo,
+  approved = false,
   onUploadEvidence,
 }: ClaimWorkspaceViewProps) {
   // Default selection is the third damage area (per the brief), falling back to
   // the first for claims with fewer areas. The component is keyed by claim id,
   // so both this and the status map reset whenever the route's :id changes.
+  const resolvedDamage = resolveDamageAreas({
+    id: data.id,
+    damage: data.damage,
+    damageSummary: data.analysis.damageSummary,
+    analysis: data.analysis,
+  })
   const [selectedDamageId, setSelectedDamageId] = useState(
     () => data.damage[2]?.id ?? data.damage[0]?.id ?? '',
   )
@@ -637,38 +589,57 @@ function ClaimWorkspaceView({
   // here. They never change the review requirement: Approve still waits on the
   // derived status map below.
   const aiPrefs = useAiPrefs()
-  // Seed each area's review status from the claim's own data.
-  const [statusMap, setStatusMap] = useState<Record<string, DamageStatus>>(() =>
-    Object.fromEntries(data.damage.map((zone) => [zone.id, zone.status] as const)),
-  )
+  const damageSummary = data.analysis.damageSummary?.trim() ?? ''
+  const estimatedZones =
+    resolvedDamage.source === 'estimated' && damageSummary
+      ? extractZonesFromSummary(damageSummary)
+      : []
+  // Seed each area's review status from the global store, then the claim's own data.
+  const [statusMap, setStatusMap] = useState<Record<string, DamageStatus>>(() => {
+    const stored = claimReviewStore.get(data.id)
+    if (stored?.statusMap) return stored.statusMap
+    if (estimatedZones.length > 0) {
+      const next = Object.fromEntries(
+        estimatedZones.map((_, index) => [`est-${index + 1}`, 'pending' as DamageStatus]),
+      )
+      claimReviewStore.set(data.id, {
+        approved: approvedClaimIds.has(data.id),
+        statusMap: next,
+      })
+      return next
+    }
+    const next = Object.fromEntries(data.damage.map((zone) => [zone.id, zone.status] as const))
+    claimReviewStore.set(data.id, {
+      approved: approvedClaimIds.has(data.id),
+      statusMap: next,
+    })
+    return next
+  })
   const [policyOpen, setPolicyOpen] = useState(false)
 
-  /* A run has settled (or just failed to start): bring the AI analysis card
-     into view — minimally and without motion for users who ask for none. */
-  useEffect(() => {
-    if (!revealAnalysis) return
-    const node = document.getElementById('cw-ai-analysis')
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    node?.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' })
-  }, [revealAnalysis])
+  const isEstimatedMode = resolvedDamage.source === 'estimated'
+  const total = isEstimatedMode ? estimatedZones.length : data.damage.length
+  const confirmed = (isEstimatedMode
+    ? estimatedZones.map((_, index) => `est-${index + 1}`)
+    : data.damage.map((zone) => zone.id)
+  ).filter((id) => statusMap[id] === 'confirmed').length
+  const dismissed = (isEstimatedMode
+    ? estimatedZones.map((_, index) => `est-${index + 1}`)
+    : data.damage.map((zone) => zone.id)
+  ).filter((id) => statusMap[id] === 'dismissed').length
+  const complete = total === 0 || confirmed + dismissed === total
 
-  const total = data.damage.length
-  const confirmed = data.damage.filter((zone) => statusMap[zone.id] === 'confirmed').length
-  const dismissed = data.damage.filter((zone) => statusMap[zone.id] === 'dismissed').length
-  const complete = confirmed + dismissed === total
+  const multiVehicleSummary = resolvedDamage.source === 'none' && Boolean(resolvedDamage.notice)
 
-  /* The single source of truth for "may this claim be approved right now":
-     every damage area reviewed AND the policy coverage evaluated. Both the
-     panel and the header's Complete review read it, and the AI's suggestion
-     never enters into it — the server re-validates regardless. */
-  const coverage = data.analysis.coverage
-  const approveBlockedReason = !complete
-    ? 'Confirm or dismiss every damage area to enable approval.'
-    : coverage === 'unable_to_evaluate'
-      ? 'Coverage could not be evaluated — request the missing information instead.'
-      : coverage === 'not_covered'
-        ? 'This damage is not covered by the policy — request information or escalate instead.'
-        : null
+  // coverage intentionally no longer gates approval.
+  /* Approve is enabled as soon as all damage areas are reviewed. */
+  const approveBlockedReason: string | null = approved
+    ? 'Claim already approved.'
+    : complete
+      ? null
+      : 'Review all damage areas first.'
+
+
   /* The AI's proposed decision is a hint on the reviewer's panel, nothing
      more — and there is deliberately no "Reject" action to map a denial to;
      the decision stays with the human. */
@@ -677,7 +648,15 @@ function ClaimWorkspaceView({
     : null
 
   const setStatus = (id: string, next: DamageStatus) =>
-    setStatusMap((current) => ({ ...current, [id]: next }))
+    setStatusMap((current) => {
+      const nextMap = { ...current, [id]: next }
+      const stored = claimReviewStore.get(data.id) ?? {
+        approved: approvedClaimIds.has(data.id),
+        statusMap: current,
+      }
+      claimReviewStore.set(data.id, { ...stored, statusMap: nextMap })
+      return nextMap
+    })
 
   return (
     <div className="dashboard-shell">
@@ -689,16 +668,7 @@ function ClaimWorkspaceView({
 
         <div className="cw-root">
           <div className="cw-content">
-            <ClaimHeader
-              data={data}
-              busy={busy}
-              status={status}
-              error={error}
-              approveBlockedReason={approveBlockedReason}
-              onAnalyze={onAnalyze}
-              onApprove={onApprove}
-              onRequestInfo={onRequestInfo}
-            />
+            <ClaimHeader data={data} busy={busy} status={status} error={error} />
             <SummaryStrip items={data.summary} />
 
             <div className="cw-grid">
@@ -714,6 +684,9 @@ function ClaimWorkspaceView({
                   statusMap={statusMap}
                   selectedId={selectedDamageId}
                   evidence={data.evidence}
+                  damageSummary={data.analysis.damageSummary}
+                  estimatedZones={estimatedZones}
+                  multiVehicleSummary={multiVehicleSummary}
                   onSelect={setSelectedDamageId}
                   onConfirm={(id) => setStatus(id, 'confirmed')}
                   onDismiss={(id) => setStatus(id, 'dismissed')}
@@ -722,12 +695,17 @@ function ClaimWorkspaceView({
                 />
                 <AIAnalysisCard
                   result={data.analysis}
-                  hasRunAnalysis={hasRunAnalysis}
-                  running={analyzing}
-                  disabled={busy}
-                  status={analysisStatus}
-                  runError={analysisError}
-                  onRun={onAnalyze}
+                  analysisState={data.analysisMeta.state}
+                  analyzing={analysisActive}
+                  total={total}
+                  confirmed={confirmed}
+                  reviewed={confirmed + dismissed}
+                  approved={claimReviewStore.get(data.id)?.approved ?? approved}
+                  timedOut={analysisTimedOut}
+                  retrying={retrying}
+                  retryError={retryError}
+                  technicalError={technicalError}
+                  onRetry={onRetry}
                   showBadges={aiPrefs.aiBadges}
                 />
               </div>
@@ -750,7 +728,6 @@ function ClaimWorkspaceView({
                   suggestion={suggestion}
                   approveBlockedReason={approveBlockedReason}
                   onApprove={onApprove}
-                  onRequestInfo={onRequestInfo}
                 />
               </div>
             </div>
@@ -760,6 +737,14 @@ function ClaimWorkspaceView({
 
       {policyOpen && (
         <PolicyViewer policyRef={data.policyRef} onClose={() => setPolicyOpen(false)} />
+      )}
+
+      {toast && (
+        <ClaimsToast
+          message={toast.message}
+          tone={toast.tone}
+          onDismiss={onDismissToast}
+        />
       )}
     </div>
   )

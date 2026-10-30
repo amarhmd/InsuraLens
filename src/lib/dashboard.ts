@@ -25,11 +25,12 @@ export interface DashboardPriorityCounts {
   low: number
 }
 
-/** Counts behind the "AI-assisted insights" cards, derived from the queue. */
+/** Counts behind the "AI-assisted insights" cards, derived from the queue.
+    null means the loaded queue did not carry enough data for that rule. */
 export interface DashboardInsights {
-  damagePattern: number
-  missingEvidence: number
-  policyReview: number
+  damagePattern: number | null
+  missingEvidence: number | null
+  policyReview: number | null
 }
 
 /** Everything the Dashboard cards read in one payload. */

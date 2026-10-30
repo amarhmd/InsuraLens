@@ -1,45 +1,59 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AlertTriangleIcon } from '../../components/layout/icons'
 import { SparkleIcon } from '../../components/ui/icons'
 import { cx } from '../../lib/cx'
-import { ANALYSIS_COVERAGE_LABEL, PROPOSED_DECISION_LABEL } from '../../lib/analysisResult'
-import type { AnalysisCoverage, AnalysisResult } from '../../lib/analysisResult'
-import type { BadgeTone } from '../../lib/claimWorkspace'
-
-/** Coverage verdict → badge tone (never colour alone: the label says it too). */
-const COVERAGE_TONE: Record<AnalysisCoverage, BadgeTone> = {
-  covered: 'supported',
-  partial: 'needs',
-  not_covered: 'priority',
-  unable_to_evaluate: 'needs',
-}
+import {
+  ANALYSIS_COVERAGE_LABEL,
+  PROPOSED_DECISION_LABEL,
+  hasAnalysisResults,
+} from '../../lib/analysisResult'
+import type { AnalysisResult } from '../../lib/analysisResult'
 
 /** Characters that still fit the ~3-line clamp; longer text gets a
     "show full" toggle so a wall of backend prose never takes over. */
 const CLAMP_LIMIT = 80
 
+/** States where the backend is still working on the analysis. */
+const ACTIVE_STATES = new Set(['not_started', 'queued', 'running', 'processing', 'pending'])
+
+/** States where a result (or a failure) is final. */
+const FAILED_STATES = new Set(['failed', 'error'])
+const RESULT_STATES = new Set([
+  'awaiting_review',
+  'reviewing',
+  'reviewed',
+  'completed',
+  'analyzed',
+  'success',
+])
+
+function normalizedState(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? ''
+}
+
 type AIAnalysisCardProps = {
-  /** The mapped analysis, shown only once this claim's analysis has run. */
+  /** The mapped analysis, shown whenever the claim already carries results. */
   result: AnalysisResult
-  /**
-   * Whether the user has run the analysis for THIS claim (local, per-claim
-   * state). Until it is true the card shows the empty state — even when the API
-   * already carries a summary saved by an earlier, out-of-band run.
-   */
-  hasRunAnalysis: boolean
-  /** A run started from this page is in flight — show the skeleton. */
-  running: boolean
-  /** Disable Run while any page action is in flight (same condition as header). */
-  disabled: boolean
-  /** Live status line from the current run (kept after it settles). */
-  status: string | null
-  /** Failure text from the current run (includes the server message when it
-      sent one). */
-  runError: string | null
-  /** Starts the analysis — the same action as the header's Run button. */
-  onRun?: () => void
+  /** Backend analysisState — the single driver of the card's state. */
+  analysisState?: string | null
+  /** A run is being followed (including a retry the backend just accepted). */
+  analyzing: boolean
+  /** The 5-minute safety timeout was reached. */
+  timedOut: boolean
+  /** The retry request is in flight. */
+  retrying: boolean
+  /** Non-technical retry failure text, shown under the button. */
+  retryError?: string | null
+  /** Raw backend error text, hidden behind the collapsed Details toggle. */
+  technicalError?: string | null
+  /** Re-calls the existing analyze endpoint. Only used for failed/timed-out runs. */
+  onRetry?: () => void
   /** Show the AI-GENERATED · VERIFY tag (same preference as the other AI UI). */
   showBadges: boolean
+  total?: number
+  confirmed?: number
+  reviewed?: number
+  approved?: boolean
 }
 
 /**
@@ -78,55 +92,101 @@ function ClampBlock({
 /**
  * "AI analysis" — the single place the claim's AI output is shown.
  *
- * The card renders from AnalysisResult only (mapped from the n8n workflow's
- * payload, or from the legacy analysis, by src/lib/analysisResult.ts and
- * src/api/claimWorkspace.ts) — the raw payload never reaches this component.
+ * The backend starts the analysis automatically, so the card follows
+ * `analysisState` rather than a local "run" action:
  *
- * Output is gated by `hasRunAnalysis`: a claim that already carries a saved
- * summary but has not been analysed here still shows the empty state, exactly
- * like a brand-new claim. Only after a run succeeds does the result appear.
+ * - not_started / queued / running → "Analyzing evidence against the policy…"
+ *   with a spinner and skeleton. No buttons.
+ * - awaiting_review / completed → the persisted results. No run/re-run button.
+ * - failed → a plain-language message plus a single Retry analysis button; the
+ *   raw backend error stays behind a collapsed Details toggle.
+ * - a run that exceeds the page's safety timeout → "Analysis is taking longer
+ *   than expected" plus the same Retry button.
  *
- * States: empty (never run), loading (skeleton while the run is in flight),
- * success ("Analyzed" badge, only when a summary is visible), and failed (the
- * error — including the server message — plus the Run/Re-run button, so a
- * retry is always one click away). A denied recommendation is a red-tinted
- * hint, never a decision: AI output never approves, confirms or dismisses
- * anything; the final call stays with the reviewer.
+ * Persisted results always win: a claim that already has a summary/decision/
+ * inconsistency flag never shows a failure card, regardless of `analysis.error`.
+ * The final decision stays with the human reviewer.
  */
 export function AIAnalysisCard({
   result,
-  hasRunAnalysis,
-  running,
-  disabled,
-  status,
-  runError,
-  onRun,
+  analysisState,
+  analyzing,
+  timedOut,
+  retrying,
+  retryError = null,
+  technicalError = null,
+  onRetry,
   showBadges,
+  total = 0,
+  confirmed = 0,
+  reviewed = 0,
+  approved = false,
 }: AIAnalysisCardProps) {
-  /* A saved `running` state is not a run started here: only `running` (this
-     page's active run) may show the skeleton. */
-  const loading = running
-  /* A stored backend error is safe, plain text and should be visible even
-     before this session starts a run. A bare old `failed` state stays hidden
-     until the user actually runs it. */
-  const failedMessage =
-    runError ??
-    (!running && result.status === 'failed'
-      ? result.error ?? (hasRunAnalysis ? 'The analysis did not finish. Check the evidence and run it again.' : null)
-      : null)
-  /* Only output from a run started here is shown. The summary is trimmed so
-     blank strings never render as an empty paragraph. */
-  const summary = hasRunAnalysis ? (result.damageSummary?.trim() ?? '') : ''
-  const hasOutput =
-    Boolean(summary) ||
-    Boolean(result.assessment) ||
-    Boolean(result.proposedDecision) ||
-    result.inconsistency.flagged
-  /* A failed run may still have produced usable output — keep showing it;
-     only the badge stays off. */
-  const showResult =
-    hasRunAnalysis && (result.status === 'success' || (result.status === 'failed' && hasOutput))
-  const decision = showResult ? result.proposedDecision : null
+  const summary = result.damageSummary?.trim() ?? ''
+  const hasPersistedResults = hasAnalysisResults(result)
+
+  const stateNorm = normalizedState(analysisState)
+  const stateIsActive = ACTIVE_STATES.has(stateNorm)
+  const stateIsResult = RESULT_STATES.has(stateNorm)
+  const stateIsFailed = FAILED_STATES.has(stateNorm)
+
+  /* The analysisState drives the view. Persisted output still wins over a
+     failure (never show an error when there is something to show), but an
+     active run always shows its progress state. */
+  const showTimeout =
+    timedOut &&
+    (stateIsActive || (!hasPersistedResults && !stateIsResult && !stateIsFailed))
+  const showResults =
+    !showTimeout &&
+    (stateIsResult ||
+      (!stateIsActive && hasPersistedResults) ||
+      (!stateIsActive && result.status === 'success'))
+  const showFailure =
+    !showTimeout &&
+    !showResults &&
+    !analyzing &&
+    (stateIsFailed || result.status === 'failed')
+  const showAnalyzing = !showTimeout && !showResults && !showFailure
+
+  const showAnalyzedBadge = showResults && Boolean(summary) && !analyzing
+  const unableToEvaluate = result.coverage === 'unable_to_evaluate'
+  const coverageTone =
+    result.coverage === 'covered'
+      ? 'cw-badge--supported'
+      : result.coverage === 'not_covered'
+        ? 'cw-badge--priority'
+        : 'cw-badge--needs'
+  const detailsText = technicalError?.trim() || result.error?.trim() || ''
+  /* Hide the whole row when the analysis did not return a proposed decision. */
+  const proposedDecisionLabel = result.proposedDecision
+    ? PROPOSED_DECISION_LABEL[result.proposedDecision]
+    : null
+
+  const completeReviewed = total > 0 && reviewed >= total
+  const pillLabel = approved
+    ? 'Approved'
+    : completeReviewed
+      ? result.coverage === 'covered'
+        ? 'Approve'
+        : 'Manual review'
+      : 'Pending'
+  const pillClass = approved
+    ? 'cw-ai-decision--approved'
+    : completeReviewed
+      ? result.coverage === 'covered'
+        ? 'cw-ai-decision--approve'
+        : 'cw-ai-decision--manual'
+      : 'cw-ai-decision--pending'
+
+  const confidenceRaw =
+    60 + 25 * (total > 0 ? reviewed / total : 0) + (result.coverage === 'covered' ? 10 : 0) - (result.coverage === 'not_covered' ? 15 : 0)
+  const confidence = Math.min(95, Math.max(35, Math.round(confidenceRaw)))
+
+  const [barWidth, setBarWidth] = useState(0)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setBarWidth(confidence), 30)
+    return () => window.clearTimeout(timer)
+  }, [confidence])
 
   return (
     <section className="cw-card cw-section cw-ai" id="cw-ai-analysis" aria-labelledby="cw-ai-title">
@@ -137,54 +197,73 @@ export function AIAnalysisCard({
         </h2>
         <span className="cw-ai__head-end">
           {/* Badge only when the summary it claims to describe is on screen. */}
-          {showResult && Boolean(summary) && !loading && (
-            <span className="cw-badge cw-badge--supported">Analyzed</span>
-          )}
+          {showAnalyzedBadge && <span className="cw-badge cw-badge--supported">Analyzed</span>}
           {showBadges && <span className="cw-tag">AI-GENERATED · VERIFY</span>}
         </span>
       </div>
 
-      {/* Live line: loading/result changes are announced politely. */}
-      <p className="cw-ai__status" aria-live="polite">
-        {status ?? (running ? 'Running the analysis…' : '')}
-      </p>
-
-      {/* Failure lives here, never in the page header. The Run button below
-          stays enabled, so the retry never depends on a second control. */}
-      {failedMessage && (
-        <div className="cw-ai__alert" role="alert">
+      {showTimeout ? (
+        <div className="cw-ai__alert" role="status">
           <AlertTriangleIcon size={18} className="cw-ai__alert-icon" />
           <div className="cw-ai__alert-body">
-            <p className="cw-ai__alert-title">Analysis could not be completed</p>
-            <p className="cw-ai__alert-text">{failedMessage}</p>
+            <p className="cw-ai__alert-title">Analysis is taking longer than expected</p>
+            <p className="cw-ai__alert-text">
+              The analysis has not finished yet. You can retry it, or check back in a moment.
+            </p>
           </div>
         </div>
-      )}
-
-      {loading ? (
-        <div className="cw-ai__skeletons" aria-hidden="true">
-          <div className="cw-ai__skeleton" />
-          <div className="cw-ai__skeleton cw-ai__skeleton--short" />
-          <div className="cw-ai__skeleton cw-ai__skeleton--short" />
+      ) : showAnalyzing ? (
+        <div className="cw-ai__skeletons" role="status" aria-live="polite">
+          <div className="cw-ai__analyzing">
+            <span className="cw-ai__spinner" aria-hidden="true" />
+            <span>Analyzing evidence against the policy…</span>
+          </div>
+          <div className="cw-ai__skeleton" aria-hidden="true" />
+          <div className="cw-ai__skeleton cw-ai__skeleton--short" aria-hidden="true" />
+          <div className="cw-ai__skeleton cw-ai__skeleton--short" aria-hidden="true" />
         </div>
-      ) : showResult ? (
+      ) : showFailure ? (
+        <>
+          <div className="cw-ai__alert" role="alert">
+            <AlertTriangleIcon size={18} className="cw-ai__alert-icon" />
+            <div className="cw-ai__alert-body">
+              <p className="cw-ai__alert-title">The analysis could not be completed</p>
+              <p className="cw-ai__alert-text">
+                You can retry the analysis. If the problem continues, check the evidence and try
+                again later.
+              </p>
+            </div>
+          </div>
+          {detailsText && (
+            <details className="cw-ai__details">
+              <summary className="cw-ai__details-toggle">Details</summary>
+              <pre className="cw-ai__details-text">{detailsText}</pre>
+            </details>
+          )}
+        </>
+      ) : showResults ? (
         <>
           {summary ? (
-            <ClampBlock
-              label="Damage summary"
-              text={summary}
-              closedLabel="Show full summary"
-            />
+            <ClampBlock label="Damage summary" text={summary} closedLabel="Show full summary" />
           ) : (
             <div className="cw-ai__empty">
               <p>No findings returned</p>
-              <p className="cw-muted">
-                The analysis finished without a written summary. You can run it again.
-              </p>
+              <p className="cw-muted">The analysis finished without a written summary.</p>
             </div>
           )}
 
-          {result.inconsistency.flagged && (
+          <div className="cw-ai__coverage">
+            <span className={cx('cw-badge', coverageTone)}>
+              {ANALYSIS_COVERAGE_LABEL[result.coverage]}
+            </span>
+            {unableToEvaluate && (
+              <p className="cw-muted cw-ai__coverage-note">
+                Coverage could not be evaluated from the available evidence and policy.
+              </p>
+            )}
+          </div>
+
+          {result.inconsistency.flagged ? (
             <div className="cw-ai__alert">
               <AlertTriangleIcon size={18} className="cw-ai__alert-icon" />
               <div className="cw-ai__alert-body">
@@ -195,29 +274,77 @@ export function AIAnalysisCard({
                 </p>
               </div>
             </div>
+          ) : unableToEvaluate ? null : (
+            <p className="cw-muted cw-ai__no-inconsistency">No inconsistencies</p>
           )}
 
-          <div className="cw-ai__grid">
-            <div>
-              <p className="cw-ai__label">Policy coverage</p>
-              <span className={cx('cw-badge', `cw-badge--${COVERAGE_TONE[result.coverage]}`)}>
-                {ANALYSIS_COVERAGE_LABEL[result.coverage]}
+          <div className={cx('cw-ai-decision', pillClass)}>
+            <div className="cw-ai-decision__head">
+              <span className="cw-ai-decision__label">AI DECISION</span>
+              <span className={cx('cw-ai-decision__pill', pillClass)}>{pillLabel}</span>
+            </div>
+
+            {proposedDecisionLabel && (
+              <p className="cw-ai-decision__recommendation">
+                AI recommendation: {proposedDecisionLabel}
+              </p>
+            )}
+
+            <div className="cw-ai-decision__confidence">
+              <span className="cw-ai-decision__conf-label">Confidence</span>
+              <div className="cw-ai-decision__conf-bar" aria-hidden="true">
+                <div
+                  className="cw-ai-decision__conf-fill"
+                  style={{ width: `${barWidth}%` }}
+                />
+              </div>
+              <span className="cw-ai-decision__conf-value">{confidence}%</span>
+            </div>
+
+            <ul className="cw-ai-decision__why">
+              <li>
+                <span className="cw-ai-decision__icon" aria-hidden="true">
+                  {completeReviewed ? '✓' : '⚠'}
+                </span>
+                {confirmed}/{total} damage areas verified
+              </li>
+              <li>
+                <span className="cw-ai-decision__icon" aria-hidden="true">
+                  {result.coverage === 'covered' ? '✓' : '⚠'}
+                </span>
+                Coverage: {result.coverage === 'covered' ? 'covered' : 'not covered'}
+              </li>
+              {result.estimatedAmount && (
+                <li>
+                  <span className="cw-ai-decision__icon" aria-hidden="true">✓</span>
+                  Estimated amount {result.estimatedAmount}
+                </li>
+              )}
+            </ul>
+
+            <div className="cw-ai-decision__chips">
+              <span className={cx('cw-ai-decision__chip', completeReviewed ? 'cw-ai-decision__chip--ok' : 'cw-ai-decision__chip--warn')}>
+                Damage: {completeReviewed ? 'verified' : 'pending'}
+              </span>
+              <span className={cx('cw-ai-decision__chip', result.coverage === 'covered' ? 'cw-ai-decision__chip--ok' : 'cw-ai-decision__chip--warn')}>
+                Coverage: {result.coverage === 'covered' ? 'ok' : 'not covered'}
+              </span>
+              <span
+                className={cx(
+                  'cw-ai-decision__chip',
+                  result.inconsistency.flagged || result.inconsistency.details
+                    ? 'cw-ai-decision__chip--warn'
+                    : 'cw-ai-decision__chip--ok',
+                )}
+              >
+                Fraud risk: {result.inconsistency.flagged || result.inconsistency.details ? 'Review' : 'Low'}
               </span>
             </div>
-            {result.estimatedAmount && (
-              <div>
-                <p className="cw-ai__label">Estimated amount</p>
-                <p className="cw-ai__value">{result.estimatedAmount}</p>
-              </div>
-            )}
-          </div>
 
-          {decision && (
-            <div className={cx('cw-ai__reco', decision === 'deny' && 'cw-ai__reco--deny')}>
-              <p className="cw-ai__reco-label">AI recommends</p>
-              <p className="cw-ai__reco-value">{PROPOSED_DECISION_LABEL[decision]}</p>
-            </div>
-          )}
+            <p className="cw-ai-decision__foot">
+              AI-GENERATED · VERIFY. Recommendation only; the final decision stays with the authorized reviewer.
+            </p>
+          </div>
 
           {result.assessment && (
             <ClampBlock
@@ -227,27 +354,20 @@ export function AIAnalysisCard({
             />
           )}
         </>
-      ) : (
-        <div className="cw-ai__empty">
-          <p>Run AI analysis to see findings.</p>
-          <p className="cw-muted">
-            The analysis reviews the uploaded evidence against the policy document.
-          </p>
-        </div>
-      )}
+      ) : null}
 
-      {/* One Run/Re-run control for the card, disabled for the whole run just
-          like the header's button. */}
-      {onRun && (
+      {(showFailure || showTimeout) && onRetry && (
         <div className="cw-ai__actions">
           <button
             type="button"
             className="cw-btn cw-btn--secondary"
-            onClick={onRun}
-            disabled={disabled || running}
+            onClick={onRetry}
+            disabled={retrying}
+            aria-busy={retrying || undefined}
           >
-            {showResult ? 'Re-run analysis' : 'Run AI analysis'}
+            Retry analysis
           </button>
+          {retryError && <p className="cw-muted cw-ai__retry-error">{retryError}</p>}
         </div>
       )}
     </section>

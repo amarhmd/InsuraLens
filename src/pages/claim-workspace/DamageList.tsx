@@ -13,13 +13,17 @@ export function DamageList({ damage, statusMap, selectedId, onSelect }: DamageLi
   return (
     <ul className="cw-dmg-list" aria-label="Damage areas">
       {damage.map((zone, index) => {
-        const status = statusMap[zone.id]
+        const status = statusMap[zone.id] ?? 'pending'
         const selected = zone.id === selectedId
         return (
           <li key={zone.id}>
             <button
               type="button"
-              className={cx('cw-dmg-row', selected && 'cw-dmg-row--selected')}
+              className={cx(
+                'cw-dmg-row',
+                selected && 'cw-dmg-row--selected',
+                zone.estimated && 'cw-dmg-row--estimated',
+              )}
               aria-pressed={selected}
               onClick={() => onSelect(zone.id)}
             >
@@ -28,9 +32,11 @@ export function DamageList({ damage, statusMap, selectedId, onSelect }: DamageLi
               </span>
               <span className="cw-dmg-row__body">
                 <span className="cw-dmg-row__zone">{zone.zone}</span>
-                <span className="cw-dmg-row__meta">
-                  {zone.photo} · {DAMAGE_STATUS_LABEL[status]}
-                </span>
+                {!zone.estimated && (
+                  <span className="cw-dmg-row__meta">
+                    {zone.photo} · {DAMAGE_STATUS_LABEL[status]}
+                  </span>
+                )}
               </span>
             </button>
           </li>

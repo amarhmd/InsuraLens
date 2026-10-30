@@ -104,17 +104,34 @@ interface ApiClaimDetail {
   policyId?: string
   estimatedAmount?: number | null
   coverageStatus?: string | null
+  coverage_status?: string | null
   /** Workflow stage word on the claim row ("failed", "running", …). */
   analysisState?: string
+  analysis_state?: string
   /** Persisted backend failure text for the analysis, when present. */
   analysisError?: string | null
+  analysis_error?: string | null
+  errorMessage?: string | null
+  error_message?: string | null
   /** Backend analysis row identity and update time, when present. */
   analysisId?: string | null
+  analysis_id?: string | null
   updatedAt?: string | number | null
+  updated_at?: string | number | null
   /** Analysis summary text persisted on the claim row, when there is one. */
   damageSummary?: string | null
+  damage_summary?: string | null
+  /** Structured damage areas, when the backend returned them. */
+  damageAreas?: unknown
+  damage_areas?: unknown
+  findings?: unknown
+  damages?: unknown
   /** Inconsistency flag persisted on the claim row. */
   inconsistencyFlag?: boolean
+  inconsistency_flag?: boolean | string | null
+  proposedDecision?: string | null
+  proposed_decision?: string | null
+  decision?: any
   status?: string
   priority?: string
   updatedLabel?: string
@@ -248,6 +265,7 @@ const COVERAGE_LABEL: Record<string, string> = {
   covered: 'Covered',
   partial: 'Partial',
   not_covered: 'Not covered',
+  unable_to_evaluate: 'Unable to evaluate',
   unclear: 'Unclear',
 }
 
@@ -317,6 +335,62 @@ function toPolicyDocument(files: ApiFile[]): string | null {
   return file?.name?.trim() || (file ? 'Policy declaration' : null)
 }
 
+/** One structured-damage source → the mapper's small ApiDamage shape. */
+function toApiDamages(raw: unknown): ApiDamage[] {
+  if (typeof raw === 'string') {
+    const part = raw.trim()
+    return part ? [{ part }] : []
+  }
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    if (typeof item === 'string') {
+      const part = item.trim()
+      return part ? [{ part }] : []
+    }
+    const record = asRecord(item)
+    if (!record) return []
+    const part = stringField(record.part, record.zone, record.area, record.description, record.name)
+    if (!part) return []
+    return [
+      {
+        part,
+        description:
+          typeof record.description === 'string' ? record.description.trim() : undefined,
+        confidence: typeof record.confidence === 'number' ? record.confidence : undefined,
+        image_ref: typeof record.image_ref === 'string' ? record.image_ref : null,
+      },
+    ]
+  })
+}
+
+/**
+ * Real structured areas from any of the backend shapes we accept. The first
+ * non-empty source wins; the summary fallback is never consulted here.
+ */
+function structuredDamages(detail: ApiClaimDetail, legacy: ApiAnalysis | null): ApiDamage[] {
+  const analysis = asRecord(
+    Array.isArray(detail.analysis) ? detail.analysis[0] : detail.analysis,
+  )
+  const sources: unknown[] = [
+    /* Rich legacy objects first: they carry descriptions, confidence, and
+       photo refs that the flattened `damageAreas` labels do not. */
+    legacy?.vision?.damages,
+    detail.damages,
+    detail.findings,
+    detail.damageAreas,
+    detail.damage_areas,
+    analysis?.damages,
+    analysis?.findings,
+    analysis?.damageAreas,
+    analysis?.damage_areas,
+  ]
+  for (const source of sources) {
+    const damages = toApiDamages(source)
+    if (damages.length > 0) return damages
+  }
+  return []
+}
+
 /** Vision damages → selectable damage areas (coordinates defaulted). */
 function toDamage(damages: ApiDamage[], evidence: EvidenceItem[]): DamageZone[] {
   return damages.map((damage, index) => {
@@ -363,7 +437,7 @@ function visionDamageSummary(damages: ApiDamage[]): string | undefined {
  *    clean type, with the claim row's flat fields filling any gap.
  *
  * The card renders from AnalysisResult only — raw payloads never reach it,
- * and an unusable payload degrades to the empty "Run AI analysis" state.
+ * and an unusable payload degrades to the card's analyzing/empty state.
  */
 function toAnalysisResult(detail: ApiClaimDetail, legacy: ApiAnalysis | null): AnalysisResult {
   if (isWorkflowPayload(detail.analysis)) {
@@ -382,19 +456,41 @@ function toAnalysisResult(detail: ApiClaimDetail, legacy: ApiAnalysis | null): A
  * estimatedAmount, analysisState) fill whatever the analysis object lacks.
  */
 function legacyToAnalysisResult(detail: ApiClaimDetail, analysis: ApiAnalysis | null): AnalysisResult {
-  const damages = analysis?.vision?.damages ?? []
+  const damages = structuredDamages(detail, analysis)
   const inconsistencies = analysis?.decision?.inconsistencies ?? []
-  const state = analysis?.state ?? detail.analysisState
+  const analysisRec = asRecord(analysis)
+  const state =
+    analysis?.state ??
+    (detail as any).analysisState ??
+    (detail as any).analysis_state ??
+    (analysisRec as any)?.analysisState ??
+    (analysisRec as any)?.analyseState ??
+    (analysisRec as any)?.state
 
-  const failed = state === 'failed'
-  const runningLike = state === 'running' || state === 'pending'
+  const failed = state === 'failed' || state === 'error'
+  const runningLike =
+    state === 'not_started' ||
+    state === 'queued' ||
+    state === 'running' ||
+    state === 'pending' ||
+    state === 'processing'
+
+  const coverage = normalizeCoverage(
+    analysis?.policy?.coverage_verdict ??
+      (detail as any).coverageStatus ??
+      (detail as any).coverage_status ??
+      (analysisRec as any)?.coverageStatus ??
+      (analysisRec as any)?.coverage_status,
+  )
+
   const hasResult =
     state === 'awaiting_review' ||
     state === 'reviewing' ||
     state === 'reviewed' ||
-    state === 'completed'
+    state === 'completed' ||
+    state === 'analyzed' ||
+    state === 'success'
 
-  const coverage = normalizeCoverage(analysis?.policy?.coverage_verdict ?? detail.coverageStatus)
   const status: AnalysisStatus = failed
     ? 'failed'
     : runningLike
@@ -403,7 +499,8 @@ function legacyToAnalysisResult(detail: ApiClaimDetail, analysis: ApiAnalysis | 
           damages.length > 0 ||
           analysis?.policy?.coverage_verdict != null ||
           analysis?.decision != null ||
-          detail.damageSummary
+          (detail as any).damageSummary ||
+          (detail as any).damage_summary
         ? 'success'
         : 'empty'
 
@@ -414,24 +511,75 @@ function legacyToAnalysisResult(detail: ApiClaimDetail, analysis: ApiAnalysis | 
       return item.description ? `${label} — ${item.description}` : label
     })
     .join(' · ')
-  const flagged = detail.inconsistencyFlag === true || inconsistencies.length > 0
+
+  const inconsistencyFlagRaw =
+    (detail as any).inconsistencyFlag ??
+    (detail as any).inconsistency_flag ??
+    (analysisRec as any)?.inconsistencyFlag ??
+    (analysisRec as any)?.inconsistency_flag
+  const flagged =
+    inconsistencyFlagRaw === true ||
+    (typeof inconsistencyFlagRaw === 'string' && inconsistencyFlagRaw.trim().toLowerCase() === 'true') ||
+    inconsistencies.length > 0
+
+  const proposedDecision =
+    normalizeDecision(
+      (analysis as any)?.decision?.recommendation ??
+        (analysis as any)?.proposedDecision ??
+        (analysis as any)?.proposed_decision ??
+        (detail as any).proposedDecision ??
+        (detail as any).proposed_decision ??
+        (detail as any).decision?.recommendation ??
+        (detail as any).decision?.proposedDecision,
+    ) ?? null
 
   const result: AnalysisResult = {
     status,
-    proposedDecision: normalizeDecision(analysis?.decision?.recommendation),
+    proposedDecision,
     coverage,
     inconsistency: details ? { flagged, details } : { flagged },
   }
 
-  const estimatedAmount = normalizeEstimate(detail.estimatedAmount)
+  const estimatedAmount = normalizeEstimate(
+    (detail as any).estimatedAmount ??
+      (analysisRec as any)?.estimatedAmount ??
+      (analysisRec as any)?.estimated_amount,
+  )
   if (estimatedAmount) result.estimatedAmount = estimatedAmount
+
   const rowSummary =
-    typeof detail.damageSummary === 'string' ? detail.damageSummary.trim() : ''
-  const damageSummary = visionDamageSummary(damages) ?? (rowSummary || undefined)
+    typeof (detail as any).damageSummary === 'string'
+      ? (detail as any).damageSummary.trim()
+      : typeof (detail as any).damage_summary === 'string'
+        ? (detail as any).damage_summary.trim()
+        : ''
+  const areaSummary = visionDamageSummary(damages)
+  const damageSummary = rowSummary || areaSummary || undefined
   if (damageSummary) result.damageSummary = damageSummary
-  const assessment = analysis?.decision?.summary?.trim() || analysis?.policy?.reasoning?.trim() || undefined
+
+  const assessment =
+    (analysis as any)?.decision?.summary?.trim() ||
+    (analysis as any)?.policy?.reasoning?.trim() ||
+    (analysisRec as any)?.assessment?.trim() ||
+    undefined
   if (assessment) result.assessment = assessment
-  const storedError = detail.analysisError?.trim() || analysis?.error?.trim()
+
+  const confidence =
+    (analysis as any)?.decision?.confidence ??
+    (analysisRec as any)?.confidence ??
+    (detail as any)?.decision?.confidence ??
+    (detail as any)?.confidence
+  if (typeof confidence === 'number' && Number.isFinite(confidence)) {
+    result.confidence = confidence
+  }
+
+  const storedError =
+    (detail as any).analysisError?.trim?.() ||
+    (detail as any).analysis_error?.trim?.() ||
+    (detail as any).errorMessage?.trim?.() ||
+    (detail as any).error_message?.trim?.() ||
+    (analysis as any)?.error?.trim?.() ||
+    (analysisRec as any)?.analysisError?.trim?.()
   if (storedError) result.error = storedError
 
   return result
@@ -440,7 +588,11 @@ function legacyToAnalysisResult(detail: ApiClaimDetail, analysis: ApiAnalysis | 
 /** Policy/coverage → the "Policy & coverage" rows. Always non-empty. */
 function toPolicy(detail: ApiClaimDetail, analysis: ApiAnalysis | null): PolicyRow[] {
   const rows: PolicyRow[] = []
-  const verdict = analysis?.policy?.coverage_verdict ?? detail.coverageStatus ?? undefined
+  const verdict =
+    analysis?.policy?.coverage_verdict ??
+    detail.coverageStatus ??
+    detail.coverage_status ??
+    undefined
 
   rows.push({ label: 'Policy', value: detail.policyId || detail.policyRef || 'Not assigned' })
   rows.push({
@@ -484,7 +636,7 @@ export function mapClaimDetail(detail: ApiClaimDetail): ClaimWorkspaceData {
   const files = Array.isArray(detail.files) ? detail.files : []
   const evidence = toEvidence(files)
   const legacy = legacyAnalysisOf(detail)
-  const damage = toDamage(legacy?.vision?.damages ?? [], evidence)
+  const damage = toDamage(structuredDamages(detail, legacy), evidence)
   const incident = detail.incident || detail.incidentType || 'other'
 
   return {

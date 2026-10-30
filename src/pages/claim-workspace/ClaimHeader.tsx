@@ -3,19 +3,14 @@ import type { ClaimWorkspaceData } from '../../lib/claimWorkspace'
 
 type ClaimHeaderProps = {
   data: ClaimWorkspaceData
-  /** An action (analyze / review / upload) is in flight — disable the controls. */
+  /** An action (review / upload / analysis retry) is in flight — disable the controls. */
   busy?: boolean
   /** Short action status (upload / review outcomes). Analysis progress and
       failures are rendered by the AI analysis card, never here. */
   status?: string | null
   /** Message from the last failed upload/review action. */
   error?: string | null
-  /** Why "Complete review" is unavailable (null = it is allowed) — the same
-      reason the Reviewer decision panel shows, so the two never disagree. */
-  approveBlockedReason?: string | null
-  onAnalyze?: () => void
-  onApprove?: () => void
-  onRequestInfo?: () => void
+  /* Complete review removed; approval is the only action. */
 }
 
 /**
@@ -27,11 +22,8 @@ export function ClaimHeader({
   busy = false,
   status = null,
   error = null,
-  approveBlockedReason = null,
-  onAnalyze,
-  onApprove,
-  onRequestInfo,
 }: ClaimHeaderProps) {
+  void busy
   return (
     <header className="cw-header">
       <div className="cw-header__main">
@@ -50,9 +42,15 @@ export function ClaimHeader({
         </p>
         {status && <p className="cw-muted">{status}</p>}
         {error && (
-          <p className="cw-muted" role="alert">
-            {error}
-          </p>
+          <div className="cw-header__warning" role="alert" style={{ marginTop: '8px' }}>
+            <span className="cw-badge cw-badge--needs" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span aria-hidden="true" style={{ fontSize: '14px' }}>⚠</span>
+              Action failed
+            </span>
+            <p className="cw-header__warning-text" style={{ margin: '6px 0 0', color: '#b42318', fontWeight: 500 }}>
+              {error}
+            </p>
+          </div>
         )}
       </div>
 
@@ -60,31 +58,7 @@ export function ClaimHeader({
         <a className="cw-btn cw-btn--secondary" href="#/claims">
           Back to claims
         </a>
-        <button
-          type="button"
-          className="cw-btn cw-btn--secondary"
-          onClick={onAnalyze}
-          disabled={busy}
-        >
-          Run AI analysis
-        </button>
-        <button
-          type="button"
-          className="cw-btn cw-btn--secondary"
-          onClick={onRequestInfo}
-          disabled={busy}
-        >
-          Request information
-        </button>
-        <button
-          type="button"
-          className="cw-btn cw-btn--primary"
-          onClick={onApprove}
-          disabled={busy || Boolean(approveBlockedReason)}
-          title={approveBlockedReason ?? undefined}
-        >
-          Complete review
-        </button>
+
       </div>
     </header>
   )

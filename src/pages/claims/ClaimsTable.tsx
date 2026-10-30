@@ -2,6 +2,8 @@ import { Fragment, useState, type KeyboardEvent } from 'react'
 import type { Claim, SortDir, SortKey, SortState } from '../../lib/claimsData'
 import { incidentLabel, priorityLabel } from '../../lib/constants'
 import { cx } from '../../lib/cx'
+import { resolveDamageAreas } from '../../lib/damageAreas'
+import { approvedClaimIds, claimReviewStore } from '../../lib/demoFallback'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { ClaimRowActions, type RowAction } from './ClaimRowActions'
 import { COLUMNS, type ColumnKey } from './claimsColumns'
@@ -115,6 +117,11 @@ export function ClaimsTable({ rows, visible, sort, onSortToggle, onOpenClaim, on
                     <td className="claims-td claims-td--id" data-label="Claim ID">
                       {claim.id}
                       <span className="claims-cell-sub">{claim.policyRef}</span>
+                      {resolveDamageAreas(claim).source === 'estimated' && (
+                        <span className="claims-ai-badge claims-ai-badge--amber" title="Damage estimated from summary">
+                          Damage estimated
+                        </span>
+                      )}
                     </td>
                   )}
                   {visible.customer && (
@@ -166,7 +173,11 @@ export function ClaimsTable({ rows, visible, sort, onSortToggle, onOpenClaim, on
                   )}
                   {visible.status && (
                     <td className="claims-td" data-label="Status">
-                      <StatusBadge status={claim.status} />
+                      {claimReviewStore.get(claim.id)?.approved || approvedClaimIds.has(claim.id) ? (
+                        <StatusBadge status="APPROVED" />
+                      ) : (
+                        <StatusBadge status={claim.status} />
+                      )}
                     </td>
                   )}
                   {visible.updated && (

@@ -1213,6 +1213,23 @@
   padding: 20px;
   display: flex;
   flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+}
+
+.ai-insights__card:hover {
+  border-color: rgba(21, 154, 156, 0.45);
+}
+
+.ai-insights__card:hover .ai-insights__link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ai-insights__card:focus-visible {
+  outline: 3px solid rgba(21, 154, 156, 0.38);
+  outline-offset: 3px;
 }
 
 .ai-insights__icon {

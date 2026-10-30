@@ -1,7 +1,9 @@
 /* Hash routing for the app. No library. */
 
-/** Deep-link parameters the Claims page understands (analytics passes them). */
-export type ClaimsQuery = Partial<Record<'tab' | 'evidence' | 'incident', string>>
+/** Deep-link parameters the Claims page understands (analytics and insights). */
+export type ClaimsQuery = Partial<
+  Record<'tab' | 'evidence' | 'incident' | 'insight', string>
+>
 
 export type Route =
   | { name: 'login' }
@@ -12,7 +14,7 @@ export type Route =
   | { name: 'analytics' }
   | { name: 'settings' }
 
-const CLAIMS_KEYS = ['tab', 'evidence', 'incident'] as const
+const CLAIMS_KEYS = ['tab', 'evidence', 'incident', 'insight'] as const
 
 function parseClaimsQuery(search: string): ClaimsQuery | undefined {
   const params = new URLSearchParams(search)
@@ -54,6 +56,7 @@ export function hashFromRoute(route: Route): string {
     if (route.query.tab) params.set('tab', route.query.tab)
     if (route.query.evidence) params.set('evidence', route.query.evidence)
     if (route.query.incident) params.set('incident', route.query.incident)
+    if (route.query.insight) params.set('insight', route.query.insight)
     const search = params.toString()
     return search ? `#/claims?${search}` : '#/claims'
   }

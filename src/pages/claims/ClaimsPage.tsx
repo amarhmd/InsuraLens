@@ -10,12 +10,14 @@ import { EmptyState } from './EmptyState'
 import { ClaimsToast } from './ClaimsToast'
 import { cx } from '../../lib/cx'
 import { EMPTY_FILTERS } from '../../lib/claimsData'
+import { INSIGHT_LABEL } from '../../lib/insights'
 import { useClaimsQueue } from './useClaimsQueue'
 import type { ClaimsQuery } from '../../lib/router'
 
 type ClaimsPageProps = {
   /**
-   * Deep link from Analytics — #/claims?tab=…&evidence=…&incident=….
+   * Deep links from Analytics and the Dashboard insight cards —
+   * #/claims?tab=…&evidence=…&incident=…&insight=….
    * Applied on arrival, cleared when the route drops back to plain #/claims.
    */
   query?: ClaimsQuery
@@ -53,6 +55,8 @@ export function ClaimsPage({ query }: ClaimsPageProps) {
     searched,
     counts,
     sorted,
+    insight,
+    clearInsightFilter,
     chipActive,
     evidenceIncompleteCount,
     toggleEvidenceIncomplete,
@@ -131,6 +135,19 @@ export function ClaimsPage({ query }: ClaimsPageProps) {
                   >
                     Evidence incomplete <span className="claims-chip__count">({evidenceIncompleteCount})</span>
                   </button>
+                  {insight && (
+                    <span className="claims-chip claims-chip--active claims-chip--insight">
+                      <span>{INSIGHT_LABEL[insight]}</span>
+                      <button
+                        type="button"
+                        className="claims-chip__clear"
+                        onClick={clearInsightFilter}
+                        aria-label={`Clear ${INSIGHT_LABEL[insight]} filter`}
+                      >
+                        Clear
+                      </button>
+                    </span>
+                  )}
                 </div>
 
                 {sorted.length === 0 ? (
@@ -167,6 +184,7 @@ export function ClaimsPage({ query }: ClaimsPageProps) {
         <ClaimsToast
           message={toast.message}
           action={toast.action}
+          tone={toast.tone}
           onDismiss={() => setToast(null)}
         />
       )}

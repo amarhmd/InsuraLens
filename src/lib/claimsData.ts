@@ -53,6 +53,23 @@ export interface Claim {
   photos?: ClaimPhoto[]
   /** Raw backend decision ('PENDING' | 'APPROVED' | 'MORE_INFO_REQUIRED'). */
   decision?: string
+
+  /* ---- Insight inputs -------------------------------------------------
+     Optional because the list endpoint may omit them and older queue
+     responses do not include them at all. `null` means "unknown", which
+     the insight rules treat differently from a confirmed false/empty. */
+  damageSummary?: string | null
+  damageAreas?: string[] | null
+  coverageStatus?: string | null
+  /** Backend analysis inconsistency flag; null when it was not supplied. */
+  inconsistencyFlag?: boolean | null
+  /** Explicit policy-mismatch flag when the backend supplies one. */
+  policyMismatch?: boolean | null
+  /**
+   * Whether the claim has at least one non-image evidence document
+   * (accident report, PDF, etc.). Images alone count as false.
+   */
+  hasDocumentEvidence?: boolean | null
 }
 
 /* -------------------------------------------------------------------------- */

@@ -47,8 +47,22 @@ type TextField = ClaimField
 
 type Props = {
   onClose: () => void
-  /** Hands the finished draft to the page; may be async (the API call). */
-  onCreate: (draft: ClaimDraft) => void | Promise<void>
+  /**
+   * Hands the finished draft to the page. Returns false when the page kept the
+   * dialog open so the same draft (and its Idempotency-Key) can be retried.
+   */
+  onCreate: (
+    draft: ClaimDraft,
+    idempotencyKey: string,
+  ) => boolean | void | Promise<boolean | void>
+}
+
+/** Stable key for one draft submission; reused when the user retries. */
+function newIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `claim-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 /**
@@ -102,6 +116,8 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
   const returnFocusTo = useRef<HTMLElement | null>(null)
   const alive = useRef(true)
   const committed = useRef(false)
+  const submittingRef = useRef(false)
+  const idempotencyKey = useRef<string | null>(null)
   /** Membership mirror of `photos` — the source for capacity checks. */
   const photosRef = useRef<StagedPhoto[]>([])
   const photoSeq = useRef(0)
@@ -127,6 +143,11 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
       target?.focus()
     }
   }, [])
+
+  /* Editing the draft makes it a new attempt; a plain retry keeps the key. */
+  useEffect(() => {
+    idempotencyKey.current = null
+  }, [values, photos, docFiles])
 
   /* Capture="environment" only makes sense where it drives the camera. */
   useEffect(() => {
@@ -308,36 +329,58 @@ export function CreateClaimModal({ onClose, onCreate }: Props) {
       document.getElementById(`claim-${Object.keys(found)[0]}`)?.focus()
       return
     }
-    if (submitting) return
+    if (submitting || submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
 
     if (!alive.current) return /* dialog closed while uploading */
 
-    /* The page persists the claim and any staged files via POST /api/claims,
-       and closes this dialog when the request settles. */
+    const key = idempotencyKey.current ?? newIdempotencyKey()
+    idempotencyKey.current = key
+
+    /* The page persists the claim and any staged files via POST /api/claims.
+       It closes this dialog on success and returns false on failure so the
+       draft and its files stay here for a retry. */
     committed.current = true
-    onCreate({
-      customer: values.customer.trim(),
-      date: values.date,
-      incident: values.incident,
-      description: values.description.trim(),
-      policyRef: values.policyRef.trim(),
-      priority: values.priority,
-      photos: photos.map(({ name, url, caption }) => ({ name, url, caption })),
-      documents: DOC_SLOTS.flatMap((slot) => {
-        const staged = docFiles[slot.key]
-        return staged ? [staged.name] : []
-      }),
-      /* The actual bytes ride along with the create request so the backend has
-         the evidence the moment the claim exists. */
-      files: [
-        ...photos.map((photo) => photo.file),
-        ...DOC_SLOTS.flatMap((slot) => {
-          const staged = docFiles[slot.key]
-          return staged ? [staged.file] : []
-        }),
-      ],
-    })
+    try {
+      const result = await onCreate(
+        {
+          customer: values.customer.trim(),
+          date: values.date,
+          incident: values.incident,
+          description: values.description.trim(),
+          policyRef: values.policyRef.trim(),
+          priority: values.priority,
+          photos: photos.map(({ name, url, caption }) => ({ name, url, caption })),
+          documents: DOC_SLOTS.flatMap((slot) => {
+            const staged = docFiles[slot.key]
+            return staged ? [staged.name] : []
+          }),
+          /* The actual bytes ride along with the create request so the backend
+             has the evidence the moment the claim exists. */
+          files: [
+            ...photos.map((photo) => photo.file),
+            ...DOC_SLOTS.flatMap((slot) => {
+              const staged = docFiles[slot.key]
+              return staged ? [staged.file] : []
+            }),
+          ],
+        },
+        key,
+      )
+
+      if (result === false && alive.current) {
+        committed.current = false
+        submittingRef.current = false
+        setSubmitting(false)
+      }
+    } catch {
+      if (alive.current) {
+        committed.current = false
+        submittingRef.current = false
+        setSubmitting(false)
+      }
+    }
   }
 
   /* ----------------------------------------------------------------- render */

@@ -22,6 +22,7 @@ export function DamageBox({ zone, index, status, selected, onSelect }: DamageBox
       className={cx(
         'cw-dmg-box',
         selected && 'cw-dmg-box--selected',
+        zone.estimated && 'cw-dmg-box--estimated',
         status === 'dismissed' && 'cw-dmg-box--dismissed',
       )}
       style={{
@@ -30,7 +31,11 @@ export function DamageBox({ zone, index, status, selected, onSelect }: DamageBox
         width: `${zone.bbox.width}%`,
         height: `${zone.bbox.height}%`,
       }}
-      aria-label={`${zone.zone} damage, ${DAMAGE_STATUS_LABEL[status]}`}
+      aria-label={
+        zone.estimated
+          ? `${zone.zone}, estimated from summary`
+          : `${zone.zone} damage, ${DAMAGE_STATUS_LABEL[status]}`
+      }
       aria-pressed={selected}
       onClick={() => onSelect(zone.id)}
     >

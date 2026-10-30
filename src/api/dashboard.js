@@ -4,13 +4,14 @@
    from GET /api/dashboard/summary.
 
    `insights` is the one card the backend does not aggregate, so it is derived
-   from the live claim queue (GET /api/claims). The queue fetch is best-effort:
-   if it fails the summary cards still render and the insight counts fall back
-   to zero rather than inventing numbers. */
+   from the live claim queue (GET /api/claims) through src/lib/insights.ts —
+   the same rules the #/claims filters use. The queue fetch is best-effort:
+   if it fails the summary cards still render and the insight counts are null,
+   which the cards render as "—" rather than a misleading zero. */
 
 import { request } from './http'
 import { listClaims } from './claims'
-import { evidenceCategory } from '../lib/analyticsData'
+import { countInsights } from '../lib/insights'
 
 /** How many recent-activity rows the card shows. */
 const ACTIVITY_LIMIT = 4
@@ -32,8 +33,10 @@ export async function getDashboardSummary() {
   const [data, claims] = await Promise.all([
     request('/api/dashboard/summary'),
     /* Best-effort: insight counts must never take the summary cards down. */
-    listClaims().catch(() => []),
+    listClaims().catch(() => null),
   ])
+
+  const insightCounts = claims ? countInsights(claims) : null
 
   const totals = data.totals ?? {}
   const byStage = data.byStage ?? []
@@ -75,14 +78,11 @@ export async function getDashboardSummary() {
       low: priorityCount('low'),
     },
 
-    /* Derived from the live queue — the same evidence rules the Analytics
-       evidence panel uses, so the two pages cannot disagree. */
+    /* Derived from the live queue — the same rules the Claims filters use. */
     insights: {
-      damagePattern: claims.filter(
-        (c) => c.incident === 'rear_end_collision' && c.priority === 'high',
-      ).length,
-      missingEvidence: claims.filter((c) => evidenceCategory(c) === 'Missing Documents').length,
-      policyReview: claims.filter((c) => evidenceCategory(c) === 'Requires Verification').length,
+      damagePattern: insightCounts?.repeatedDamage ?? null,
+      missingEvidence: insightCounts?.missingEvidence ?? null,
+      policyReview: insightCounts?.policyReview ?? null,
     },
 
     recentActivity,

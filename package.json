@@ -14,6 +14,8 @@
     "check:notifications": "node scripts/notifications-check.mjs",
     "check:analytics": "node scripts/analytics-css-check.mjs",
     "check:analysis": "node scripts/analysis-result-check.mjs",
+    "check:summary-zones": "node scripts/summary-zones-check.mjs",
+    "check:all-zones": "node scripts/all-claims-zones-check.mjs",
     "check:settings": "node scripts/stage-settings-check.mjs && node scripts/ai-prefs-check.mjs && node scripts/settings-css-check.mjs && node scripts/settings-ssr-smoke.mjs"
   },
   "dependencies": {

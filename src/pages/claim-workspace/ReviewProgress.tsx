@@ -11,7 +11,12 @@ type ReviewProgressProps = {
  * Everything here is derived from the damage statuses the page owns — the
  * counter, the bar width, and the hint all follow from `confirmed`/`dismissed`.
  */
-export function ReviewProgress({ total, confirmed, dismissed, complete }: ReviewProgressProps) {
+export function ReviewProgress({
+  total,
+  confirmed,
+  dismissed,
+  complete,
+}: ReviewProgressProps) {
   const reviewed = confirmed + dismissed
   const percent = total > 0 ? Math.round((reviewed / total) * 100) : 0
 
@@ -42,7 +47,7 @@ export function ReviewProgress({ total, confirmed, dismissed, complete }: Review
       </p>
       <p className={cx('cw-progress__hint', total > 0 && complete && 'cw-progress__hint--done')}>
         {total === 0
-          ? 'No damage areas to review yet. Run AI analysis or add evidence.'
+          ? 'No damage areas to review yet. Add evidence to start the analysis.'
           : complete
             ? 'All damage areas reviewed. Approval is now available.'
             : 'Confirm or dismiss each damage area to finish the review.'}

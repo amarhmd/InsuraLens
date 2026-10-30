@@ -138,9 +138,9 @@ export function ensureToken() {
 }
 
 /** One network round-trip with a timeout; maps failures to ApiError. */
-async function send(url, method, headers, payload, externalSignal) {
+async function send(url, method, headers, payload, externalSignal, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   const onAbort = () => controller.abort()
 
   if (externalSignal) {
@@ -160,8 +160,11 @@ async function send(url, method, headers, payload, externalSignal) {
         { status: 0, code: 'timeout', details: cause },
       )
     }
+    if (import.meta.env.DEV) {
+      console.warn('[http] network_error:', cause?.name, cause?.message, cause)
+    }
     throw new ApiError(
-      'Could not reach the server. If it has just started, it may still be waking up — please try again in a moment.',
+      'Could not reach the server. Check your connection and try again.',
       { status: 0, code: 'network_error', details: cause },
     )
   } finally {
@@ -193,12 +196,21 @@ function buildUrl(path, query) {
  * and a 401 clears the token, re-authenticates, and retries once.
  *
  * @param {string} path e.g. '/api/claims'
- * @param {{ method?: string, body?: unknown, query?: Record<string, string | number | undefined>, headers?: Record<string, string>, signal?: AbortSignal, retries?: number, as?: 'auto' | 'blob' }} [options]
+ * @param {{ method?: string, body?: unknown, query?: Record<string, string | number | undefined>, headers?: Record<string, string>, signal?: AbortSignal, retries?: number, as?: 'auto' | 'blob', timeoutMs?: number }} [options]
  * @returns {Promise<any>}
  */
 export async function request(
   path,
-  { method = 'GET', body, query, headers = {}, signal, retries = 1, as = 'auto' } = {},
+  {
+    method = 'GET',
+    body,
+    query,
+    headers = {},
+    signal,
+    retries = 1,
+    as = 'auto',
+    timeoutMs = REQUEST_TIMEOUT_MS,
+  } = {},
 ) {
   /* Auth endpoints are excluded: they are how a token is obtained, so they must
      never auto-authenticate or retry — that would recurse. */
@@ -219,14 +231,23 @@ export async function request(
     payload = JSON.stringify(body)
   }
 
-  const response = await send(buildUrl(path, query), method, requestHeaders, payload, signal)
+  const response = await send(buildUrl(path, query), method, requestHeaders, payload, signal, timeoutMs)
 
   /* 401 → the stored token expired or was revoked. Drop it, open a fresh
      session, and retry the same request exactly once. */
   if (response.status === 401 && !isAuthPath && retries > 0) {
     clearToken()
     await ensureToken()
-    return request(path, { method, body, query, headers, signal, retries: retries - 1, as })
+    return request(path, {
+      method,
+      body,
+      query,
+      headers,
+      signal,
+      retries: retries - 1,
+      as,
+      timeoutMs,
+    })
   }
 
   if (!response.ok) {

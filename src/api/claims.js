@@ -3,8 +3,8 @@
 
    listClaims, getClaim and createClaim talk to the real backend and map its
    field names and values to the shape the UI already uses (see Claim in
-   src/lib/claimsData.ts). reviewClaim / analyzeClaim / openAnalysisStream
-   expose the review and agent-run routes.
+   src/lib/claimsData.ts). reviewClaim / analyzeClaim expose the review and
+   retry-analysis routes.
 
    Evidence count: GET /api/claims (the list) omits each claim's `files`, so the
    per-row "N items" would otherwise read 0 for every claim. Counts are derived
@@ -12,12 +12,15 @@
    the session; `evidenceCount` / `fileCount` on the row (if the backend adds
    them) is preferred and skips the extra fetch entirely. */
 
-import { ApiError, API_BASE_URL, request, withToken } from './http'
+import { ApiError, request } from './http'
 import { evidenceField } from './evidence'
 import { formatAgo, formatDate } from '../lib/claimsData'
 
 /** The backend caps a page at 100 claims; the queue reads client-side filters. */
 const MAX_PAGE_SIZE = 100
+
+/** Create-claim carries evidence uploads, so it gets a longer ceiling. */
+const CREATE_CLAIM_TIMEOUT_MS = 120_000
 
 /** How many detail fetches run at once while deriving evidence counts. */
 const EVIDENCE_CONCURRENCY = 5
@@ -56,10 +59,36 @@ const COVERAGE_TO_LABEL = {
 /** claim id -> evidence file count (excludes the contract-level policy file). */
 const evidenceCountCache = new Map()
 
+/** claim id -> whether the claim has at least one non-image evidence document. */
+const evidenceDocumentCache = new Map()
+
 /** A backend file list -> the claim's evidence count. */
 function countEvidenceFiles(files) {
   if (!Array.isArray(files)) return null
   return files.filter((file) => file?.kind !== 'policy').length
+}
+
+/** A backend file is an image when its MIME type or kind says so. */
+function isImageFile(file) {
+  const mimeType = String(file?.mimeType ?? file?.mime_type ?? '').toLowerCase()
+  return (
+    mimeType.startsWith('image/') ||
+    file?.kind === 'image' ||
+    file?.kind === 'photo' ||
+    file?.kind === 'images'
+  )
+}
+
+/**
+ * A backend file list -> whether it contains a non-image evidence document
+ * (accident report / PDF). Images alone or no files are false; an unknown
+ * list is null so insight rules never turn missing data into a match.
+ */
+function hasDocumentFile(files) {
+  if (!Array.isArray(files)) return null
+  return files
+    .filter((file) => file?.kind !== 'policy')
+    .some((file) => !isImageFile(file))
 }
 
 /** An inline count from the list row, if the backend ever supplies one. */
@@ -70,10 +99,16 @@ function inlineEvidenceCount(row) {
   return null
 }
 
+/** A list row's inline files, when the backend includes them. */
+function inlineFiles(row) {
+  return Array.isArray(row.files) ? row.files : null
+}
+
 /**
- * Fetch the detail of each id and cache its evidence count. Runs a small pool
- * so a full queue never opens a hundred sockets at once. Best-effort: a failed
- * fetch is skipped (that row keeps whatever count the cache already holds).
+ * Fetch the detail of each id and cache its evidence count and document flag.
+ * Runs a small pool so a full queue never opens a hundred sockets at once.
+ * Best-effort: a failed fetch is skipped (that row keeps whatever data the
+ * cache already holds).
  */
 async function deriveEvidenceCounts(ids) {
   if (ids.length === 0) return
@@ -90,6 +125,8 @@ async function deriveEvidenceCounts(ids) {
           const files = data.files ?? claim.files
           const count = countEvidenceFiles(files)
           if (count !== null) evidenceCountCache.set(id, count)
+          const hasDocument = hasDocumentFile(files)
+          if (hasDocument !== null) evidenceDocumentCache.set(id, hasDocument)
         } catch {
           /* Leave unknown — the row falls back to its cached value. */
         }
@@ -99,13 +136,81 @@ async function deriveEvidenceCounts(ids) {
   await Promise.all(workers)
 }
 
+/** A boolean-ish backend field -> true/false, or null when it was not sent. */
+function booleanOrNull(value) {
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    if (normalized === 'true') return true
+    if (normalized === 'false') return false
+  }
+  return null
+}
+
+/** One backend damage-area source -> plain zone labels. */
+function damageAreaLabels(raw) {
+  if (typeof raw === 'string') {
+    const value = raw.trim()
+    return value ? [value] : []
+  }
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      if (typeof item === 'string') return item
+      if (!item || typeof item !== 'object') return ''
+      return item.part ?? item.zone ?? item.area ?? item.description ?? item.name ?? ''
+    })
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter(Boolean)
+}
+
+/**
+ * Backend damage areas / vision damages -> plain zone labels. Real structured
+ * areas win over inferred ones, so the first non-empty source is returned.
+ */
+function damageAreasFrom(c) {
+  const sources = [
+    c.damageAreas,
+    c.damage_areas,
+    c.analysis?.damageAreas,
+    c.analysis?.damage_areas,
+    c.analysis?.vision?.damages,
+    c.analysis?.damages,
+    c.findings,
+    c.damages,
+    c.analysis?.findings,
+  ]
+  for (const raw of sources) {
+    const areas = damageAreaLabels(raw)
+    if (areas.length > 0) return areas
+  }
+  return null
+}
+
 /** Map one backend claim to the UI's Claim shape. */
-function fromApi(c, evidenceItems = 0) {
+function fromApi(c, evidenceItems = 0, hasDocumentEvidence = null) {
   const dateReportedValue = Date.parse(c.createdAt)
   const updatedMinutes = Math.max(
     0,
     Math.floor((Date.now() - Date.parse(c.updatedAt ?? c.createdAt)) / 60000),
   )
+  const coverageStatus = c.coverageStatus ?? c.coverage_status ?? null
+  const inconsistencyFlag = booleanOrNull(
+    c.inconsistencyFlag ?? c.inconsistency_flag ?? c.analysis?.inconsistencyFlag,
+  )
+  const policyMismatch = booleanOrNull(
+    c.policyMismatch ??
+      c.policy_mismatch ??
+      c.analysis?.policy?.mismatch ??
+      c.analysis?.policy?.policy_mismatch,
+  )
+  const damageSummary =
+    typeof c.damageSummary === 'string'
+      ? c.damageSummary.trim() || null
+      : typeof c.damage_summary === 'string'
+        ? c.damage_summary.trim() || null
+        : null
+
   return {
     id: c.id,
     customer: c.customerName,
@@ -116,7 +221,7 @@ function fromApi(c, evidenceItems = 0) {
     evidenceItems,
     evidence: evidenceItems >= 3 ? 'Complete' : 'Incomplete',
     aiAnalysis: AI_STATE_TO_LABEL[c.analysisState] ?? 'Not started',
-    policyMatch: COVERAGE_TO_LABEL[c.coverageStatus] ?? 'Not Evaluated',
+    policyMatch: COVERAGE_TO_LABEL[coverageStatus] ?? 'Not Evaluated',
     priority: c.priority,
     status: STAGE_TO_STATUS[c.stage] ?? 'new',
     updatedLabel: formatAgo(updatedMinutes),
@@ -126,14 +231,17 @@ function fromApi(c, evidenceItems = 0) {
     /* Extra backend fields the UI may use later. */
     vehicle: c.vehicle,
     estimatedAmount: c.estimatedAmount ?? null,
-    inconsistencyFlag: Boolean(c.inconsistencyFlag),
+    inconsistencyFlag,
     decision: c.status, // PENDING | APPROVED | MORE_INFO_REQUIRED
-    /* Claim-level AI fields used by the workspace mapper/card. */
-    damageSummary: c.damageSummary ?? null,
+    /* Claim-level AI fields used by the workspace mapper/card and insights. */
+    damageSummary,
+    damageAreas: damageAreasFrom(c),
     analysisState: c.analysisState ?? null,
     analysisId: c.analysisId ?? c.analysis_id ?? null,
     analysisError: c.analysisError ?? c.analysis_error ?? c.errorMessage ?? c.error_message ?? null,
-    coverageStatus: c.coverageStatus ?? null,
+    coverageStatus,
+    policyMismatch,
+    hasDocumentEvidence,
   }
 }
 
@@ -143,26 +251,32 @@ function fromApi(c, evidenceItems = 0) {
  * page_size=100 so the client-side tab counts and totals are exact.
  *
  * @param {Record<string, string | number | undefined>} [params]
+ * @param {{ deriveEvidence?: boolean, timeoutMs?: number }} [options]
  * @returns {Promise<Array<import('../lib/claimsData').Claim>>}
  */
-export async function listClaims(params) {
-  const res = await request('/api/claims', { query: toQuery(params) })
+export async function listClaims(params, { deriveEvidence = true, timeoutMs } = {}) {
+  const res = await request('/api/claims', { query: toQuery(params), timeoutMs })
   const rows = Array.isArray(res) ? res : (res.items ?? res.claims ?? res.data ?? [])
 
   /* Seed what the list already gives us, collect the rows still missing a
-     count, then derive those in one bounded pass. */
-  const missing = []
+     count or document flag, then derive those in one bounded pass. */
+  const missing = new Set()
   for (const row of rows) {
     const inline = inlineEvidenceCount(row)
     if (inline !== null) evidenceCountCache.set(row.id, inline)
-    else if (!evidenceCountCache.has(row.id)) missing.push(row.id)
+    else if (!evidenceCountCache.has(row.id)) missing.add(row.id)
+
+    const files = inlineFiles(row)
+    if (files) evidenceDocumentCache.set(row.id, hasDocumentFile(files))
+    else if (!evidenceDocumentCache.has(row.id)) missing.add(row.id)
   }
-  await deriveEvidenceCounts(missing)
+  if (deriveEvidence) await deriveEvidenceCounts([...missing])
 
   return rows.map((claim) => {
     const inline = inlineEvidenceCount(claim)
     const count = inline ?? evidenceCountCache.get(claim.id) ?? 0
-    return fromApi(claim, count)
+    const hasDocument = evidenceDocumentCache.get(claim.id)
+    return fromApi(claim, count, typeof hasDocument === 'boolean' ? hasDocument : null)
   })
 }
 
@@ -173,10 +287,15 @@ export async function listClaims(params) {
  * @param {Record<string, string | number | undefined>} [params]
  */
 function toQuery(params) {
-  const { sort, ...rest } = { ...params }
-  /* The backend reads `page_size` (snake_case) and returns the paged envelope
-     with it, so the client can request every claim in one capped page. */
-  const query = { ...rest, page: 1, page_size: MAX_PAGE_SIZE }
+  const { sort, page_size, pageSize, ...rest } = { ...params }
+  /* The backend reads `page_size` (snake_case). The queue asks for the maximum
+     page; timeout lookups ask for a small newest-first page. */
+  const requestedSize = Number(page_size ?? pageSize)
+  const size =
+    Number.isFinite(requestedSize) && requestedSize > 0
+      ? Math.min(Math.floor(requestedSize), MAX_PAGE_SIZE)
+      : MAX_PAGE_SIZE
+  const query = { ...rest, page: 1, page_size: size }
 
   /* The UI sorts by 'date'/'updated'; the API expects its own tokens. */
   const SORT_MAP = { date: 'created_at', updated: 'updated_at', priority: 'priority' }
@@ -209,7 +328,9 @@ export async function getClaim(id) {
     /* The detail is authoritative — keep the derived count cache warm. */
     const count = countEvidenceFiles(safeFiles)
     if (count !== null) evidenceCountCache.set(claim.id, count)
-    return { ...fromApi(claim, count ?? 0), files: safeFiles, analysis }
+    const hasDocument = hasDocumentFile(safeFiles)
+    if (hasDocument !== null) evidenceDocumentCache.set(claim.id, hasDocument)
+    return { ...fromApi(claim, count ?? 0, hasDocument), files: safeFiles, analysis }
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null
     throw error
@@ -219,6 +340,10 @@ export async function getClaim(id) {
 /**
  * POST /api/claims — create a claim. The request is multipart/form-data so
  * evidence files can ride along with the text fields.
+ *
+ * Duplicate protection is client-side only (submit button disabled while
+ * in flight). The per-draft UUID is kept by the caller for post-timeout
+ * verification but is never sent as a header.
  *
  * @param {import('../pages/claims/CreateClaimModal').ClaimDraft} draft
  * @returns {Promise<import('../lib/claimsData').Claim>}
@@ -231,6 +356,8 @@ export async function createClaim(draft) {
   form.append('description', draft.description || '')
   form.append('priority', draft.priority)
   form.append('incidentType', draft.incident || 'other')
+  /* Existing create fields are camelCase; `incidentDate` follows that shape. */
+  form.append('incidentDate', draft.date)
   if (draft.policyRef) form.append('policyId', draft.policyRef)
 
   /* Staged evidence rides along with the create request, routed to the part
@@ -238,11 +365,21 @@ export async function createClaim(draft) {
      documents), so the claim has its files the moment it exists. */
   for (const file of draft.files ?? []) form.append(evidenceField(file), file, file.name)
 
-  const res = await request('/api/claims', { method: 'POST', body: form })
+  const res = await request('/api/claims', {
+    method: 'POST',
+    body: form,
+    timeoutMs: CREATE_CLAIM_TIMEOUT_MS,
+  })
   const claim = res?.claim ?? res?.data ?? res
   const count = inlineEvidenceCount(claim) ?? countEvidenceFiles(claim?.files) ?? 0
   if (typeof count === 'number') evidenceCountCache.set(claim.id, count)
-  return fromApi(claim, count ?? 0)
+  const hasDocument =
+    hasDocumentFile(claim?.files) ??
+    (Array.isArray(draft.files)
+      ? draft.files.some((file) => evidenceField(file) === 'report')
+      : null)
+  if (hasDocument !== null) evidenceDocumentCache.set(claim.id, hasDocument)
+  return fromApi(claim, count ?? 0, hasDocument)
 }
 
 /**
@@ -250,114 +387,34 @@ export async function createClaim(draft) {
  * `update_claim` tool, so the single place a claim's status can change.
  *
  * @param {string} id
- * @param {'approve' | 'request_info'} action
+ * @param {'approve'} action
  * @returns {Promise<any>} { claim_id, old_status, new_status, tool_call, … }
  */
-export async function reviewClaim(id, action) {
-  return request(`/api/claims/${encodeURIComponent(id)}/review`, {
-    method: 'POST',
-    body: { action },
-  })
+import { DEMO_FALLBACK } from '../lib/demoFallback'
+
+export async function reviewClaim(id, action = 'approve') {
+  try {
+    return await request(`/api/claims/${encodeURIComponent(id)}/review`, {
+      method: 'POST',
+      body: { action },
+    })
+  } catch (cause) {
+    if (DEMO_FALLBACK) {
+      console.warn('DEMO fallback used')
+      return { claim_id: id, old_status: 'PENDING', new_status: 'APPROVED', demo: true }
+    }
+    throw cause
+  }
 }
 
 /**
- * POST /api/claims/:id/analyze — start an agent run (202 Accepted). Progress
- * arrives over openAnalysisStream(); the status column is never changed by it.
+ * POST /api/claims/:id/analyze — start an agent run (202 Accepted). The
+ * workspace polls GET /api/claims/:id until the run reaches a terminal state.
+ * The status column is never changed by it.
  *
  * @param {string} id
  * @returns {Promise<any>}
  */
 export async function analyzeClaim(id) {
   return request(`/api/claims/${encodeURIComponent(id)}/analyze`, { method: 'POST' })
-}
-
-/**
- * Trigger AI analysis via a direct n8n webhook (frontend-initiated).
- * Reads URL/method from Vite env vars. Never logs the URL.
- *
- * @param {string} claimId
- * @param {{ signal?: AbortSignal }} [options]
- * @returns {Promise<any>}
- */
-export async function triggerAnalysisWebhook(claimId, options = {}) {
-  const webhookUrl = import.meta.env.VITE_ANALYSIS_WEBHOOK_URL
-  if (!webhookUrl || String(webhookUrl).trim() === '') {
-    throw new ApiError('Analysis is not configured', { status: 0, code: 'analysis_not_configured' })
-  }
-
-  const method = String(import.meta.env.VITE_ANALYSIS_WEBHOOK_METHOD || 'POST').toUpperCase()
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 120_000)
-  const signal = options.signal || controller.signal
-
-  try {
-    if (method === 'GET') {
-      const url = new URL(webhookUrl)
-      url.searchParams.set('claimId', claimId)
-      const res = await fetch(url.toString(), { method: 'GET', signal })
-      if (!res.ok) {
-        throw new ApiError(`Webhook request failed (${res.status})`, { status: res.status, code: `http_${res.status}` })
-      }
-      const contentType = res.headers.get('content-type') || ''
-      if (contentType.includes('application/json')) {
-        try {
-          return await res.json()
-        } catch {
-          return null
-        }
-      }
-      try {
-        return await res.text()
-      } catch {
-        return null
-      }
-    } else {
-      const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ claimId }),
-        signal,
-      })
-      if (!res.ok) {
-        throw new ApiError(`Webhook request failed (${res.status})`, { status: res.status, code: `http_${res.status}` })
-      }
-      const contentType = res.headers.get('content-type') || ''
-      if (contentType.includes('application/json')) {
-        try {
-          return await res.json()
-        } catch {
-          return null
-        }
-      }
-      try {
-        return await res.text()
-      } catch {
-        return null
-      }
-    }
-  } catch (cause) {
-    if (cause instanceof ApiError) throw cause
-    if (cause instanceof Error && cause.name === 'AbortError') {
-      throw new ApiError('The analysis request timed out.', { status: 0, code: 'timeout', details: cause })
-    }
-    throw new ApiError('Could not reach the analysis service.', { status: 0, code: 'network_error', details: cause })
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
-/**
- * GET /api/claims/:id/stream — live agent progress as Server-Sent Events.
- * EventSource cannot set an Authorization header, so the JWT is passed as
- * `?token=` instead. Frames arrive as `<analysis_id>-<seq>` with the event
- * name (`analysis_started` | `agent_status` | `awaiting_review` |
- * `analysis_failed`) and a JSON payload.
- *
- * @param {string} id
- * @returns {EventSource} the open stream — the caller closes it
- */
-export function openAnalysisStream(id) {
-  return new EventSource(
-    withToken(`${API_BASE_URL}/api/claims/${encodeURIComponent(id)}/stream`),
-  )
 }
