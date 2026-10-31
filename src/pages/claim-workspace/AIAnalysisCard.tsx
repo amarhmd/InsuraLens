@@ -54,6 +54,8 @@ type AIAnalysisCardProps = {
   confirmed?: number
   reviewed?: number
   approved?: boolean
+  areas?: Array<{ id: string; label: string; status: string }>
+  onSelectArea?: (id: string) => void
 }
 
 /**
@@ -121,6 +123,8 @@ export function AIAnalysisCard({
   confirmed = 0,
   reviewed = 0,
   approved = false,
+  areas = [],
+  onSelectArea,
 }: AIAnalysisCardProps) {
   const summary = result.damageSummary?.trim() ?? ''
   const hasPersistedResults = hasAnalysisResults(result)
@@ -183,6 +187,7 @@ export function AIAnalysisCard({
   const confidence = Math.min(95, Math.max(35, Math.round(confidenceRaw)))
 
   const [barWidth, setBarWidth] = useState(0)
+  const [explainOpen, setExplainOpen] = useState(false)
   useEffect(() => {
     const timer = window.setTimeout(() => setBarWidth(confidence), 30)
     return () => window.clearTimeout(timer)
@@ -339,6 +344,64 @@ export function AIAnalysisCard({
               >
                 Fraud risk: {result.inconsistency.flagged || result.inconsistency.details ? 'Review' : 'Low'}
               </span>
+            </div>
+
+            <button
+              type="button"
+              className="cw-ai-decision__explain"
+              onClick={() => setExplainOpen((open) => !open)}
+              aria-expanded={explainOpen}
+            >
+              Why this decision? {explainOpen ? '▲' : '▼'}
+            </button>
+
+            <div className={cx('cw-ai-decision__explain-panel', explainOpen && 'cw-ai-decision__explain-panel--open')}>
+              <div className="cw-ai-decision__explain-inner">
+                {areas.map((area, index) => (
+                  <div key={area.id} className="cw-ai-decision__reason">
+                    <span className="cw-ai-decision__reason-icon" aria-hidden="true">
+                      {area.status === 'confirmed' ? '✓' : area.status === 'dismissed' ? '✕' : '⚠'}
+                    </span>
+                    <span className="cw-ai-decision__reason-text">
+                      {area.label}: {area.status}
+                    </span>
+                    <button
+                      type="button"
+                      className="cw-ai-decision__chip cw-ai-decision__chip--number"
+                      onClick={() => onSelectArea?.(area.id)}
+                    >
+                      {index + 1}
+                    </button>
+                  </div>
+                ))}
+                <div className="cw-ai-decision__reason">
+                  <span className="cw-ai-decision__reason-icon" aria-hidden="true">
+                    {result.coverage === 'covered' ? '✓' : '⚠'}
+                  </span>
+                  <span className="cw-ai-decision__reason-text">
+                    Coverage: {result.coverage === 'covered' ? 'covered' : 'not covered'}
+                  </span>
+                </div>
+                <div className="cw-ai-decision__reason">
+                  <span className="cw-ai-decision__reason-icon" aria-hidden="true">
+                    {result.inconsistency.flagged || result.inconsistency.details ? '⚠' : '✓'}
+                  </span>
+                  <span className="cw-ai-decision__reason-text">
+                    Inconsistencies: {result.inconsistency.details ? 'found' : 'none found'}
+                  </span>
+                </div>
+                {result.estimatedAmount && (
+                  <div className="cw-ai-decision__reason">
+                    <span className="cw-ai-decision__reason-icon" aria-hidden="true">✓</span>
+                    <span className="cw-ai-decision__reason-text">
+                      Estimated amount: {result.estimatedAmount}
+                    </span>
+                  </div>
+                )}
+                <p className="cw-ai-decision__muted">
+                  Confidence is derived from review progress and coverage.
+                </p>
+              </div>
             </div>
 
             <p className="cw-ai-decision__foot">

@@ -19,6 +19,7 @@ export function DamageList({ damage, statusMap, selectedId, onSelect }: DamageLi
           <li key={zone.id}>
             <button
               type="button"
+              data-damage-id={zone.id}
               className={cx(
                 'cw-dmg-row',
                 selected && 'cw-dmg-row--selected',

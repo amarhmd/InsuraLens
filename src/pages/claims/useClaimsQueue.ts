@@ -17,6 +17,7 @@ import {
   type TabKey,
 } from '../../lib/claimsData'
 import { createClaim, listClaims } from '../../api/claims'
+import { applyDemoOverridesToClaims } from '../../lib/demoFallback'
 import { ApiError } from '../../api/http'
 import { navigate, type ClaimsQuery } from '../../lib/router'
 import {
@@ -125,7 +126,7 @@ export function useClaimsQueue(query?: ClaimsQuery) {
     setError(null)
     listClaims()
       .then((rows) => {
-        setClaims(rows)
+        setClaims(applyDemoOverridesToClaims(rows))
         setLoading(false)
       })
       .catch((cause: unknown) => {
@@ -306,7 +307,7 @@ export function useClaimsQueue(query?: ClaimsQuery) {
 
         try {
           const rows = await listClaims()
-          setClaims(rows)
+          setClaims(applyDemoOverridesToClaims(rows))
         } catch {
           /* The create succeeded even if the follow-up refresh failed. */
           setClaims((prev) =>

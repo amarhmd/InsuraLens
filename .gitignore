@@ -13,3 +13,8 @@ dist-ssr
 tsconfig.tsbuildinfo
 .chat-check-cache
 .lib-check-cache
+*.out
+*.rc
+build_out.txt
+tsc_out.txt
+dd.txt

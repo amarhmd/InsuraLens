@@ -16,7 +16,6 @@ import {
   analysisCompleted,
   analysisFailed,
   evidenceUploaded,
-  reviewCompleted,
 } from '../../lib/notifications'
 import { ingestNotifications } from '../../lib/notificationsStore'
 import { PolicyViewer } from '../../components/feedback/PolicyViewer'
@@ -93,7 +92,15 @@ function isFailedAnalysisState(value: string | null): boolean {
  * human review actions: Approve / Complete review POST …/review and
  * evidence upload POSTs multipart …/evidence.
  */
-import { DEMO_FALLBACK, approvedClaimIds, demoReviewedClaims, claimReviewStore } from '../../lib/demoFallback'
+import {
+  DEMO_FALLBACK,
+  approvedClaimIds,
+  demoReviewedClaims,
+  claimReviewStore,
+  getDemoOverride,
+  saveDemoOverride,
+  relativeDemoTime,
+} from '../../lib/demoFallback'
 
 export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -147,16 +154,30 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
         if (!active) return
         loadedIdRef.current = claimId
         if (result) {
-          const next =
-            (claimReviewStore.get(claimId)?.approved ?? approvedClaimIds.has(claimId)) || (DEMO_FALLBACK && demoReviewedClaims.has(claimId))
-              ? {
-                  ...result,
-                  badges: [{ label: 'APPROVED', tone: 'supported' as const }],
-                  summary: result.summary.map((item) =>
-                    item.label === 'Last updated' ? { ...item, value: 'Just now' } : item,
-                  ),
-                }
-              : result
+          const override = getDemoOverride(claimId)
+          const approved =
+            override?.approvedAt != null ||
+            claimReviewStore.get(claimId)?.approved ||
+            approvedClaimIds.has(claimId) ||
+            (DEMO_FALLBACK && demoReviewedClaims.has(claimId))
+          const next = approved
+            ? {
+                ...result,
+                badges: [{ label: 'APPROVED', tone: 'supported' as const }],
+                summary: result.summary.map((item) =>
+                  item.label === 'Last updated'
+                    ? { ...item, value: relativeDemoTime(override?.approvedAt) }
+                    : item,
+                ),
+              }
+            : result
+          if (approved) {
+            approvedClaimIds.add(claimId)
+            demoReviewedClaims.add(claimId)
+            if (override?.statusMap) {
+              claimReviewStore.set(claimId, { approved: true, statusMap: override.statusMap })
+            }
+          }
           setData(next)
           setState('ready')
         } else {
@@ -329,25 +350,29 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
     setBusy(true)
     setActionError(null)
     setStatus('Approving claim…')
+    const approvedAt = Date.now()
     const applyApproved = (current: ClaimWorkspaceData | null) =>
       current
         ? {
             ...current,
             badges: [{ label: 'APPROVED', tone: 'supported' as const }],
             summary: current.summary.map((item) =>
-              item.label === 'Last updated' ? { ...item, value: 'Just now' } : item,
+              item.label === 'Last updated' ? { ...item, value: relativeDemoTime(approvedAt) } : item,
             ),
           }
         : current
     try {
       await reviewClaim(claimId, 'approve')
       approvedClaimIds.add(claimId)
-      const stored = claimReviewStore.get(claimId) ?? {
-        approved: false,
-        statusMap: claimReviewStore.get(claimId)?.statusMap ?? {},
-      }
-      claimReviewStore.set(claimId, { ...stored, approved: true })
-      ingestNotifications([reviewCompleted(claimId)])
+      demoReviewedClaims.add(claimId)
+      const currentStatusMap = claimReviewStore.get(claimId)?.statusMap ?? {}
+      claimReviewStore.set(claimId, { approved: true, statusMap: currentStatusMap })
+      saveDemoOverride(claimId, {
+        status: 'APPROVED',
+        approvedAt,
+        updatedAt: approvedAt,
+        statusMap: currentStatusMap,
+      })
       setStatus('Claim approved.')
       setToast({ message: 'Claim approved', tone: 'success' })
       setData(applyApproved)
@@ -355,11 +380,15 @@ export function ClaimWorkspacePage({ claimId }: { claimId: string }) {
       if (DEMO_FALLBACK) {
         console.warn('DEMO fallback used')
         approvedClaimIds.add(claimId)
-        const storedDemo = claimReviewStore.get(claimId) ?? {
-          approved: false,
-          statusMap: claimReviewStore.get(claimId)?.statusMap ?? {},
-        }
-        claimReviewStore.set(claimId, { ...storedDemo, approved: true })
+        demoReviewedClaims.add(claimId)
+        const currentStatusMap = claimReviewStore.get(claimId)?.statusMap ?? {}
+        claimReviewStore.set(claimId, { approved: true, statusMap: currentStatusMap })
+        saveDemoOverride(claimId, {
+          status: 'APPROVED',
+          approvedAt,
+          updatedAt: approvedAt,
+          statusMap: currentStatusMap,
+        })
         setData(applyApproved)
         setStatus('Claim approved.')
         setToast({ message: 'Claim approved', tone: 'success' })
@@ -596,6 +625,11 @@ function ClaimWorkspaceView({
       : []
   // Seed each area's review status from the global store, then the claim's own data.
   const [statusMap, setStatusMap] = useState<Record<string, DamageStatus>>(() => {
+    const override = getDemoOverride(data.id)
+    if (override?.statusMap) {
+      claimReviewStore.set(data.id, { approved: true, statusMap: override.statusMap })
+      return override.statusMap
+    }
     const stored = claimReviewStore.get(data.id)
     if (stored?.statusMap) return stored.statusMap
     if (estimatedZones.length > 0) {
@@ -655,6 +689,10 @@ function ClaimWorkspaceView({
         statusMap: current,
       }
       claimReviewStore.set(data.id, { ...stored, statusMap: nextMap })
+      saveDemoOverride(data.id, {
+        statusMap: nextMap,
+        updatedAt: Date.now(),
+      })
       return nextMap
     })
 
@@ -701,6 +739,26 @@ function ClaimWorkspaceView({
                   confirmed={confirmed}
                   reviewed={confirmed + dismissed}
                   approved={claimReviewStore.get(data.id)?.approved ?? approved}
+                  areas={
+                    isEstimatedMode
+                      ? estimatedZones.map((zone, index) => ({
+                          id: `est-${index + 1}`,
+                          label: zone.label,
+                          status: statusMap[`est-${index + 1}`] ?? 'pending',
+                        }))
+                      : data.damage.map((zone) => ({
+                          id: zone.id,
+                          label: zone.zone,
+                          status: statusMap[zone.id] ?? 'pending',
+                        }))
+                  }
+                  onSelectArea={(id) => {
+                    setSelectedDamageId(id)
+                    const el = document.querySelector(`[data-damage-id="${id}"]`)
+                    if (el && typeof (el as HTMLElement).scrollIntoView === 'function') {
+                      (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                    }
+                  }}
                   timedOut={analysisTimedOut}
                   retrying={retrying}
                   retryError={retryError}

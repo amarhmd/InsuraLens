@@ -3,7 +3,7 @@ import type { Claim, SortDir, SortKey, SortState } from '../../lib/claimsData'
 import { incidentLabel, priorityLabel } from '../../lib/constants'
 import { cx } from '../../lib/cx'
 import { resolveDamageAreas } from '../../lib/damageAreas'
-import { approvedClaimIds, claimReviewStore } from '../../lib/demoFallback'
+import { approvedClaimIds, claimReviewStore, getDemoOverride } from '../../lib/demoFallback'
 import { StatusBadge } from '../../components/ui/StatusBadge'
 import { ClaimRowActions, type RowAction } from './ClaimRowActions'
 import { COLUMNS, type ColumnKey } from './claimsColumns'
@@ -173,7 +173,7 @@ export function ClaimsTable({ rows, visible, sort, onSortToggle, onOpenClaim, on
                   )}
                   {visible.status && (
                     <td className="claims-td" data-label="Status">
-                      {claimReviewStore.get(claim.id)?.approved || approvedClaimIds.has(claim.id) ? (
+                      {claimReviewStore.get(claim.id)?.approved || approvedClaimIds.has(claim.id) || Boolean(getDemoOverride(claim.id)?.approvedAt) ? (
                         <StatusBadge status="APPROVED" />
                       ) : (
                         <StatusBadge status={claim.status} />

@@ -1483,3 +1483,14 @@
   font-size: 11.5px;
   color: #64748b;
 }
+
+.cw-ai-decision__explain { background: none; border: 0; padding: 0; color: #2563eb; font-size: 12.5px; font-weight: 600; cursor: pointer; text-align: left; }
+.cw-ai-decision__explain-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s ease; }
+.cw-ai-decision__explain-panel--open { grid-template-rows: 1fr; }
+.cw-ai-decision__explain-inner { overflow: hidden; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+.cw-ai-decision__reason { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #334155; }
+.cw-ai-decision__reason-icon { flex: 0 0 auto; }
+.cw-ai-decision__reason-text { flex: 1; }
+.cw-ai-decision__chip--number { padding: 0 6px; min-width: 20px; justify-content: center; cursor: pointer; }
+.cw-ai-decision__muted { margin: 4px 0 0; font-size: 11.5px; color: #64748b; }
+

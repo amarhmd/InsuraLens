@@ -8,6 +8,7 @@ import { SparkleIcon, UserIcon } from '../../components/ui/icons'
 import { useSettingsValue } from '../../hooks/useSettingsValue'
 import { saveSettings, type Settings } from '../../lib/settingsStore'
 import { identityFallbackLabel, useIdentityState } from '../../lib/identity'
+import { clearDemoOverrides } from '../../lib/demoFallback'
 import { SettingsNav, type NavSection } from './SettingsNav'
 import { ProfileSettings } from './ProfileSettings'
 import { NotificationSettings } from './NotificationSettings'
@@ -68,6 +69,10 @@ export function SettingsPage() {
     setToast(message)
     return true
   }, [])
+  const resetDemo = useCallback(() => {
+    clearDemoOverrides()
+    window.location.reload()
+  }, [])
 
   return (
     <div className="dashboard-shell">
@@ -112,6 +117,9 @@ export function SettingsPage() {
                 </section>
               </div>
 
+              <p style={{ fontSize: 12, marginTop: 8 }}>
+                <a href="#" onClick={(e) => { e.preventDefault(); resetDemo() }}>Reset demo</a>
+              </p>
               <p className="st-principle">
                 <span className="st-principle__icon" aria-hidden="true">
                   <svg
