@@ -89,12 +89,6 @@ npm test                                             # needs a Postgres test DB 
 ```
 Replace `data/images/CLM-1042_*.jpg` (placeholders) with the real photos and `data/claims/CLM-1042/accident_report.txt` with the PDF (`accident_report.pdf` is preferred if present), then `npm run seed`.
 
-## Known limits
 
-- Auth is demo-grade by design (the charter excludes advanced auth). Replace `services/auth.service.js`.
-- SSE state is in-memory per process: run one backend replica (events are persisted, so refresh/recovery still works).
-- Uploaded files go to local disk (`STORAGE_DRIVER=local`, dev) or Cloudinary (`cloudinary`, production, authenticated assets only).
-- Markdown policies have no page numbers, so citations carry `page: null`.
-- To start from a clean database after upgrading from an earlier build: `docker compose down -v` then `up --build`.
 
 made by ait rahmoune katia in 15/10/2026
