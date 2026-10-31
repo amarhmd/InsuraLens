@@ -1,0 +1,725 @@
+{
+  "name": "InsuraLens",
+  "nodes": [
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-3.5-flash"
+        },
+        "text": "Analyze this vehicle accident image for an insurance claim.\nIdentify only damage and evidence that are clearly visible in the image.\nReturn:\nVehicle parts visibly damaged.\nType and apparent severity of the damage (low, moderate, severe).\nVisible evidence relevant to the accident.\nAny visible inconsistencies or limitations.\nImportant details that cannot be determined from this image alone.\nDo not infer fault, accident circumstances, repair costs, or insurance coverage from the image alone. Do not invent details. Clearly distinguish observations from uncertainty.\nReturn a concise, structured result suitable for a downstream insurance claim assessment agent.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1680,
+        464
+      ],
+      "id": "fefbf7c7-85bc-42fe-8e8e-835f5606db42",
+      "name": "Analyze an image",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2rKpoEXnVZC3Oiyp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are InsuraLens, an expert AI insurance claim and vehicle damage assessment assistant. Analyze the provided claim data and image analysis in exhaustive detail for our MVP version.\nrespond with covered / not_covered in coverage_status\nDONT FORGET ONLY respond with covered / not_covered in coverage_status AND NOTHING ELSE even when insufficient_information say not_covered \nInput Data:\nClaim ID: {{ $('HTTP Request Claims').item.json.items[0].id }}\nCustomer Name:{{ $('HTTP Request Claims').item.json.items[0].customerName }}\nVehicle:{{ $('HTTP Request Claims').item.json.items[0].vehicle }}\nPriority:{{ $('HTTP Request Claims').item.json.items[0].priority }}\nIncident Type: {{ $('HTTP Request Claims').item.json.items[0].incidentType }}\nCustomer Description: {{ $('HTTP Request Claims').item.json.items[0].description }}\nImageDescriptio:{{ $json.content.parts[0].text }} \n\nYour Tasks:\nProvide a comprehensive damageSummary based on the image and description.\nEstimate the repair cost or severity magnitude as a numeric value or currency format for EstimatedAmount.\nDetermine the coverageStatus (e.g., \"covered\", \"partially_covered\", \"not_covered\", or \"insufficient_information\").\nDetermine the analyseState (e.g., \"analyzed\", \"pending\", \"completed\").\nCheck if there is a contradiction between the customer statement and the image, set inconsistencyFlag to true or false, and explain it in inconsistencyDetails.\nProvide a professional ClaimAssessment.\nPropose a final decision for this claim under proposedDecision (e.g., \"approve\" or \"deny\").\nYou MUST return the response strictly as a valid JSON object containing EXACTLY these keys, and nothing else outside the JSON: { \"EstimatedAmount\": 0.00,\n\"damageSummary\": \"...\",\n\"coverageStatus\": \"...\",\n\"analyseState\": \"...\",\n\"inconsistencyFlag\": true/false, \"ClaimAssessment\": \"...\",\n\"inconsistencyDetails\": \"...\",\n\"ProposedDecision\": \"...\" }\n\nAlways output raw JSON only, without any markdown formatting, code blocks (like ```json), or extra text.\"\n\n\n",
+        "hasOutputParser": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2032,
+        272
+      ],
+      "id": "86745db9-599f-4315-8fc5-f13a4c2287f6",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        2032,
+        512
+      ],
+      "id": "b9e6d52a-4629-42e2-b3dd-0d956a30c320",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "TaKUMCMzgjDLkBW8",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://insurance-ai-1.onrender.com/api/claims",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request Auth').first().json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        272,
+        448
+      ],
+      "id": "f4ac40ea-3c9e-4d76-b8fb-a2ccc2a90f04",
+      "name": "HTTP Request Claims"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://insurance-ai-1.onrender.com/api/auth/login",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"email\": \"sarah@acme-insure.com\",\n  \"password\": \"demo123\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        48,
+        448
+      ],
+      "id": "902d6ab3-6e11-4b6a-bbef-d30f8d35fdc6",
+      "name": "HTTP Request Auth"
+    },
+    {
+      "parameters": {
+        "url": "=https://insurance-ai-1.onrender.com/api/files",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request Auth').first().json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1104,
+        464
+      ],
+      "id": "f912f3d9-2311-460a-afaf-a2f97617970d",
+      "name": "HTTP Request Files"
+    },
+    {
+      "parameters": {
+        "url": "=https://insurance-ai-1.onrender.com/api/files/{{ $json.items[0].id }}/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $('HTTP Request Auth').item.json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1440,
+        464
+      ],
+      "id": "eaded29c-e23e-4f11-a9b2-b0223faa4fd1",
+      "name": "HTTP Request IMG"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Retrieve the relevant insurance policy clauses for every claim. Before assessing coverage or proposing a decision, search the knowledge base using the claim details and incident type. Base the coverage assessment on the retrieved policy evidence. If no relevant policy evidence is found, return insufficient_information. Never invent policy rules.",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "insuralens",
+          "mode": "list",
+          "cachedResultName": "insuralens"
+        },
+        "topK": 1,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        2176,
+        496
+      ],
+      "id": "eefa0692-8b32-4b47-b4d8-80d5ebb86f16",
+      "name": "Pinecone Vector Store",
+      "credentials": {
+        "pineconeApi": {
+          "id": "VdS4LUNtyukk89sW",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        688
+      ],
+      "id": "ed8a5540-40b3-4d31-9026-b0c40ec32cef",
+      "name": "Embeddings Google Gemini",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2rKpoEXnVZC3Oiyp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nlet data = item;\nif (item.output) {\n  try {\n    data = typeof item.output === 'string' ? JSON.parse(item.output) : item.output;\n  } catch (e) {\n    data = item;\n  }\n}\n\nreturn [{\n  json: {\n    EstimatedAmount: data.EstimatedAmount || 0,\n    damageSummary: data.damageSummary || \"\",\n    coverageStatus: data.coverageStatus || \"insufficient_information\",\n    analyseState: data.analyseState || \"analyzed\",\n    inconsistencyFlag: data.inconsistencyFlag ?? false,\n    ClaimAssessment: data.ClaimAssessment || \"\",\n    inconsistencyDetails: data.inconsistencyDetails || \"\",\n    ProposedDecision: data.ProposedDecision || \"\"\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2480,
+        272
+      ],
+      "id": "85754f9b-ab9a-4002-aa52-93c809362314",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://insurance-ai-1.onrender.com/api/claims/{{ $('HTTP Request Claims').item.json.items[0].id }}/analysis",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('HTTP Request Auth').first().json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "damageSummary",
+              "value": "={{ $json.damageSummary }}"
+            },
+            {
+              "name": "estimatedAmount",
+              "value": "={{ Number($json.EstimatedAmount.toString().replace(/[^0-9.-]+/g,\"\")) }}"
+            },
+            {
+              "name": "coverageStatus",
+              "value": "={{ $json.coverageStatus }}"
+            },
+            {
+              "name": "inconsistencyFlag",
+              "value": "={{ $json.inconsistencyFlag }}"
+            },
+            {
+              "name": "claimAssessment",
+              "value": "={{ $json.ClaimAssessment }}"
+            },
+            {
+              "name": "inconsistencyDetails",
+              "value": "={{ $json.inconsistencyDetails }}"
+            },
+            {
+              "name": "decision",
+              "value": "={{ $json.ProposedDecision }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2704,
+        272
+      ],
+      "id": "b0b36b46-6ada-4783-ae7a-1391878a56e2",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "5213eab9-dc05-47ac-bb4b-d6865ea1f042",
+              "leftValue": "={{ $('HTTP Request Claims').item.json.items[0].id }}",
+              "rightValue": "={{ $json.found.fields.processed.stringValue }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        784,
+        448
+      ],
+      "id": "c95762bb-a608-4728-80dc-7bf87b4f672a",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "projectId": "oumniatestfbai",
+        "collection": "processed_claims",
+        "documentId": "={{ $json.items[0].id }}",
+        "simple": false
+      },
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        448
+      ],
+      "id": "3d772c63-a576-4ef9-8f4a-79f378876bb7",
+      "name": "Get a document",
+      "credentials": {
+        "googleApi": {
+          "id": "wpxfbdD1bIwgSZcn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "create",
+        "projectId": "oumniatestfbai",
+        "collection": "processed_claims",
+        "documentId": "={{ $('HTTP Request Claims').first().json.items[0].id }}",
+        "columns": "processed",
+        "simple": false
+      },
+      "type": "n8n-nodes-base.googleFirebaseCloudFirestore",
+      "typeVersion": 1.1,
+      "position": [
+        2672,
+        64
+      ],
+      "id": "05567c59-651f-4991-9d24-a56ba3a1e097",
+      "name": "Create a document",
+      "credentials": {
+        "googleApi": {
+          "id": "wpxfbdD1bIwgSZcn",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"processed\": \"{{ $('HTTP Request Claims').first().json.items[0].id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2416,
+        64
+      ],
+      "id": "5ad0bc6f-c4bb-4f3b-a93c-9d7580a8a817",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        688,
+        -128
+      ],
+      "id": "3c40aea5-4f84-49a0-bc24-b43518fe2afb",
+      "name": "When chat message received",
+      "webhookId": "24f64f6f-83b7-4d7c-ab05-224c76d370d4",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1056,
+        -128
+      ],
+      "id": "6ddb2564-38c3-40c5-8cd4-bda6c7f9b2a0",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        992,
+        96
+      ],
+      "id": "2feb8932-b576-46b9-9535-0f0678b921ee",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "TaKUMCMzgjDLkBW8",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 100
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        1136,
+        112
+      ],
+      "id": "ccc36fd4-c7b3-4490-8e12-2772b7568fb1",
+      "name": "Simple Memory",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search insurance policy documents to answer the employee’s questions about coverage, exclusions, policy conditions, and claim eligibility. Use relevant retrieved information to support accurate, evidence-based responses.",
+        "pineconeIndex": {
+          "__rl": true,
+          "value": "insuralens",
+          "mode": "list",
+          "cachedResultName": "insuralens"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePinecone",
+      "typeVersion": 1.3,
+      "position": [
+        1264,
+        96
+      ],
+      "id": "4cb5fb45-2dd6-4dcb-92fd-48bb292b0fe4",
+      "name": "Pinecone Vector Store1",
+      "credentials": {
+        "pineconeApi": {
+          "id": "VdS4LUNtyukk89sW",
+          "name": "Pinecone account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.embeddingsGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        288
+      ],
+      "id": "99c6081c-118f-416e-b48e-c4984a8e1982",
+      "name": "Embeddings Google Gemini1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "2rKpoEXnVZC3Oiyp",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -176,
+        448
+      ],
+      "id": "6bff81de-8e08-44ca-875a-cac6e58d71a1",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Analyze an image": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request Claims": {
+      "main": [
+        [
+          {
+            "node": "Get a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request Auth": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request Claims",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request Files": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request IMG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request IMG": {
+      "main": [
+        [
+          {
+            "node": "Analyze an image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a document": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Create a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pinecone Vector Store1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Google Gemini1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Pinecone Vector Store1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request Auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bf448e75-3f25-45f6-9e47-359fd62b8fdf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8342775d1334c9ccc7f0e3f3af5c8fb23b6f3017e9c6e3e183c76929f465b028"
+  },
+  "nodeGroups": [],
+  "id": "RWZ6GXxG0N1CN9gE",
+  "tags": []
+}
